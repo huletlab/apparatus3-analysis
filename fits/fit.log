@@ -1,0 +1,314 @@
+
+
+*******************************************************************************
+Sun Feb 13 17:30:59 2011
+
+
+FIT:    data read from "0649c.fluor" u 0:78
+        #datapoints = 220
+        residuals are weighted equally (unit weight)
+
+function used for fitting: gauss(x)
+fitted parameters initialized with current variable values
+
+
+
+ Iteration 0
+ WSSR        : 50900.4           delta(WSSR)/WSSR   : 0
+ delta(WSSR) : 0                 limit for stopping : 1e-05
+ lambda	  : 1.08151
+
+initial set of free parameter values
+
+ag              = 70
+cg              = 100
+wg              = 15
+og              = 1
+
+After 6 iterations the fit converged.
+final sum of squares of residuals : 11199.2
+rel. change during last iteration : -7.36835e-06
+
+degrees of freedom    (FIT_NDF)                        : 216
+rms of residuals      (FIT_STDFIT) = sqrt(WSSR/ndf)    : 7.20057
+variance of residuals (reduced chisquare) = WSSR/ndf   : 51.8481
+
+Final set of parameters            Asymptotic Standard Error
+=======================            ==========================
+
+ag              = 50.2521          +/- 1.611        (3.206%)
+cg              = 104.906          +/- 0.653        (0.6224%)
+wg              = 36.8059          +/- 1.47         (3.995%)
+og              = 5.76319          +/- 0.6517       (11.31%)
+
+
+correlation matrix of the fit parameters:
+
+               ag     cg     wg     og     
+ag              1.000 
+cg              0.003  1.000 
+wg             -0.360 -0.003  1.000 
+og             -0.286  0.000 -0.459  1.000 
+
+
+*******************************************************************************
+Sun Feb 13 17:40:19 2011
+
+
+FIT:    data read from "0649c.fluor" matrix u 2:1:3
+        #datapoints = 33000
+function used for fitting: gauss2d(x,y)
+fitted parameters initialized with current variable values
+
+
+
+ Iteration 0
+ WSSR        : nan               delta(WSSR)/WSSR   : 0
+ delta(WSSR) : nan               limit for stopping : 1e-05
+ lambda	  : nan
+
+initial set of free parameter values
+
+ag2             = 51
+cgx             = 78
+wgx             = 16
+cgy             = 105
+wgy             = 19.11
+og2             = 2
+
+After 1 iterations the fit converged.
+final sum of squares of residuals : nan
+abs. change during last iteration : nan
+
+degrees of freedom    (FIT_NDF)                        : 32994
+rms of residuals      (FIT_STDFIT) = sqrt(WSSR/ndf)    : nan
+variance of residuals (reduced chisquare) = WSSR/ndf   : nan
+
+Final set of parameters            Asymptotic Standard Error
+=======================            ==========================
+
+ag2             = 51               +/- nan          (nan%)
+cgx             = 78               +/- nan          (nan%)
+wgx             = 16               +/- nan          (nan%)
+cgy             = 105              +/- nan          (nan%)
+wgy             = 19.11            +/- nan          (nan%)
+og2             = 2                +/- nan          (nan%)
+
+
+correlation matrix of the fit parameters:
+
+               ag2    cgx    wgx    cgy    wgy    og2    
+ag2               nan 
+cgx               nan    nan 
+wgx               nan    nan    nan 
+cgy               nan    nan    nan    nan 
+wgy               nan    nan    nan    nan    nan 
+og2               nan    nan    nan    nan    nan    nan 
+
+
+*******************************************************************************
+Sun Feb 13 17:43:19 2011
+
+
+FIT:    data read from "0649c.fluor" matrix u 2:1:3
+        #datapoints = 11880
+function used for fitting: gauss2d(x,y)
+fitted parameters initialized with current variable values
+
+
+
+ Iteration 0
+ WSSR        : nan               delta(WSSR)/WSSR   : 0
+ delta(WSSR) : nan               limit for stopping : 1e-05
+ lambda	  : nan
+
+initial set of free parameter values
+
+ag2             = 51
+cgx             = 48
+wgx             = 16
+cgy             = 60
+wgy             = 19.11
+og2             = 2
+
+After 1 iterations the fit converged.
+final sum of squares of residuals : nan
+abs. change during last iteration : nan
+
+degrees of freedom    (FIT_NDF)                        : 11874
+rms of residuals      (FIT_STDFIT) = sqrt(WSSR/ndf)    : nan
+variance of residuals (reduced chisquare) = WSSR/ndf   : nan
+
+Final set of parameters            Asymptotic Standard Error
+=======================            ==========================
+
+ag2             = 51               +/- nan          (nan%)
+cgx             = 48               +/- nan          (nan%)
+wgx             = 16               +/- nan          (nan%)
+cgy             = 60               +/- nan          (nan%)
+wgy             = 19.11            +/- nan          (nan%)
+og2             = 2                +/- nan          (nan%)
+
+
+correlation matrix of the fit parameters:
+
+               ag2    cgx    wgx    cgy    wgy    og2    
+ag2               nan 
+cgx               nan    nan 
+wgx               nan    nan    nan 
+cgy               nan    nan    nan    nan 
+wgy               nan    nan    nan    nan    nan 
+og2               nan    nan    nan    nan    nan    nan 
+
+
+*******************************************************************************
+Sun Feb 13 17:46:04 2011
+
+
+FIT:    data read from "0649c.fluor" u 0:78
+        #datapoints = 132
+        residuals are weighted equally (unit weight)
+
+function used for fitting: gauss(x)
+fitted parameters initialized with current variable values
+
+
+
+ Iteration 0
+ WSSR        : 46611.1           delta(WSSR)/WSSR   : 0
+ delta(WSSR) : 0                 limit for stopping : 1e-05
+ lambda	  : 1.33521
+
+initial set of free parameter values
+
+ag              = 70
+cg              = 60
+wg              = 15
+og              = 1
+
+After 20 iterations the fit converged.
+final sum of squares of residuals : 5662.28
+rel. change during last iteration : -1.44162e-06
+
+degrees of freedom    (FIT_NDF)                        : 128
+rms of residuals      (FIT_STDFIT) = sqrt(WSSR/ndf)    : 6.65106
+variance of residuals (reduced chisquare) = WSSR/ndf   : 44.2366
+
+Final set of parameters            Asymptotic Standard Error
+=======================            ==========================
+
+ag              = 13.2742          +/- 4.488        (33.81%)
+cg              = 43.8042          +/- 4.817        (11%)
+wg              = 85.7023          +/- 31.28        (36.49%)
+og              = -2.27342         +/- 4.833        (212.6%)
+
+
+correlation matrix of the fit parameters:
+
+               ag     cg     wg     og     
+ag              1.000 
+cg              0.133  1.000 
+wg              0.863 -0.082  1.000 
+og             -0.975 -0.097 -0.933  1.000 
+
+
+*******************************************************************************
+Sun Feb 13 17:46:56 2011
+
+
+FIT:    data read from "0649c.fluor" u 0:48
+        #datapoints = 132
+        residuals are weighted equally (unit weight)
+
+function used for fitting: gauss(x)
+fitted parameters initialized with current variable values
+
+
+
+ Iteration 0
+ WSSR        : 41692.6           delta(WSSR)/WSSR   : 0
+ delta(WSSR) : 0                 limit for stopping : 1e-05
+ lambda	  : 1.33521
+
+initial set of free parameter values
+
+ag              = 70
+cg              = 60
+wg              = 15
+og              = 1
+
+After 6 iterations the fit converged.
+final sum of squares of residuals : 6888.69
+rel. change during last iteration : -2.89466e-06
+
+degrees of freedom    (FIT_NDF)                        : 128
+rms of residuals      (FIT_STDFIT) = sqrt(WSSR/ndf)    : 7.33607
+variance of residuals (reduced chisquare) = WSSR/ndf   : 53.8179
+
+Final set of parameters            Asymptotic Standard Error
+=======================            ==========================
+
+ag              = 48.4592          +/- 1.833        (3.782%)
+cg              = 60.8493          +/- 0.6552       (1.077%)
+wg              = 33.2039          +/- 1.692        (5.095%)
+og              = 8.83042          +/- 1.107        (12.54%)
+
+
+correlation matrix of the fit parameters:
+
+               ag     cg     wg     og     
+ag              1.000 
+cg              0.002  1.000 
+wg             -0.133 -0.001  1.000 
+og             -0.429 -0.001 -0.632  1.000 
+
+
+*******************************************************************************
+Sun Feb 13 18:34:08 2011
+
+
+FIT:    data read from "out" u 0:1
+        #datapoints = 1034
+        residuals are weighted equally (unit weight)
+
+function used for fitting: gauss(x)
+fitted parameters initialized with current variable values
+
+
+
+ Iteration 0
+ WSSR        : 54999.9           delta(WSSR)/WSSR   : 0
+ delta(WSSR) : 0                 limit for stopping : 1e-05
+ lambda	  : 0.546463
+
+initial set of free parameter values
+
+ag              = 47
+cg              = 479
+wg              = 31
+og              = 3
+
+After 4 iterations the fit converged.
+final sum of squares of residuals : 47770.8
+rel. change during last iteration : -8.23946e-06
+
+degrees of freedom    (FIT_NDF)                        : 1030
+rms of residuals      (FIT_STDFIT) = sqrt(WSSR/ndf)    : 6.81025
+variance of residuals (reduced chisquare) = WSSR/ndf   : 46.3795
+
+Final set of parameters            Asymptotic Standard Error
+=======================            ==========================
+
+ag              = 48.6015          +/- 1.347        (2.771%)
+cg              = 479.449          +/- 0.6972       (0.1454%)
+wg              = 43.8644          +/- 1.424        (3.245%)
+og              = 3.26991          +/- 0.2249       (6.876%)
+
+
+correlation matrix of the fit parameters:
+
+               ag     cg     wg     og     
+ag              1.000 
+cg              0.013  1.000 
+wg             -0.537 -0.011  1.000 
+og             -0.118  0.000 -0.202  1.000 

@@ -1,0 +1,9 @@
+#! /bin/sh
+# Modify Makefiles inside the various subdirectories so that the libraries
+# in the installation directory are used for:
+# 	CCfits
+# 	tiff
+# 	gsl
+#
+
+sed -i 's!'$PWD'!APP3-CPP!g' utils/Makefile

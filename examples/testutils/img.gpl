@@ -1,0 +1,8 @@
+
+
+set terminal jpeg medium
+set output "img.jpg"
+set pm3d map
+set palette rgbformulae 30,-13,-23
+
+splot "img.dat" matrix u 2:1:3

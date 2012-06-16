@@ -1,0 +1,179 @@
+APP3-ANALYSIS
+
+The base path where all this code is stored will be referred to as $(APP3-CPP)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%% THIRD PARTY OPEN-SOURCE LIBRARIES %%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The APP3-ANALYSIS code package uses the open source libraries described below. 
+These libraries must be installed in the following path:
+
+	$(APP3-CPP)/../cpptools
+
+The git repository for APP3-ANALYSIS provides the compressed source code for
+all the cpptools.  When building the code for the first time, the user should
+first build the cpptools. To do so create the directory called 
+
+	$(APP3-CPP)/../cpptools
+
+and inside it untar the files for the open-source libraries that are provided
+here, namely run the following commands inside the cpptools directory:
+
+	% unzip simpleini-4.15.zip
+	% tar -zxvf tiff-4.0.0.tar.gz
+	% tar -zxvf cfitsio3290.tar.gz
+	% tar -zxvf CCfits-2.4.tar.gz
+	% tar -zxvf gsl-1.15.tar.gz
+
+Proceed to go inside the directory for each of the third party tools and do the
+following:  	
+
+--- simpleini
+
+This contains the main functions required to read/write .INI files. To use them
+all one needs to do is include the file called "SimpleIni.h",  all the function
+declarations and definitions are inside this file. 
+
+
+--- tiff-4.0.0
+
+This is the libtiff library version 4.0.0 downloaded from www.libtiff.org.
+You need to compile it before you can use it.  To do so go inside the
+$(APP3-CPP)/../cpptools/tiff-3.9.4  directory and type
+
+	% ./configure
+	% make
+
+Do NOT type
+
+	% make install
+
+as this will attempt to copy all the libraries and header files into places
+where they are accesible to everyone, suchs /usr/lib or /usr/include.   It is
+best to try to keep everything in this code self-contained. 
+ 
+After compiling, the header files will be accesible in
+$(APP3-CPP)/../cpptools/tiff-4.0.0/libtiff/ and the shared library will be accessible at
+$(APP3-CPP)/../cpptools/tiff-4.0.0/libtiff/.libs/libtiff.so
+
+--- gsl-1.15
+
+This is the GNU Scientific Library version 1.15.   You need to compile it
+before you can use it.  To do so go inside $(APP3-CPP)/gsl-1.15 and type
+
+	% ./configure
+	% make
+
+In this case also do NOT type 
+ 
+	% make install
+
+as this will attempt to copy all the libraries and header files into places
+where they are accesible to everyone, suchs /usr/lib or /usr/include.   It is
+best to try to keep everything in this code self-contained. 
+
+The shared library will be accessible at $(APP3-CPP)/gsl-1.15/.libs/libgsl.so,
+and the header files will be accesible at $(APP3-CPP)/gsl-1.15/gsl  
+
+--- cfitsio
+
+This is the CFITSIO library for reading and writing files in FITS format.  To
+compile it go inside $(APP3-CPP)/../cpptools/cfitsio and type 
+	
+	% ./configure 
+	% make
+
+Again, no need to do 'make install'.   
+
+--- CCFits
+
+This is the object oriented interface to the cfitsio library.  To compile it
+you have to compile cfitsio first.  Then configure CCFits by going inside
+$(APP3-CPP)/../cpptools/CCfits and typing
+
+	% ./configure --with-cfitsio-include=$(PATH)  --with-cfitsio-libdir=$(PATH)
+
+where $(PATH) is the ABSOLUTE path to your cfitsio library.  For instance in my
+case I used
+
+	% ./configure
+	 --with-cfitsio-include=/home/pd3/cpptools/cfitsio
+	 --with-cfitsio-libdir=/home/pd3/cpptools/cfitsio
+
+After CCFits is configured, then proceed to type
+
+	% make
+
+The header files will be located in $(APP3-CPP)/../cpptools/CCfits/ and the
+shared library wiLl be in $(APP3-CPP)/../cpptools/CCfits/.libs/libCCfits.so
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%% RUN-TIME LOADING OF OPEN-SOURCE LIBRARIES %%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+When compiling code that uses any of the open souce libraries described above,
+make sure that the library path is sent to the linker using the -R (rpath)
+option.   The compiler can send this option to the linker using the -Xlinker
+flag.  Using this option guarantess that the correct shared library will be
+found and used by the executable at run time.   
+
+If you are unsure of the location from which an executable is loading it's
+shared libraries do
+
+	% ldd executable
+
+to find out. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%% APP3-ANALYSIS HELPER OBJECTS %%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The sections below describe the utilities or objects that APP3-ANALYSIS usess
+to carry out a great part of it's functionality.  The instructions to compile
+any of these utilities/objects are as follows:
+
+	% cd $(APP3-CPP)
+	% ./configure
+	% cd $(APP3-CPP)/utilxx
+	% make
+
+The configure script is used to modify the Makefiles and set the appropriate
+paths for the run time loading of any shared libraries.
+
+
+--- qini
+
+Defines a utility 'qini' that can be used to query report lines from the
+command line.  It also defines functions to be called by other code, it does so
+in the file qini_utils.cpp , the headers for this functions are in qini.h.  To
+use the utils the calling code needs to include the headers and the object
+qini_utils.o
+
+After compilation, the utility will be copied to the $(APP3-CPP)/bin/
+directory.  The qini_utils.o object will be at $(APP3-CPP)/qini .
+
+
+--- utils
+
+This defines an object that contains utitlities to manipulate data.  It is used
+to load data from a file into a gsl_matrix data structure, and then to
+manipulate this structure in various ways:  cropping, finding moments, saving
+to TIFF, smoothing, masking, subtracting, etc.   It also implements other
+helper functions used elsewhere in the analysis of data. 
+
+To use it the header utils.h must be included and the object utils.o must be
+provided to the linker.
+
+--- funcs
+
+This provides wrappers for the Fermi-Dirac integrals.  To use it the header
+file funcs.h must be included and the object funcs.o must be provided to the
+linker.
+
+--- fourier
+
+WORK IN PROGRESS.  Aims to implement fast fourier transforms for smoothing 2D
+data.
+
+

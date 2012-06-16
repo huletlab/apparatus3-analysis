@@ -1,0 +1,11 @@
+
+
+
+reset
+set pm3d map
+set palette model RGB
+#set xr []
+#set yr []
+#set cbrange []
+
+splot "cropped.ASCII" matrix 

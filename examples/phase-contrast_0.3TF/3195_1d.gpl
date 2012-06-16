@@ -1,0 +1,10 @@
+set terminal png enhanced medium
+set output "3195_1d.png"
+f = "3195_plots.dat"
+plot \
+f u 15:17 title '1d sum_0' ,\
+f u 15:19 w lines title '1d sum_0 gaus fit' ,\
+f u 15:21 w lines title '1d sum_0 fermi fit' ,\
+f u 16:18 title '1d sum_1' ,\
+f u 16:20 w lines title '1d sum_1 gaus fit' ,\
+f u 16:22 w lines title '1d sum_1 fermi fit'

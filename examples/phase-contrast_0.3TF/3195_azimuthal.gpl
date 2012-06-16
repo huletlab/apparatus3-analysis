@@ -1,0 +1,18 @@
+set terminal png enhanced medium
+set output "3195_azimuthal.png"
+set ytics nomirror
+set y2tics nomirror
+f = "3195_plots.dat"
+plot \
+f u 5:6 title 'scaled i-cut' ,\
+f u 7:8 title 'j-cut' ,\
+f u 1:2 title 'azimuthal average' ,\
+f u 3:4 title 'azimuthal average (used for fit)' ,\
+f u 1:9 w lines title 'gauss 2d fit' ,\
+f u 1:10 w lines title 'fermi 2d fit' ,\
+f u 1:11 w lines title 'fermi azimuth fit' ,\
+f u 1:12 w lines title 'fermi 2d T=0' ,\
+f u 1:13 w lines title 'fermi azimuth T=0' ,\
+f u 1:14 w lines title 'fermi azimuth T=0 (fit)',\
+f u 1:($11-$13) w lines axes x1y2 title 'azimuth MINUS az,T=0',\
+f u 1:($11-$14) w lines axes x1y2 title 'azimuth MINUS az,T=0(fit)'

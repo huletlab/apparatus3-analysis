@@ -1,0 +1,34 @@
+#! /bin/sh
+# Modify Makefiles inside the various subdirectories so that the libraries
+# in the installation directory are used for:
+# 	CCfits
+# 	tiff
+# 	gsl
+#
+
+cd ..
+parent=`pwd`
+cd -
+
+
+sed 's!APP3-CPP!'$PWD'!g' qini/Makefile.0 > qini/Makefile
+sed -i 's!CPPTOOLS!'$parent/cpptools'!g' qini/Makefile 
+
+sed 's!APP3-CPP!'$PWD'!g' viewer/Makefile.0 > viewer/Makefile
+sed -i 's!CPPTOOLS!'$parent/cpptools'!g' qini/Makefile 
+
+sed 's!APP3-CPP!'$PWD'!g' utils/Makefile.0 > utils/Makefile
+sed -i 's!CPPTOOLS!'$parent/cpptools'!g' utils/Makefile
+
+sed 's!APP3-CPP!'$PWD'!g' funcs/Makefile.0 > funcs/Makefile
+sed -i 's!CPPTOOLS!'$parent/cpptools'!g' funcs/Makefile
+
+sed 's!APP3-CPP!'$PWD'!g' fourier/Makefile.0 > fourier/Makefile
+sed -i 's!CPPTOOLS!'$parent/cpptools'!g' fourier/Makefile
+
+sed 's!APP3-CPP!'$PWD'!g' fits/Makefile.0 > fits/Makefile
+sed -i 's!CPPTOOLS!'$parent/cpptools'!g' fits/Makefile
+
+sed 's!APP3-CPP!'$PWD'!g' Makefile.0 > Makefile
+sed -i 's!CPPTOOLS!'$parent/cpptools'!g' Makefile
+
