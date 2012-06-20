@@ -5,3 +5,11 @@
  Tue 19 Jun 2012 22:02:21 PM CDT   |   analyze 3195 -f --fermi-azimuth --start-azimuth 0 -v 
  Tue 19 Jun 2012 22:06:21 PM CDT   |   analyze 3195 -f --fermi2d 
  Tue 19 Jun 2012 22:06:40 PM CDT   |   analyze 3195 -f 
+ Tue 19 Jun 2012 23:04:39 PM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth --start-azimuth 0 
+ Tue 19 Jun 2012 23:05:08 PM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth --start-azimuth 0 
+ Tue 19 Jun 2012 23:19:58 PM CDT   |   analyze 3195 -f 
+ Tue 19 Jun 2012 23:41:55 PM CDT   |   analyze 3195 -f 
+ Tue 19 Jun 2012 23:42:53 PM CDT   |   analyze 3195 -f 
+ Tue 19 Jun 2012 23:44:30 PM CDT   |   analyze 3195 -f 
+ Tue 19 Jun 2012 23:45:12 PM CDT   |   analyze 3195 -f 
+ Tue 19 Jun 2012 23:50:39 PM CDT   |   analyze 3195 -f 

@@ -1062,6 +1062,7 @@ Fermions::Fit2DGauss ()
     cout << endl << "------------ Fitting with 2D Gaussian ------------" <<
       endl;
   if ( ! p->blanks)  fit2dgaus_err (columndensity, gaus2dfit, gaus2dfit_err);
+  make_gaus2d_inspect( columndensity, gaus2dfit, p->shotnum.c_str() ) ;
   //Override for debugging
   /* gaus2dfit[0] = 278.8;
      gaus2dfit[1] = 79.5;
