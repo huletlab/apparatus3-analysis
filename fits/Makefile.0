@@ -16,7 +16,7 @@ LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RU
 
 objs =   ../qini/qini_utils.o ../utils/utils.o ../funcs/funcs.o 
 
-testfits: testfits.o fits.o
+testfits: testfits.o 
 	g++  $^ ${objs} ${LFLAGS} -o testfits
 
 clean:

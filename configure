@@ -14,9 +14,6 @@ cd -
 sed 's!APP3-CPP!'$PWD'!g' qini/Makefile.0 > qini/Makefile
 sed -i 's!CPPTOOLS!'$parent/cpptools'!g' qini/Makefile 
 
-sed 's!APP3-CPP!'$PWD'!g' viewer/Makefile.0 > viewer/Makefile
-sed -i 's!CPPTOOLS!'$parent/cpptools'!g' qini/Makefile 
-
 sed 's!APP3-CPP!'$PWD'!g' utils/Makefile.0 > utils/Makefile
 sed -i 's!CPPTOOLS!'$parent/cpptools'!g' utils/Makefile
 

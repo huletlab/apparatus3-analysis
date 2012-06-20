@@ -1,0 +1,28 @@
+tar -zxvf clapack.tgz
+cd CLAPACK-3.2.1/
+cp make.inc.example make.inc
+make f2clib
+make blaslib
+cd BLAS/TESTING/
+make -f Makeblat2
+make -f Makeblat3
+// Check the outputs, some had errors but expected and obtained results were the same
+cd INSTALL
+make
+cd SRC
+cd TESTING/MATGEN
+make
+cd TESTING/EIG
+make
+cd TESTING/LIN
+make:
+cd TESTING
+make
+
+
+
+tar -zxvf levmar-2.6.tgz
+fix library dependencies according to installed LAPACK above
+make
+./lmdemo  to test the examples
+modify lmdemo.c to select different examples
