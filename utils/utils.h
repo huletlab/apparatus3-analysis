@@ -31,6 +31,7 @@ bool ReadFitsImg (string & datafile, valarray < unsigned long >&imgdata);
 gsl_matrix * ReadFitsImg_gsl_matrix (string & datafile); 
 
 bool save_gsl_matrix_ASCII(gsl_matrix *m, string & file);
+gsl_matrix * read_gsl_matrix_ASCII(string & file);
 void toTiffImage (gsl_matrix * m, string & filename, bool invert = false);
 
 void to_dat_file( gsl_vector *vecs[], unsigned int N, string shot, string datfile ); 

@@ -79,6 +79,27 @@ main (int argc, char **argv)
   for (int e = 0; e < 6; e++)
     fprintf (stderr, "[%d]=%f, ", e, gaus2d_fit[e]);
 
+  // Load data from file 
+  string file2 ("fitexamples/9568_column.ascii");
+  gsl_matrix *cold = read_gsl_matrix_ASCII (file2);
+
+  // Do a 2D Fermi fit on the loaded image
+  fprintf (stderr, "\n\nFitting cold image with 2D Gaus and 2D Fermi:\n");
+  double fermi2d_fit[7] = { 120.7, 4.59, 49.45, 89.64, 111.3, 203.3, -0.137 };
+  double gaus2dfit[6] = { 129.65, 31.78, 111.3, 58.64, 203.3, -0.6 };
+  //double fermi2d_fit[7] = { 121., 4.0, 88.67, 48.35, 203.0, 111.4, -0.35 };
+
+  // Using the Nelder-Mead algorithm
+  fprintf (stderr, "\n\n\t...First using 2D Gaussian Levenberg-Marquardt : \n\t");
+  fit2dgaus (cold, gaus2dfit);
+  fprintf (stderr, "\n\n\t...Then using 2D Fermi Nelder-Mead : \n\t");
+  fit2dfermi_neldermead (cold, fermi2d_fit);
+
+  make_fermi2d_inspect (cold, fermi2d_fit, "fitexamples/9568nm");
+  make_fermi2d_gaus2d_inspect (cold, fermi2d_fit, gaus2dfit,
+			       "fitexamples/9568nm");
+  for (int e = 0; e < 6; e++)
+    fprintf (stderr, "[%d]=%f, ", e, fermi2d_fit[e]);
 
 
   fprintf (stderr, "\n\n");

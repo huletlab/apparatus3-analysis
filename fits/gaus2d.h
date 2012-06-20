@@ -79,9 +79,8 @@ void make_gaus2d_inspect( gsl_matrix *c, const double gaus2d_fit[6], const char 
   fitfile += "_gaus2dfit.ascii";
  
   save_gsl_matrix_ASCII ( c , datfile);  
-  gsl_matrix *lm2d = gaus2d_eval (c, gaus2d_fit);
-  save_gsl_matrix_ASCII (lm2d, fitfile);
-
+  gsl_matrix *fit2d = gaus2d_eval (c, gaus2d_fit);
+  save_gsl_matrix_ASCII (fit2d, fitfile);
  
   stringstream inspectstr;
   inspectstr << "inspect2d_ascii.py ";
@@ -94,15 +93,13 @@ void make_gaus2d_inspect( gsl_matrix *c, const double gaus2d_fit[6], const char 
   inspectstr << floor (gaus2d_fit[0]);
   inspectstr << " ";
   inspectstr << prefix;
+  inspectstr << "_gaus";
   //cerr << endl << inspectstr.str () << endl;
   system (inspectstr.str ().c_str ());
 
   remove ( datfile.c_str());
   remove ( fitfile.c_str());
-  
-   
   return; 
-
 } 
  
 

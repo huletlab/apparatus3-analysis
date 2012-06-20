@@ -80,11 +80,11 @@
    80  4.975e+02 -4.913e-02  3.964e+01  9.690e-01 f() = 3.106e+04 size = 0.010
  converged to minimum at 
    81  4.975e+02 -4.594e-02  3.964e+01  9.690e-01 f() = 3.106e+04 size = 0.010
-iter:   0 x =    497.47437414     -0.04594422     39.64164068      0.96904711  |f(x)| = 176.231
+iter:   0 x =    497.47437452     -0.04594422     39.64164068      0.96904711  |f(x)| = 176.231
 status = success
-iter:   1 x =    497.47918507      0.00372857     39.64164041      0.96919127  |f(x)| = 176.231
+iter:   1 x =    497.47918544      0.00372857     39.64164041      0.96919127  |f(x)| = 176.231
 status = cannot reach the specified tolerance in F
-iter:   2 x =    497.47918507      0.00372857     39.64164041      0.96919127  |f(x)| = 176.231
+iter:   2 x =    497.47918544      0.00372857     39.64164041      0.96919127  |f(x)| = 176.231
 chisq/dof = 40.0739
 cx     = 497.47919 +/- 0.00000
 wx     = 0.00373 +/- 0.00000
@@ -210,4 +210,4 @@ saving matrix to ASCII: fitexamples/0649lm_gaus2dfit.ascii
 saving matrix to ASCII: fitexamples/0649nm_gaus2ddat.ascii
 
 saving matrix to ASCII: fitexamples/0649nm_gaus2dfit.ascii
-testing ...
+ Nelder-Mead 2D Fermi fit started   ==>  BetaMu= 7.000
