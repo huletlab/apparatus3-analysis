@@ -20,6 +20,12 @@ analyze: analyze.o ${objs} Fermions.h
 	g++ analyze.o ${objs} ${LFLAGS} -o analyze
 	chmod a+w analyze 
 	cp -v analyze APP3-CPP/bin/analyze
+
+analyze.o: Fermions.h
+	indenet Fermions.h
+	indent analyze.cpp
+	g++ ${CFLAGS} analyze.cpp -c
+	
 	
 
 basler: basler.o ${objs} Fermions.h

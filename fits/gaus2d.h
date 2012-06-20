@@ -72,6 +72,32 @@ gsl_matrix *gaus2d_eval( const gsl_matrix  *d, const double gaus_fit[6], const b
   return eval; 
 }
 
+
+/* Matrix data with residuals
+ *
+ */
+gsl_matrix *gaus2d_residual( const gsl_matrix  *d, const double gaus_fit[6], const bool offset = true){
+  gsl_matrix *residual = gsl_matrix_alloc( d->size1, d->size2 ) ; 
+  int nparams = offset==true ? 6 :5;
+   
+  gsl_vector *v = gsl_vector_alloc( nparams );
+//  fprintf( stderr, "\nEvaulating 2D Gaussian fit results. nparams=%d\n",nparams);  
+  for ( int e=0; e < nparams; e++){
+  gsl_vector_set(v, e, gaus_fit[e] ) ; 
+//  fprintf( stderr, "gaus2d_fit[%d] = %f\n", e, gaus_fit[e]); 
+    }  
+  
+  for (unsigned int i =0; i< d->size1; i++)
+   { 
+     for ( unsigned int j=0; j<d->size2; j++)
+     {
+       gsl_matrix_set( residual, i, j,  gsl_matrix_get( d, i, j) - gaus2d_model( i, j, v )); 
+    }
+  }
+  return residual; 
+}
+
+
 void make_gaus2d_inspect( gsl_matrix *c, const double gaus2d_fit[6], const char *prefix){
   string datfile (prefix);
   datfile += "_gaus2ddat.ascii"; 

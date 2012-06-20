@@ -20,6 +20,12 @@ analyze: analyze.o ${objs} Fermions.h
 	g++ analyze.o ${objs} ${LFLAGS} -o analyze
 	chmod a+w analyze 
 	cp -v analyze /lab/software/apparatus3/cpp/bin/analyze
+
+analyze.o: Fermions.h
+	indent Fermions.h
+	indent analyze.cpp
+	g++ ${CFLAGS} analyze.cpp -c
+	
 	
 
 basler: basler.o ${objs} Fermions.h
@@ -35,7 +41,7 @@ probe: probe.o ${objs} Fermions.h
 clean:
 	rm -f *.o
 
-.cpp.o: 
+.cpp.o: Fermions.h 
 	indent $<
 	g++ ${CFLAGS} $< -c
 
