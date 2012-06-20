@@ -8,7 +8,6 @@
  */
 
 #include "utils/utils.h"
-#include "fits/fits.h"
 #include "funcs/funcs.h"
 #include "vt100_macros.h"
 #include <getopt.h>

@@ -2,3 +2,6 @@
  Mon 26 Mar 2012 14:44:41 PM CDT   |   analyze 3195 -f --fermi-azimuth --start-azimuth 0 -v 
  Mon 26 Mar 2012 14:54:16 PM CDT   |   analyze 3195 -f --fermi-azimuth --start-azimuth 0 --fermi2d -v 
  Tue 27 Mar 2012 02:14:41 AM CDT   |   analyze 3195 -f --fermi-azimuth --start-azimuth 0 -v 
+ Tue 19 Jun 2012 22:02:21 PM CDT   |   analyze 3195 -f --fermi-azimuth --start-azimuth 0 -v 
+ Tue 19 Jun 2012 22:06:21 PM CDT   |   analyze 3195 -f --fermi2d 
+ Tue 19 Jun 2012 22:06:40 PM CDT   |   analyze 3195 -f 

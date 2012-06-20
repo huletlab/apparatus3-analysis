@@ -1,0 +1,6 @@
+set terminal png enhanced medium
+set output "3195_missing_counts1d.png"
+f = "3195_plots.dat"
+plot \
+f u 0:23 title 'missing counts 1d sum_0' ,\
+f u 0:24 title 'missing counts 1d sum_1'

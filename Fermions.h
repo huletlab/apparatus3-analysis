@@ -16,6 +16,11 @@
 
 
 #include <math.h>
+
+#include "fits/gaus1d.h"
+#include "fits/gaus2d.h"
+#include "fits/fermi2d.h"
+
 #include <sstream>
 
 extern bool VERBOSE;
