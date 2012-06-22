@@ -2,7 +2,6 @@
  * Project:  This file defines various functions to fit data to a 1D Gaussian
  *           Several methods are implemented,  see the function prototypes for 
  *           a list.  
- * 
  *           
  *
  * Author:   Pedro M Duarte 2011-01

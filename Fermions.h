@@ -17,9 +17,10 @@
 
 #include <math.h>
 
-#include "fits/gaus1d.h"
-#include "fits/gaus2d.h"
-#include "fits/fermi2d.h"
+
+
+
+
 
 #include <sstream>
 
@@ -219,7 +220,6 @@ public:
   void MomentsCrop ();
   void MinimalCrop ();
   void CropAll (unsigned int roi[4]);
-  void NAtoms ();
   double GetNPixels ()
   {
     return columndensity->size1 * columndensity->size2;
@@ -239,7 +239,7 @@ public:
 
   struct params *p;
 
-  double number, number_fit, maxI, maxOD, maxCD, maxPHI, maxSP, maxNSP,
+  double number_fit, maxI, maxOD, maxCD, maxPHI, maxSP, maxNSP,
     maxPEE, maxCA, minCA, maxCN, minCN, Tp0, Tsp, Nsp;
 
   // Arrays for fit results 
@@ -557,8 +557,13 @@ Fermions::ComputeColumnDensity ()
   Four matrices are calculated here  
 
   columndensity = the number of atoms in each pixel
-  columndensity_scattered_ph = the number of atoms in each pixel, calculated from the number of photons that were scattered
+
+  columndensity_scattered_ph = the number of atoms in each pixel, 
+                               calculated from the number of photons 
+                               that were scattered
+
   missing_counts = counts in atoms picture minus counts in no-atoms picture
+
   probe = the number of photons that were incident on each pixel 
 
   ********************************************/
@@ -631,6 +636,13 @@ Fermions::ComputeColumnDensity ()
 	p->gamma / 1.e6 << " MHz" << endl;
     }
 
+
+  /********************************************
+  *
+  *  Iterate over the image matrices to calculate the column
+  *  density in each pixel
+  *
+  *********************************************/
   for (unsigned int i = 0; i < s1; i++)
     {
       for (unsigned int j = 0; j < s2; j++)
@@ -882,30 +894,6 @@ Fermions::SaveColumnDensity ()
 }
 
 
-
-void
-Fermions::NAtoms ()
-{
-  unsigned int s1 = columndensity->size1;
-  unsigned int s2 = columndensity->size2;
-
-  double num = 0.;
-  for (unsigned int i = 0; i < s1; i++)
-    {
-      for (unsigned int j = 0; j < s2; j++)
-	{
-	  num += gsl_matrix_get (columndensity, i, j);
-    }}
-  if (VERBOSE)
-    {
-      cout << endl << "------------ NAtoms ------------" << endl;
-      cout << "\tnumber = " << num << endl;
-    }
-  number = num;
-
-  return;
-
-}
 
 void
 Fermions::Fit1DGauss (bool col_row)

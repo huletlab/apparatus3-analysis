@@ -14,7 +14,7 @@ RUN_TIME_PATHS = -R/lab/software/apparatus3/cpptools/gsl-1.15/.libs/:/lab/softwa
 CFLAGS = -Wall ${INC} -fopenmp 
 LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS}
 
-objs =   ../qini/qini_utils.o ../utils/utils.o ../funcs/funcs.o 
+objs =   ../qini/qini_utils.o ../funcs/funcs.o 
 
 testfits: testfits.o 
 	g++  $^ ${objs} ${LFLAGS} -o testfits

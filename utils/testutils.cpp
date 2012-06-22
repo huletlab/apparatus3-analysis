@@ -1,5 +1,8 @@
 
-#include "utils.h"
+#include "utils/utils.h"
+#include "utils/readwrite.h"
+#include "utils/matrices.h"
+#include "utils/crop.h"
 
 bool VERBOSE;
 

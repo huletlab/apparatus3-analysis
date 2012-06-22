@@ -245,29 +245,6 @@ Basler::ComputeColumnDensity ()
   return;
 }
 
-void
-Basler::NAtoms ()
-{
-  unsigned int s1 = columndensity->size1;
-  unsigned int s2 = columndensity->size2;
-
-  double num = 0.;
-  for (unsigned int i = 0; i < s1; i++)
-    {
-      for (unsigned int j = 0; j < s2; j++)
-	{
-	  num += gsl_matrix_get (columndensity, i, j);
-    }}
-  if (VERBOSE)
-    {
-      cout << endl << "------------ NAtoms ------------" << endl;
-      cout << "\tnumber = " << num << endl;
-    }
-  number = num;
-
-  return;
-
-}
 
 void
 Basler::Fit1DGauss (bool col_row)

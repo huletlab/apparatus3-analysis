@@ -1,4 +1,4 @@
-all: analyze basler probe 
+all: analyze  
 
 GSL_INC = /lab/software/apparatus3/cpptools/gsl-1.15/
 APP3_CPP_INC = /lab/software/apparatus3/cpp/
@@ -14,7 +14,7 @@ RUN_TIME_PATHS = -R/lab/software/apparatus3/cpptools/gsl-1.15/.libs/:/lab/softwa
 CFLAGS =  -Wall ${INC}
 LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS}
 
-objs = /lab/software/apparatus3/cpp/funcs/funcs.o /lab/software/apparatus3/cpp/utils/utils.o /lab/software/apparatus3/cpp/qini/qini_utils.o  
+objs = /lab/software/apparatus3/cpp/funcs/funcs.o /lab/software/apparatus3/cpp/qini/qini_utils.o  
  
 analyze: analyze.o ${objs} Fermions.h
 	g++ analyze.o ${objs} ${LFLAGS} -o analyze
@@ -41,7 +41,7 @@ probe: probe.o ${objs} Fermions.h
 clean:
 	rm -f *.o
 
-.cpp.o: Fermions.h 
+.cpp.o: 
 	indent $<
 	g++ ${CFLAGS} $< -c
 

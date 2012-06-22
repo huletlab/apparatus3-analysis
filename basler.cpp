@@ -30,9 +30,6 @@ main (int argc, char **argv)
   b->LoadFLUOR ();
   b->ComputeColumnDensity ();
 
-  b->NAtoms ();
-  setINI_num (p.reportfile, "FLUORCPP", "number", b->number);
-
   b->Fit2DGauss ();
 
   setINI_num (p.reportfile, "FLUORCPP", "offset",

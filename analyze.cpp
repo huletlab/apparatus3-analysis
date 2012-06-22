@@ -8,7 +8,13 @@
  */
 
 #include "utils/utils.h"
+#include "utils/readwrite.h"
+#include "utils/matrices.h"
+#include "utils/crop.h"
 #include "funcs/funcs.h"
+#include "fits/gaus1d.h"
+#include "fits/gaus2d.h"
+#include "fits/fermi2d.h"
 #include "vt100_macros.h"
 #include <getopt.h>
 #include <time.h>
@@ -34,8 +40,6 @@ main (int argc, char **argv)
   Fermions *f = new Fermions (&p);
   f->LoadFITS ();		// LoadFITS already computes the column density
 
-  f->NAtoms ();
-  setINI_num (p.reportfile, "CPP", "number", f->number);
   setINI_num (p.reportfile, "CPP", "nsp", f->Nsp);
   setINI_num (p.reportfile, "CPP", "maxOD", f->maxOD);
   setINI_num (p.reportfile, "CPP", "maxPHI", f->maxPHI);

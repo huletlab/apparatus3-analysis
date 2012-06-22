@@ -16,16 +16,8 @@ LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RU
 
 objs = testutils.o /lab/software/apparatus3/cpp/qini/qini_utils.o 
 
-testutils: testutils.o utils.o /lab/software/apparatus3/cpp/qini/qini_utils.o
+testutils: testutils.o /lab/software/apparatus3/cpp/qini/qini_utils.o
 	g++ $^ ${LFLAGS} -o testutils
-
-com: com.o utils.o /lab/software/apparatus3/cpp/qini/qini_utils.o
-	g++ $^ ${LFLAGS} -o com
-	cp  -v com /lab/software/apparatus3/bin/com
-
-tiff: tiff.o utils.o /lab/software/apparatus3/cpp/qini/qini_utils.o
-	g++ $^ ${LFLAGS} -o tiff
-	cp  -v tiff /lab/software/apparatus3/bin/tiff
 
 clean:
 	rm -f *.o

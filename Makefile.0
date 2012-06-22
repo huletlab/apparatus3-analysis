@@ -1,4 +1,4 @@
-all: analyze basler probe 
+all: analyze  
 
 GSL_INC = CPPTOOLS/gsl-1.15/
 APP3_CPP_INC = APP3-CPP/
@@ -14,7 +14,7 @@ RUN_TIME_PATHS = -RCPPTOOLS/gsl-1.15/.libs/:CPPTOOLS/gsl-1.15/cblas/.libs/:CPPTO
 CFLAGS =  -Wall ${INC}
 LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS}
 
-objs = APP3-CPP/funcs/funcs.o APP3-CPP/utils/utils.o APP3-CPP/qini/qini_utils.o  
+objs = APP3-CPP/funcs/funcs.o APP3-CPP/qini/qini_utils.o  
  
 analyze: analyze.o ${objs} Fermions.h
 	g++ analyze.o ${objs} ${LFLAGS} -o analyze
@@ -22,7 +22,7 @@ analyze: analyze.o ${objs} Fermions.h
 	cp -v analyze APP3-CPP/bin/analyze
 
 analyze.o: Fermions.h
-	indenet Fermions.h
+	indent Fermions.h
 	indent analyze.cpp
 	g++ ${CFLAGS} analyze.cpp -c
 	

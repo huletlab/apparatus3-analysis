@@ -5,8 +5,12 @@
  * 
  */
 
-#include <math.h>
 #include "utils/utils.h"
+#include "utils/readwrite.h"
+#include "utils/matrices.h"
+#include "utils/crop.h"
+
+#include <math.h>
 #include "gaus1d.h"
 #include "gaus2d.h"
 #include "fermi2d.h"
@@ -86,11 +90,12 @@ main (int argc, char **argv)
   // Do a 2D Fermi fit on the loaded image
   fprintf (stderr, "\n\nFitting cold image with 2D Gaus and 2D Fermi:\n");
   double fermi2d_fit[7] = { 120.7, 4.59, 49.45, 89.64, 111.3, 203.3, -0.137 };
-  double gaus2dfit[6] = { 129.65, 31.78, 111.3, 58.64, 203.3, -0.6 };
+  double gaus2dfit[6] = { 111.3, 31.78, 203.3, 58.64, 129.8, -0.6 };
   //double fermi2d_fit[7] = { 121., 4.0, 88.67, 48.35, 203.0, 111.4, -0.35 };
 
   // Using the Nelder-Mead algorithm
-  fprintf (stderr, "\n\n\t...First using 2D Gaussian Levenberg-Marquardt : \n\t");
+  fprintf (stderr,
+	   "\n\n\t...First using 2D Gaussian Levenberg-Marquardt : \n\t");
   fit2dgaus (cold, gaus2dfit);
   fprintf (stderr, "\n\n\t...Then using 2D Fermi Nelder-Mead : \n\t");
   fit2dfermi_neldermead (cold, fermi2d_fit);
