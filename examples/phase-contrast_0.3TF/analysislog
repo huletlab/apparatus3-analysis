@@ -25,3 +25,13 @@
  Fri 22 Jun 2012 18:38:22 PM CDT   |   analyze 3195 -v -f --fermi2d 
  Sun 24 Jun 2012 22:46:46 PM CDT   |   analyze 3195 -f 
  Sun 24 Jun 2012 22:53:46 PM CDT   |   analyze 3195 -f 
+ Sun 24 Jun 2012 23:04:42 PM CDT   |   analyze 3195 -f 
+ Sun 24 Jun 2012 23:07:45 PM CDT   |   analyze 3195 -f 
+ Sun 24 Jun 2012 23:10:14 PM CDT   |   analyze 3195 -f 
+ Sun 24 Jun 2012 23:11:41 PM CDT   |   analyze 3195 -f 
+ Sun 24 Jun 2012 23:15:55 PM CDT   |   analyze 3195 -f 
+ Sun 24 Jun 2012 23:17:15 PM CDT   |   analyze 3195 -f 
+ Sun 24 Jun 2012 23:20:28 PM CDT   |   analyze 3195 -f 
+ Sun 24 Jun 2012 23:50:34 PM CDT   |   analyze 3195 -f 
+ Mon 25 Jun 2012 01:30:36 AM CDT   |   analyze 3195 -f --fermi-azimuth --start-azimuth 0 
+ Mon 25 Jun 2012 01:31:00 AM CDT   |   analyze 3195 -f --fermi2d 

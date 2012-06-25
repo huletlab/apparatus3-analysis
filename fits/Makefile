@@ -19,14 +19,15 @@ objs =  /lab/software/apparatus3/cpp/qini/qini_utils.o /lab/software/apparatus3/
 testfits: testfits.o fits.a 
 	g++  $^ ${objs} ${LFLAGS} -o testfits
 
-fits.a: fits.h gaus1d.cpp gaus2d.cpp fermi2d.cpp
+fits.a: fits.h gaus1d.cpp gaus2d.cpp fermi2d.cpp fermiAzimuth.cpp
 	indent fits.h
 	indent gaus1d.cpp
 	indent gaus2d.cpp
 	indent fermi2d.cpp
-	g++ ${CFLAGS} gaus1d.cpp gaus2d.cpp fermi2d.cpp -c 
-	ar rcs fits.a gaus1d.o gaus2d.o fermi2d.o 
-	rm gaus1d.o gaus2d.o fermi2d.o
+	indent fermiAzimuth.cpp
+	g++ ${CFLAGS} gaus1d.cpp gaus2d.cpp fermi2d.cpp fermiAzimuth.cpp -c 
+	ar rcs fits.a gaus1d.o gaus2d.o fermi2d.o fermiAzimuth.o
+	rm gaus1d.o gaus2d.o fermi2d.o fermiAzimuth.o
 
 clean:
 	rm -f *.o

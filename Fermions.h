@@ -32,7 +32,7 @@ struct params
   unsigned int roi[4], roisize[2], centerpt[2];
   bool keeproi;
 
-  bool verbose, center, crop, plots, reanalyze, roi_user, roisize_user,
+  bool verbose, center, crop, plots, reanalyze, roi_user,
     fitfermi1D, fermi2d, fermiazimuth, showfermi, show_B, blanks;
   double azimuth_maxr, azimuth_chop, azimuth_start;
 
@@ -208,12 +208,10 @@ public:
   {
     return columndensity->size1 * columndensity->size2;
   }
-  void Fit1DGauss (bool col_row);
   void Fit2DGauss ();
   void FitScatt2DGauss ();
   void FitProbe2DGauss ();
   void Fit2DFermi ();
-  void Get2DCuts (bool gauss, bool fermi);
   void ComputeIntegrated1DDensity ();
 //  void GetAzimuthalAverage ();
   void GetAzimuthalAverageEllipse ();
@@ -242,7 +240,8 @@ public:
   double T_rd, T_ax, T_2d_rd, T_2d_ax, T_az;	// T for various Fermi fits obtained from cloud size
 
 
-  double offset, peak, ci_, cj_, wi_1e, wj_1e;	// 2D Gauss parameters
+  double offset, peak;
+  //double  ci_, cj_, wi_1e, wj_1e;     // 2D Gauss parameters
   double n0, BetaMu, cj_Fermi, rj_Fermi, ci_Fermi, ri_Fermi, B_Fermi, Fugacity_Fermi, f_Fermi;	// 2D Fermi parameters 
   double n0_az, BetaMu_az, r_az, B_az, mx_az, Fugacity_az, f_az;	// Azimuthal Fermi parameters
   double n0_az_zeroT, r_az_zeroT, B_az_zeroT, mx_az_zeroT;	// Azimuthal Zero T Fermi parameters
@@ -308,7 +307,7 @@ private:
 
 
   double norm_noat;		//normalization constant for noatoms pict 
-  unsigned int ci, cj, FWHMi, FWHMj, wi1e, wj1e;
+  //unsigned int ci, cj, FWHMi, FWHMj, wi1e, wj1e;
 
 };
 
@@ -335,81 +334,6 @@ Fermions::LoadFITS ()
   noatoms = ReadFitsImg_gsl_matrix (p->noatomsfile);
   atomsref = ReadFitsImg_gsl_matrix (p->atomsreffile);
   noatomsref = ReadFitsImg_gsl_matrix (p->noatomsreffile);
-
-  if (p->roisize_user)
-    {
-
-      if (p->roisize[0] > atoms->size1 || p->roisize[1] > atoms->size2)
-	{
-	  cout << "\tERROR:  Size of ROI is larger than image" << endl;
-	  exit (2);
-	}
-
-      p->roi[2] = p->roisize[0];
-      p->roi[3] = p->roisize[1];
-      ComputeColumnDensity ();
-      if (VERBOSE)
-	{
-	  cout << endl << "------------ Finding ROI box ------------";
-	}
-      findpeak (columndensity, &ci, &cj, &peak);
-      gsl_matrix_free (columndensity);
-
-      if (VERBOSE)
-	{
-	  cout << "\tROI Size = " << p->roi[2] << ", " << p->roi[3] << endl;
-	  cout << "\tci=" << ci << ",  cj=" << cj << endl;
-	  cout << "\tSTART BOX = [ " << (int) ci -
-	    (int) p->roisize[0] / 2 << " : " << (int) ci +
-	    (int) p->roisize[0] / 2 << " , " << (int) cj -
-	    (int) p->roisize[1] / 2 << " : " << (int) cj +
-	    (int) p->roisize[1] / 2 << " ]" << endl;
-	}
-
-      while ((int) ci - (int) p->roi[2] / 2 > 0
-	     && (int) ci + (int) p->roi[2] / 2 > (int) atoms->size1)
-	{
-	  ci--;
-	}
-
-      while ((int) cj - (int) p->roi[3] / 2 > 0
-	     && (int) cj + (int) p->roi[3] / 2 > (int) atoms->size2)
-	{
-	  cj--;
-	}
-
-      while ((int) ci - (int) p->roi[2] / 2 < 0
-	     && (int) ci + (int) p->roi[2] / 2 < (int) atoms->size1)
-	{
-	  ci++;
-	}
-
-      while ((int) cj - (int) p->roi[3] / 2 < 0
-	     && (int) cj + (int) p->roi[3] / 2 < (int) atoms->size2)
-	{
-	  cj++;
-	}
-
-      if (VERBOSE)
-	{
-	  cout << "\tFINAL BOX = [ " << (int) ci -
-	    (int) p->roisize[0] / 2 << " : " << (int) ci +
-	    (int) p->roisize[0] / 2 << " , " << (int) cj -
-	    (int) p->roisize[1] / 2 << " : " << (int) cj +
-	    (int) p->roisize[1] / 2 << " ]" << endl;
-	}
-
-      p->roi[0] = ci - p->roisize[0] / 2;
-      p->roi[1] = cj - p->roisize[1] / 2;
-
-      p->roi_user = true;
-      if (VERBOSE)
-	{
-	  cout << "\tROI found at " << p->roi[0] << "," << p->
-	    roi[1] << "," << p->roi[2] << "," << p->roi[3] << endl;
-	}
-
-    }
 
 
   if (p->crop)
@@ -880,83 +804,6 @@ Fermions::SaveColumnDensity ()
 
 
 void
-Fermions::Fit1DGauss (bool col_row)
-{
-
-
-  //True fits a column , False fits a row
-  unsigned int ii = col_row ? cj : ci;
-  if (VERBOSE)
-    {
-      cout << endl << "------------ Fitting 1D Gaussian ------------" << endl;
-      cout << "Column density ( " << columndensity->
-	size1 << ", " << columndensity->size2 << ")  ";
-      if (col_row)
-	cout << "Fitting COLUMN " << ii << endl;
-      if (!col_row)
-	cout << "Fitting ROW " << ii << endl;
-    }
-
-  if (col_row && ii > columndensity->size2 || ii < 0)
-    {
-      cout << "Cannot fit column with index " << ii << " : out of bounds!" <<
-	endl;
-      return;
-    }
-  if (!col_row && ii > columndensity->size1 || ii < 0)
-    {
-      cout << "Cannot fit row with index " << ii << " : out of bounds!" <<
-	endl;
-      return;
-    }
-
-  unsigned int s = col_row ? columndensity->size1 : columndensity->size2;
-
-  gsl_vector *profile = gsl_vector_alloc (s);
-  for (unsigned int index = 0; index < s; index++)
-    {
-      unsigned int i = col_row ? index : ii;
-      unsigned int j = col_row ? ii : index;
-      gsl_vector_set (profile, index, gsl_matrix_get (columndensity, i, j));
-    }
-
-  //findpeak (columndensity, &ci, &cj, &peak);
-  //findFWHM (columndensity, &FWHMi, &FWHMj);
-
-  double center = (double) (col_row ? ci : cj);
-  //double FWHM = (double) (col_row ? FWHMi : FWHMj);
-  double w1e = (double) (col_row ? wi1e : wj1e);
-
-
-  if (VERBOSE)
-    cout << endl;
-
-  //FWHM = 1.66 * (1/e) 
-
-  double gausfit1d[4] = { center, w1e, peak, 0.1 };
-  if (!p->blanks)
-    fit1dgaus (profile, gausfit1d);
-
-  gausfit1d[1] = fabs (gausfit1d[1]);
-
-  if (col_row)
-    {
-      ci_ = gausfit1d[0];
-      wi_1e = gausfit1d[1];
-    }
-  if (!col_row)
-    {
-      cj_ = gausfit1d[0];
-      wj_1e = gausfit1d[1];
-    }
-
-  gsl_vector_free (profile);
-
-  return;
-}
-
-
-void
 Fermions::CropAll (unsigned int roi[4])
 {
   gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
@@ -982,54 +829,6 @@ void
 Fermions::FindMoments ()
 {
   Gaus2DGuess (columndensity, gaus2dfit, p->shotnum, true);
-  ci = (unsigned int) floor (gaus2dfit[0]) - 1;
-  cj = (unsigned int) floor (gaus2dfit[2]) - 1;
-
-  ci = coerce_matrix_index (ci, columndensity->size1);
-  cj = coerce_matrix_index (cj, columndensity->size2);
-  wi1e = (unsigned int) ceil (gaus2dfit[1]);
-  wj1e = (unsigned int) ceil (gaus2dfit[3]);
-/*  if (VERBOSE)
-    cout << endl <<
-      "------------ FINDING MOMENTS OF DISTRIBUTION ------------" << endl;
-
-  unsigned int SMOOTH_BINS = 3;
-  gsl_matrix *smoothed = smooth (columndensity, SMOOTH_BINS);
-  double MASK_FACTOR = 0.33;
-  gsl_matrix *masked = mask (smoothed, MASK_FACTOR);
-
-  char base[MAXPATHLEN];
-  getcwd (base, MAXPATHLEN);
-
-  string smoothed_path = makepath (base, p->shotnum, "_smoothed.TIFF");
-  string smoothed_ascii_path = makepath (base, p->shotnum, "_smoothed.ascii");
-  toTiffImage (smoothed, smoothed_path);
-  save_gsl_matrix_ASCII (smoothed, smoothed_ascii_path);
-
-  string masked_path = makepath (base, p->shotnum, "_masked.TIFF");
-  string masked_ascii_path = makepath (base, p->shotnum, "_masked.ascii");
-  toTiffImage (masked, masked_path);
-  save_gsl_matrix_ASCII (masked, masked_ascii_path);
-
-  unsigned int tempci, tempcj;
-  //findcenter (smoothed, &ci, &cj, &peak);
-  findmoments (masked, &ci, &cj, &peak, &wi1e, &wj1e);
-  findpeak (columndensity, &tempci, &tempcj, &peak);
-
-  ci_ = (double) ci;
-  cj_ = (double) cj;
-  wi_1e = (double) wi1e;
-  wj_1e = (double) wj1e;
-
-  gsl_matrix_free (smoothed);
-  gsl_matrix_free (masked);
-
-  if (VERBOSE)
-    {
-      printf ("\n    Results of Moments:\n");
-      printf ("    ci = %d,  cj = %d,  wi1e = %d, wj1e = %d\n", ci, cj, wi1e,
-	      wj1e);
-    } */
   return;
 }
 
@@ -1073,9 +872,6 @@ Fermions::MinimalCrop (double CROP_FACTOR)
 
   if (VERBOSE)
     {
-      printf ("\n    Results of 2D Gaussian fit:\n");
-      printf ("    ci = %.1f,  cj = %.1f,  wi = %.1f, wj = %.1f\n", ci_, cj_,
-	      wi_1e, wj_1e);
       printf ("    Determined ROI for minimal crop [%d,%d,%d,%d]\n", roi[0],
 	      roi[1], roi[2], roi[3]);
     }
@@ -1083,16 +879,10 @@ Fermions::MinimalCrop (double CROP_FACTOR)
   abs_ci += roi[0];
   abs_cj += roi[1];
 
+  gaus2dfit[0] = gaus2dfit[0] - double (roi[0]);
+  gaus2dfit[2] = gaus2dfit[2] - double (roi[1]);
+
   CropAll (roi);
-/*  gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
-  gsl_matrix *cropped_columndensity_scattered_ph = cropImage_ROI (roi, columndensity_scattered_ph);
-  gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
-  gsl_matrix_free (columndensity);
-  gsl_matrix_free (columndensity_scattered_ph);
-  gsl_matrix_free (probe);
-  columndensity = cropped_columndensity;
-  columndensity_scattered_ph = cropped_columndensity_scattered_ph;
-  probe = cropped_probe; */
 
   if (VERBOSE)
     {
@@ -1103,75 +893,6 @@ Fermions::MinimalCrop (double CROP_FACTOR)
   return;
 }
 
-
-void
-Fermions::MomentsCrop ()
-{
-  /********************************************
-  Four matrices are cropped here  
-
-  ... The same four that are created inside Fermions::ComputeColumnDensity() 
-
-  ********************************************/
-  if (VERBOSE)
-    cout << endl <<
-      "------ CROPPING COLUMN DENSITY TO AREA DETERMINED FROM MOMENTS ------"
-      << endl;
-
-  // Results from 2DGaus Fit are used to crop the column density
-  // center is (ci_,cj_)  
-  // sizes are (wi_1e, wj_1e)
-
-
-  // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
-  unsigned int roi[4];
-
-  double CROP_FACTOR = 5.;
-
-
-  // ROI pos
-  double pos0 = max (ci - CROP_FACTOR * wi1e, 0.);
-  double pos1 = max (cj - CROP_FACTOR * wj1e, 0.);
-  double siz0 =
-    min (columndensity->size1 - pos0, ci + CROP_FACTOR * wi1e - pos0);
-  double siz1 =
-    min (columndensity->size2 - pos1, cj + CROP_FACTOR * wj1e - pos1);
-
-
-  roi[0] = (unsigned int) floor (pos0);
-  roi[1] = (unsigned int) floor (pos1);
-  roi[2] = (unsigned int) floor (siz0);
-  roi[3] = (unsigned int) floor (siz1);
-
-  if (VERBOSE)
-    {
-      printf ("\n    Determined ROI for moments crop [%d,%d,%d,%d]\n", roi[0],
-	      roi[1], roi[2], roi[3]);
-    }
-
-  abs_ci += roi[0];
-  abs_cj += roi[1];
-
-  CropAll (roi);
-/*  gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
-  gsl_matrix *cropped_columndensity_scattered_ph = cropImage_ROI (roi, columndensity_scattered_ph);
-  gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
-  gsl_matrix_free (columndensity);
-  gsl_matrix_free (columndensity_scattered_ph);
-  gsl_matrix_free (probe);
-  columndensity = cropped_columndensity;
-  columndensity_scattered_ph = cropped_columndensity_scattered_ph;
-  probe = cropped_probe; */
-
-  if (VERBOSE)
-    {
-      printf ("\n    New matrix dimensions = %d, %d\n\n",
-	      (unsigned int) columndensity->size1,
-	      (unsigned int) columndensity->size2);
-    }
-
-  return;
-}
 
 void
 Fermions::Fit2DGauss ()
@@ -1183,12 +904,14 @@ Fermions::Fit2DGauss ()
 
   if (VERBOSE)
     cout << endl;
-  //Fit1DGauss (false);         //False is to fit row
-  if (VERBOSE)
-    cout << endl;
-  //Fit1DGauss (true);          //True is to fit column
 
-/*  gaus2dfit[0] = ci_;
+/* Here is the definition of the Gaus2D fit parameters 
+ 8
+ * The array gaus2dfit should be initialized by some other means 
+ * before calling this function. For example by using
+ * FindMoments() 
+ */
+/*gaus2dfit[0] = ci_;
   gaus2dfit[1] = wi_1e;
   gaus2dfit[2] = cj_;
   gaus2dfit[3] = wj_1e;
@@ -1206,28 +929,15 @@ Fermions::Fit2DGauss ()
   if (VERBOSE)
     cout << endl << "------------ Fitting with 2D Gaussian ------------" <<
       endl;
+
   if (!p->blanks)
-    fit2dgaus_err (columndensity, gaus2dfit, gaus2dfit_err);
-  make_gaus2d_inspect (columndensity, gaus2dfit, p->shotnum.c_str ());
-  //Override for debugging
-  /* gaus2dfit[0] = 278.8;
-     gaus2dfit[1] = 79.5;
-     gaus2dfit[2] = 291.5;
-     gaus2dfit[3] = 92.0;
-     gaus2dfit[4] = 6.876e+01;
-     gaus2dfit[5] = 0.58; */
+    {
+      fit2dgaus_err (columndensity, gaus2dfit, gaus2dfit_err);
+      make_gaus2d_inspect (columndensity, gaus2dfit, p->shotnum.c_str ());
+    }
+
   if (VERBOSE)
     cout << endl;
-
-/*  gaus2dfit[1] = fabs (gaus2dfit[1]);
-  gaus2dfit[3] = fabs (gaus2dfit[3]); */
-
-/*  ci_ = gaus2dfit[0];
-  wi_1e = gaus2dfit[1];
-  cj_ = gaus2dfit[2];
-  wj_1e = gaus2dfit[3];
-  peak = gaus2dfit[4];
-  offset = gaus2dfit[5]; */
 
   nfit = gaus2dfit[4] * M_PI * gaus2dfit[1] * gaus2dfit[3];
 
@@ -1253,17 +963,12 @@ Fermions::Fit2DGauss ()
       printf ("N from fit = %.3e \n", nfit);
     }
 
-  //residuals = gsl_matrix_alloc (columndensity->size1, columndensity->size2);
   residuals = gaus2d_residual (columndensity, gaus2dfit);
 
-  ci = (unsigned int) floor (gaus2dfit[0]) - 1;
-  cj = (unsigned int) floor (gaus2dfit[2]) - 1;
-
-  wi1e = (unsigned int) ceil (gaus2dfit[1]);
-  wj1e = (unsigned int) ceil (gaus2dfit[3]);
-
-  ci = coerce_matrix_index (ci, columndensity->size1);
-  cj = coerce_matrix_index (cj, columndensity->size2);
+  unsigned int ci = coerce_matrix_index ((unsigned int) floor (gaus2dfit[0]),
+					 columndensity->size1);
+  unsigned int cj = coerce_matrix_index ((unsigned int) floor (gaus2dfit[2]),
+					 columndensity->size2);
 
   if (VERBOSE)
     {
@@ -1309,13 +1014,6 @@ Fermions::FitScatt2DGauss ()
       endl;
   if (!p->blanks)
     fit2dgaus (columndensity_scattered_ph, scatt2dfit);
-  //Override for debugging
-  /* gaus2dfit[0] = 278.8;
-     gaus2dfit[1] = 79.5;
-     gaus2dfit[2] = 291.5;
-     gaus2dfit[3] = 92.0;
-     gaus2dfit[4] = 6.876e+01;
-     gaus2dfit[5] = 0.58; */
   if (VERBOSE)
     cout << endl;
 
@@ -1360,13 +1058,6 @@ Fermions::FitProbe2DGauss ()
       endl;
   if (!p->blanks)
     fit2dgaus_no_offset (probe, probe2dfit);
-  //Override for debugging
-  /* gaus2dfit[0] = 278.8;
-     gaus2dfit[1] = 79.5;
-     gaus2dfit[2] = 291.5;
-     gaus2dfit[3] = 92.0;
-     gaus2dfit[4] = 6.876e+01;
-     gaus2dfit[5] = 0.58; */
   if (VERBOSE)
     cout << endl;
 
@@ -1387,175 +1078,6 @@ Fermions::FitProbe2DGauss ()
   return;
 }
 
-void
-Fermions::Get2DCuts (bool gauss, bool fermi)
-{
-
-  if (VERBOSE)
-    cout << endl <<
-      "------------ PRODUCE 1D CUTS FROM RESULTS OF 2D FITS ------------" <<
-      endl;
-
-  cutIdata = gsl_vector_alloc (columndensity->size1);
-  cutJdata = gsl_vector_alloc (columndensity->size2);
-
-  if (gauss)
-    {
-      cutIgauss = gsl_vector_alloc (columndensity->size1);
-      cutJgauss = gsl_vector_alloc (columndensity->size2);
-    }
-
-  if (fermi)
-    {
-      cutIfermi = gsl_vector_alloc (columndensity->size1);
-      cutJfermi = gsl_vector_alloc (columndensity->size2);
-    }
-
-
-  double model_gauss, model_fermi, data;
-  for (unsigned int i = 0; i < columndensity->size1; i++)
-    {
-      for (unsigned int j = 0; j < columndensity->size2; j++)
-	{
-	  double xi = (double) i;
-	  double xj = (double) j;
-	  if (gauss)
-	    {
-	      model_gauss =
-		offset +
-		peak * exp (-1. *
-			    (pow ((xi - ci_) / wi_1e, 2.) +
-			     pow ((xj - cj_) / wj_1e, 2.)));
-	    }
-
-	  if (fermi)
-	    {
-	      model_fermi =
-		n0 / f1 (BetaMu) * f1 (BetaMu -
-				       fq (BetaMu) *
-				       (pow ((xj - cj_Fermi) / rj_Fermi, 2) +
-					pow ((xi - ci_Fermi) / ri_Fermi,
-					     2))) + B_Fermi;
-	    }
-
-	  data = gsl_matrix_get (columndensity, i, j);
-	  if (i == ci)
-	    {
-	      gsl_vector_set (cutJdata, j, data);
-	      if (gauss)
-		gsl_vector_set (cutJgauss, j, model_gauss);
-	      if (fermi)
-		gsl_vector_set (cutJfermi, j, model_fermi);
-	    }
-	  if (j == cj)
-	    {
-	      gsl_vector_set (cutIdata, i, data);
-	      if (gauss)
-		gsl_vector_set (cutIgauss, i, model_gauss);
-	      if (fermi)
-		gsl_vector_set (cutIfermi, i, model_fermi);
-	    }
-
-
-	}
-    }
-
-  if (gauss)
-    {
-      gsl_vector *cuts[4] = { cutIdata, cutJdata, cutIgauss, cutJgauss };
-      to_dat_file (cuts, 4, p->shotnum, "cuts.dat");
-    }
-
-  if (fermi)
-    {
-      gsl_vector *cuts[6] =
-	{ cutIdata, cutJdata, cutIgauss, cutJgauss, cutIfermi, cutJfermi };
-      to_dat_file (cuts, 6, p->shotnum, "cuts.dat");
-    }
-
-  //--- On screen plot
-  std::ofstream gpl;
-  gpl.open ("temp.gpl");
-  gpl << "set size 1.0,0.45" << endl;
-  gpl << "set multiplot" << endl;
-  gpl << "set origin 0.0,0.0" << endl;
-
-  gpl << "set xrange [0:" << cutIdata->size << "]" << endl;
-
-  gpl << "plot \"";
-  gpl << p->shotnum << "_cuts.dat\" u 0:1 pt 7 ps 1 notit";
-  if (gauss)
-    gpl << ",\\" << endl << "\"\" u 0:3 w lines title \"gauss FIT radial\"";
-  if (fermi)
-    gpl << ",\\" << endl << "\"\" u 0:5 w lines title \"fermi FIT radial\"";
-  gpl << endl;
-
-  gpl << "set origin 0.0,0.5" << endl;
-
-  gpl << "set xrange [0:" << cutJdata->size << "]" << endl;
-
-  gpl << "plot \"";
-  gpl << p->shotnum << "_cuts.dat\" u 0:2 pt 7 ps 1 notit";
-  if (gauss)
-    gpl << ",\\" << endl << "\"\" u 0:4 w lines title \"gauss FIT axial\"";
-  if (fermi)
-    gpl << ",\\" << endl << "\"\" u 0:6 w lines title \"fermi FIT axial\"";
-  gpl << endl;
-
-  gpl << "unset multiplot" << endl;
-  if (p->plots)
-    std::system ("gnuplot -persist temp.gpl");
-  gpl.close ();
-  remove ("temp.gpl");
-
-  //--- PNG plot
-  gpl.open ("temp.gpl");
-  gpl << "set terminal png medium" << endl;
-  gpl << "set output \"" << p->shotnum << "_cuts.png\"" << endl;
-  gpl << "set size 1.0,1.0" << endl;
-  gpl << "set multiplot" << endl;
-  gpl << "set size 1.0,0.45" << endl;
-  gpl << "set origin 0.0,0.0" << endl;
-  gpl << "set xrange [0:" << cutIdata->size << "]" << endl;
-
-  gpl << "plot \"";
-  gpl << p->shotnum << "_cuts.dat\" u 0:1 pt 7 ps 1 notit";
-  if (gauss)
-    gpl << ",\\" << endl << "\"\" u 0:3 w lines title \"gauss FIT radial\"";
-  if (fermi)
-    gpl << ",\\" << endl << "\"\" u 0:5 w lines title \"fermi FIT radial\"";
-  gpl << endl;
-
-  gpl << "set origin 0.0,0.5" << endl;
-  gpl << "set xrange [0:" << cutJdata->size << "]" << endl;
-
-  gpl << "plot \"";
-  gpl << p->shotnum << "_cuts.dat\" u 0:2 pt 7 ps 1 notit";
-  if (gauss)
-    gpl << ",\\" << endl << "\"\" u 0:4 w lines title \"gauss FIT axial\"";
-  if (fermi)
-    gpl << ",\\" << endl << "\"\" u 0:6 w lines title \"fermi FIT axial\"";
-  gpl << endl;
-
-  gpl << "unset multiplot" << endl;
-  gpl.close ();
-  std::system ("gnuplot temp.gpl");
-  remove ("temp.gpl");
-
-  char base[MAXPATHLEN];
-  getcwd (base, MAXPATHLEN);
-  string residuals_path = makepath (base, p->shotnum, "_residuals.TIFF");
-  toTiffImage (residuals, residuals_path);
-
-  return;
-}
-
-
-
-
-
-
-
 
 void
 Fermions::Fit2DFermi ()
@@ -1567,10 +1089,10 @@ Fermions::Fit2DFermi ()
 
   fermi2dfit[0] = peak;
   fermi2dfit[1] = -5.0;
-  fermi2dfit[2] = wi_1e;
-  fermi2dfit[3] = wj_1e;
-  fermi2dfit[4] = ci_;
-  fermi2dfit[5] = cj_;
+  fermi2dfit[2] = gaus2dfit[1];
+  fermi2dfit[3] = gaus2dfit[3];
+  fermi2dfit[4] = gaus2dfit[0];
+  fermi2dfit[5] = gaus2dfit[2];
   fermi2dfit[6] = offset;
 
   //override so that it doesn't take forever
@@ -1582,21 +1104,20 @@ Fermions::Fit2DFermi ()
   fermi2dfit[5] = 297.4;
   fermi2dfit[7] = 1.38; */
   if (!p->blanks)
-    fit2dfermi_neldermead (columndensity, fermi2dfit);
+    {
+      fit2dfermi_neldermead (columndensity, fermi2dfit);
+      make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit, gaus2dfit,
+				   p->shotnum.c_str ());
+    }
+
   if (VERBOSE)
     cout << endl;
-
-  fermi2dfit[2] = fabs (fermi2dfit[2]);
-  fermi2dfit[3] = fabs (fermi2dfit[3]);
 
   BetaMu = fermi2dfit[1];
 
   TF_2d = pow (6 * f2 (BetaMu), -0.333);
   Fugacity_Fermi = exp (BetaMu);
   f_Fermi = fq (BetaMu);
-
-
-
 
   ri_Fermi = fermi2dfit[2];
   rj_Fermi = fermi2dfit[3];
@@ -1626,8 +1147,6 @@ Fermions::Fit2DFermi ()
       printf ("TF     = %.2f uK\n", TF);
     }
 
-  make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit, gaus2dfit,
-			       p->shotnum.c_str ());
   n0 = fermi2dfit[0];
   ci_Fermi = fermi2dfit[4];
   cj_Fermi = fermi2dfit[5];
@@ -1752,7 +1271,7 @@ Fermions::GetAzimuthalAverageEllipse ()
   double trap_aspect = sqrt (p->B2 / p->B1);
 
   //Aspect ratio obtained from 2D Gaussian fit
-  double gaus2d_aspect = wj_1e / wi_1e;
+  double gaus2d_aspect = gaus2dfit[3] / gaus2dfit[1];
 
   // Aspect ratio determined from trap geometry and self similar expansion
   // should not be different by more than 2%
@@ -1814,8 +1333,9 @@ Fermions::GetAzimuthalAverageEllipse ()
 	  // Find the radial distance, aspect ratio is taken into account
 	  unsigned int dist =
 	    (unsigned int)
-	    floor (pow (pow (p->AR * (xi - ci_), 2) + pow (xj - cj_, 2), 0.5)
-		   / binsize);
+	    floor (pow
+		   (pow (p->AR * (xi - gaus2dfit[0]), 2) +
+		    pow (xj - gaus2dfit[2], 2), 0.5) / binsize);
 
 
 	  gsl_matrix_set (rho, i, j, dist);
@@ -1830,16 +1350,16 @@ Fermions::GetAzimuthalAverageEllipse ()
 			  gsl_vector_get (azim_histo_1, dist) + 1);
 
 	  //set icut
-	  if (j == (unsigned int) floor (cj_))
+	  if (j == (unsigned int) floor (gaus2dfit[2]))
 	    {
-	      gsl_vector_set (icut_r, i, p->AR * (i - ci_));
+	      gsl_vector_set (icut_r, i, p->AR * (i - gaus2dfit[0]));
 	      gsl_vector_set (icut_dat, i, data);
 	    }
 
 	  //set jcut
-	  if (i == (unsigned int) floor (ci_))
+	  if (i == (unsigned int) floor (gaus2dfit[0]))
 	    {
-	      gsl_vector_set (jcut_r, j, j - cj_);
+	      gsl_vector_set (jcut_r, j, j - gaus2dfit[2]);
 	      gsl_vector_set (jcut_dat, j, data);
 	    }
 
@@ -1880,7 +1400,7 @@ Fermions::GetAzimuthalAverageEllipse ()
 
   // Fill out arrays that contain cropped data for the fit
   fitbins = usedbins;
-  // Azimuthal average should not extend to a radius larger than azimuth_mar
+  // Azimuthal average should not extend to a radius larger than azimuth_maxr
   if (usedbins * binsize > p->azimuth_maxr)
     {
       fitbins = (unsigned int) ceil (p->azimuth_maxr / binsize);
@@ -1916,7 +1436,16 @@ Fermions::GetAzimuthalAverageEllipse ()
     }
 
   return;
+
+
+  /* Azimuthal-type data consists of two vector with an equan number of 
+   * elements.  Each element in the vectors represents a bin. 
+   * One vector contains the distances from the center and the other
+   * vector contains the averaged value.  
+   *
+   */
 }
+
 
 void
 Fermions::FitAzimuthalFermi ()
@@ -1930,7 +1459,7 @@ Fermions::FitAzimuthalFermi ()
   fermi_azimuth_fit[0] = peak;
   fermi_azimuth_fit[1] = -5.0;
   //fermi_azimuth_fit[2] = pow(wi_1e*wj_1e,0.5); 
-  fermi_azimuth_fit[2] = wj_1e;
+  fermi_azimuth_fit[2] = gaus2dfit[3];
   fermi_azimuth_fit[3] = offset;
   fermi_azimuth_fit[4] = 0.1;
 
@@ -2148,7 +1677,8 @@ Fermions::MakePlots ()
 
 
       model_gauss =
-	offset + peak * exp (-1. * pow (r, 2) / (p->AR * wi_1e * wj_1e));
+	offset +
+	peak * exp (-1. * pow (r, 2) / (p->AR * gaus2dfit[1] * gaus2dfit[3]));
 
 
 
@@ -2426,15 +1956,15 @@ Fermions::ComputeIntegrated1DDensity ()
     cout << endl <<
       "------------- FIT INTEGRATED 1D WITH GAUSSIAN  --------------" << endl;
 
-  fit1d_gaus_0[0] = ci_;
-  fit1d_gaus_0[1] = wi_1e;
+  fit1d_gaus_0[0] = gaus2dfit[0];
+  fit1d_gaus_0[1] = gaus2dfit[1];
   fit1d_gaus_0[2] = gsl_vector_max (sum_density_0);
   fit1d_gaus_0[3] = 0.1;
   if (!p->blanks)
     fit1dgaus (sum_density_0, fit1d_gaus_0);
 
-  fit1d_gaus_1[0] = cj_;
-  fit1d_gaus_1[1] = wj_1e;
+  fit1d_gaus_1[0] = gaus2dfit[2];
+  fit1d_gaus_1[1] = gaus2dfit[3];
   fit1d_gaus_1[2] = gsl_vector_max (sum_density_1);
   fit1d_gaus_1[3] = 0.1;
   if (!p->blanks)
@@ -2447,8 +1977,8 @@ Fermions::ComputeIntegrated1DDensity ()
 
   fit1d_fermi_0[0] = gsl_vector_max (sum_density_0);
   fit1d_fermi_0[1] = -5.0;
-  fit1d_fermi_0[2] = wi_1e;
-  fit1d_fermi_0[3] = ci_;
+  fit1d_fermi_0[2] = gaus2dfit[1];
+  fit1d_fermi_0[3] = gaus2dfit[0];
   fit1d_fermi_0[4] = fit1d_gaus_0[3];
 
   if (p->fitfermi1D && !p->blanks)
@@ -2460,8 +1990,8 @@ Fermions::ComputeIntegrated1DDensity ()
 
   fit1d_fermi_1[0] = gsl_vector_max (sum_density_1);
   fit1d_fermi_1[1] = -5.0;
-  fit1d_fermi_1[2] = wj_1e;
-  fit1d_fermi_1[3] = cj_;
+  fit1d_fermi_1[2] = gaus2dfit[3];
+  fit1d_fermi_1[3] = gaus2dfit[2];
   fit1d_fermi_1[4] = fit1d_gaus_1[3];
 
   if (p->fitfermi1D && !p->blanks)

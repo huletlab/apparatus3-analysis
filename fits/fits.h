@@ -70,8 +70,23 @@ void make_fermi2d_gaus2d_inspect (gsl_matrix * c, const double fermi2d_fit[7],
 
 void fit2dfermi_neldermead (gsl_matrix * m, double *fit);
 void fit1dfermi_neldermead (gsl_vector * m, double *fit);
+
+/*
+ * Functions in fermiAzimuth.cpp that will be exported:
+ *
+ */
+double fermiAzimuth_model (double dist, const gsl_vector * v);
+gsl_vector *fermiAzimuth_eval (gsl_vector ** d,
+			       const double fermi_azimuth_fit[5]);
+double fermiAzimuthZeroT_model (double dist, const gsl_vector * v);
+gsl_vector *fermiAzimuthZeroT_eval (gsl_vector ** d,
+				    const double fermi_azimuth_fit_zero[4]);
 void fit1dfermi_azimuthal_neldermead (gsl_vector ** a, double *fit);
 void fit1dfermi_azimuthal_zero_neldermead (gsl_vector ** a, double *fit);
+
+
+
+
 
 
 #endif

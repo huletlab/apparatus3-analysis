@@ -46,21 +46,21 @@ main (int argc, char **argv)
   if (!p.keeproi)
     {
       f->MinimalCrop (5.0);
-      f->FindMoments ();
     }
-
   f->Fit2DGauss ();
   f->SaveColumnDensity ();
   if (!p.keeproi)
     {
       f->MinimalCrop (3.5);
-      f->FindMoments ();
       f->Fit2DGauss ();
       f->SaveColumnDensity ();
     }
   f->FitScatt2DGauss ();
   //f->FitProbe2DGauss ();
-  f->Get2DCuts (true, false);
+
+  //Get center of cloud with respect to the Andor full frame
+  f->abs_ci += f->gaus2dfit[0];
+  f->abs_cj += f->gaus2dfit[2];
 
   setINI_num (p.reportfile, "CPP", "offset",
 	      f->gaus2dfit[5] * f->GetNPixels ());
@@ -68,8 +68,8 @@ main (int argc, char **argv)
   setINI_num (p.reportfile, "CPP", "nfit", f->nfit);
   setINI_num (p.reportfile, "CPP", "nfit_err", f->nfit_err);
   setINI_num (p.reportfile, "CPP", "peakd", f->peakd);
-  setINI_num (p.reportfile, "CPP", "ax0w", f->wi_1e * p.magnif);
-  setINI_num (p.reportfile, "CPP", "ax1w", f->wj_1e * p.magnif);
+  setINI_num (p.reportfile, "CPP", "ax0w", f->gaus2dfit[1] * p.magnif);
+  setINI_num (p.reportfile, "CPP", "ax1w", f->gaus2dfit[3] * p.magnif);
   setINI_num (p.reportfile, "CPP", "ax0c", f->abs_ci);
   setINI_num (p.reportfile, "CPP", "ax1c", f->abs_cj);
   setINI_num (p.reportfile, "CPP", "TF", f->TF);
@@ -92,9 +92,7 @@ main (int argc, char **argv)
       setINI_num (p.reportfile, "CPP", "TF_2d", f->TF_2d);
       setINI_num (p.reportfile, "CPP", "T_2d_rd", f->T_2d_rd);
       setINI_num (p.reportfile, "CPP", "T_2d_ax", f->T_2d_ax);
-      f->Get2DCuts (true, p.fermi2d);
     }
-
 
   f->GetAzimuthalAverageEllipse ();
 
@@ -127,9 +125,6 @@ main (int argc, char **argv)
 	 f->nfit, f->nfit_err);
     }
 
-  //Get centr of cloud with respect to the Andor full frame
-  f->abs_ci += f->gaus2dfit[0];
-  f->abs_cj += f->gaus2dfit[2];
 
 
   if (!p.phc)
@@ -147,7 +142,7 @@ main (int argc, char **argv)
       printf (", n = %.2e", f->peakd);
 
       //Print axial size
-      printf (", ax0w = %.1f +/- %.1f", f->wi_1e * p.magnif,
+      printf (", ax0w = %.1f +/- %.1f", f->gaus2dfit[1] * p.magnif,
 	      f->gaus2dfit_err[1] * p.magnif);
 
       //Print center
@@ -173,7 +168,7 @@ main (int argc, char **argv)
       printf (", n = %.2e", f->peakd);
 
       //Print axial size
-      printf (", ax0w = %.1f +/- %.1f", f->wi_1e * p.magnif,
+      printf (", ax0w = %.1f +/- %.1f", f->gaus2dfit[1] * p.magnif,
 	      f->gaus2dfit_err[1] * p.magnif);
 
       //Print center
@@ -292,20 +287,12 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
       printf (BOLDWHITE "\t-f, --force\n" RESET);
       printf ("\t\tforce reanalysis of the shot\n\n");
 
-      printf (BOLDWHITE "\t-p, --plots\n" RESET);
-      printf ("\t\tplots profiles when fitting\n\n");
-
       printf (BOLDWHITE "\t-r [PATH], --ref [PATH]\n" RESET);
       printf ("\t\tindicates path of reference image\n\n");
 
       printf (BOLDWHITE "\t-R, --roi [ax0pos,ax1pos,ax0size,ax1size]\n"
 	      RESET);
       printf ("\t\tsets the atoms region of interest\n\n");
-
-      printf (BOLDWHITE "\t-S, --roisize [ax0size,ax1size]\n" RESET);
-      printf ("\t\tsets the size for the atoms region of interest\n");
-      printf
-	("\t\tthe program will automatically determine the center for this ROI\n\n");
 
       printf (BOLDWHITE "\t--blanks\n" RESET);
       printf
@@ -326,9 +313,7 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
   p.center = false;
   p.crop = false;
   p.keeproi = false;
-  p.plots = false;
   p.roi_user = false;
-  p.roisize_user = false;
   p.fitfermi1D = false;
   p.fermi2d = false;
   p.fermiazimuth = false;
@@ -369,9 +354,7 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	{"show-fermi", no_argument, 0, 's'},
 	{"force", no_argument, 0, 'f'},
 	{"ref", required_argument, 0, 'r'},
-	{"plots", no_argument, 0, 'p'},
 	{"roi", required_argument, 0, 'R'},
-	{"roisize", required_argument, 0, 'S'},
 	{"blanks", no_argument, 0, 'b'},
 	{"verbose", no_argument, 0, 'v'},
 	{"trapfreq", required_argument, 0, 'w'},
@@ -451,10 +434,6 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  p.reanalyze = 1;
 	  break;
 
-	case 'p':
-	  p.plots = true;
-	  break;
-
 	case 'r':
 	  p.atomsreffile = optarg;
 	  p.noatomsreffile = optarg;
@@ -469,15 +448,6 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  ss >> (p.roi)[1];
 	  ss >> (p.roi)[2];
 	  ss >> (p.roi)[3];
-	  break;
-
-	case 'S':
-	  p.roisize_user = true;
-	  temp = optarg;
-	  replace (temp.begin (), temp.end (), ',', '\n');
-	  ss << temp;
-	  ss >> (p.roisize)[0];
-	  ss >> (p.roisize)[1];
 	  break;
 
 	case 'b':
