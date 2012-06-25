@@ -155,6 +155,35 @@ gaus2d_eval (const gsl_matrix * d, const double gaus_fit[6],
 }
 
 
+/*
+ * Evaluate the azimuthal average of a 2D Gaus function
+ * and save it to file
+ *
+ */
+void
+gaus2d_eval_Azimuth (const double gaus2dfit[6], string prefix)
+{
+  int nparams = 6;
+  gsl_vector *v = gsl_vector_alloc (nparams);
+  for (int e = 0; e < nparams; e++)
+    {
+      gsl_vector_set (v, e, gaus2dfit[e]);
+    }
+  unsigned int jmax = (unsigned int) floor (3.5 * gaus2dfit[3]);
+
+  gsl_vector *r = gsl_vector_alloc (jmax);
+  gsl_vector *dat = gsl_vector_alloc (jmax);
+
+  for (unsigned int j = 0; j < jmax; j++)
+    {
+      gsl_vector_set (r, j, (double) j);
+      gsl_vector_set (dat, j,
+		      gaus2d_model (gaus2dfit[0], j + gaus2dfit[2], v));
+    }
+  to_dat_file_2 (r, dat, prefix, "fit2DGauss.AZASCII");
+  return;
+}
+
 /* Matrix data with residuals
  *
  */

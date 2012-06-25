@@ -270,7 +270,7 @@ toTiffImage (gsl_matrix * m, string & filename, bool invert)
 //This function is used to created a column data file, where 
 //each column is one of the vectors given
 void
-to_dat_file (gsl_vector * vecs[], unsigned int N, string shot, string datfile)
+to_dat_file (gsl_vector * vecs[], unsigned int N, string prefix, string sufix)
 {
 
   unsigned int minsize = 16000;
@@ -291,9 +291,9 @@ to_dat_file (gsl_vector * vecs[], unsigned int N, string shot, string datfile)
   getcwd (path, MAXPATHLEN);
   string fname (path);
   fname += "/";
-  fname += shot;
+  fname += prefix;
   fname += "_";
-  fname += datfile;
+  fname += sufix;
 
   FILE *dat;
   dat = fopen (fname.c_str (), "w+");
@@ -311,5 +311,14 @@ to_dat_file (gsl_vector * vecs[], unsigned int N, string shot, string datfile)
       fprintf (dat, "\n");
     }
   fclose (dat);
+  return;
+}
+
+void
+to_dat_file_2 (gsl_vector * one, gsl_vector * two, string prefix,
+	       string sufix)
+{
+  gsl_vector *output[2] = { one, two };
+  to_dat_file (output, 2, prefix, sufix);
   return;
 }

@@ -38,6 +38,7 @@ void fit1dgaus (gsl_vector * m, double *fit);
 double gaus2d_model (double i, double j, const gsl_vector * v);
 gsl_matrix *gaus2d_eval (const gsl_matrix * d, const double gaus_fit[6],
 			 const bool offset = true);
+void gaus2d_eval_Azimuth (const double gaus2dfit[6], string prefix);
 gsl_matrix *gaus2d_residual (const gsl_matrix * d, const double gaus_fit[6],
 			     const bool offset = true);
 void make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
@@ -61,6 +62,7 @@ void Gaus2DGuess (gsl_matrix * m, double *guess, string prefix,
  */
 double fermi2d_model (double i, double j, const gsl_vector * v);
 gsl_matrix *fermi2d_eval (const gsl_matrix * d, const double fermi_fit[7]);
+void fermi2d_eval_Azimuth (const double fermi_fit[7], string prefix);
 void make_fermi2d_inspect (gsl_matrix * c, const double fermi2d_fit[6],
 			   const char *prefix);
 void make_fermi2d_gaus2d_inspect (gsl_matrix * c, const double fermi2d_fit[7],
@@ -76,10 +78,10 @@ void fit1dfermi_neldermead (gsl_vector * m, double *fit);
  *
  */
 double fermiAzimuth_model (double dist, const gsl_vector * v);
-gsl_vector *fermiAzimuth_eval (gsl_vector ** d,
+gsl_vector *fermiAzimuth_eval (gsl_vector * d,
 			       const double fermi_azimuth_fit[5]);
 double fermiAzimuthZeroT_model (double dist, const gsl_vector * v);
-gsl_vector *fermiAzimuthZeroT_eval (gsl_vector ** d,
+gsl_vector *fermiAzimuthZeroT_eval (gsl_vector * d,
 				    const double fermi_azimuth_fit_zero[4]);
 void fit1dfermi_azimuthal_neldermead (gsl_vector ** a, double *fit);
 void fit1dfermi_azimuthal_zero_neldermead (gsl_vector ** a, double *fit);

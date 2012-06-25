@@ -40,3 +40,10 @@
  Mon 25 Jun 2012 01:40:43 AM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth -v 
  Mon 25 Jun 2012 01:41:44 AM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth -v 
  Mon 25 Jun 2012 01:45:04 AM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth -v 
+ Mon 25 Jun 2012 02:08:54 AM CDT   |   analyze 3195 -f --fermi-azimuth -v 
+ Mon 25 Jun 2012 02:23:03 AM CDT   |   analyze 3195 -f --fermi-azimuth 
+ Mon 25 Jun 2012 02:25:46 AM CDT   |   analyze 3195 -f --fermi-azimuth -v 
+ Mon 25 Jun 2012 02:48:59 AM CDT   |   analyze 3195 -f --fermi-azimuth -v --fermi2d 
+ Mon 25 Jun 2012 02:55:04 AM CDT   |   analyze 3195 -f --fermi-azimuth -v --fermi2d 
+ Mon 25 Jun 2012 03:03:57 AM CDT   |   analyze 3195 -f --fermi-azimuth -v --fermi2d 
+ Mon 25 Jun 2012 03:12:26 AM CDT   |   analyze 3195 -f --fermi-azimuth -v --fermi2d 

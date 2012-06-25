@@ -932,6 +932,7 @@ Fermions::Fit2DGauss ()
     {
       fit2dgaus_err (columndensity, gaus2dfit, gaus2dfit_err);
       make_gaus2d_inspect (columndensity, gaus2dfit, p->shotnum.c_str ());
+      gaus2d_eval_Azimuth (gaus2dfit, p->shotnum);
     }
 
   if (VERBOSE)
@@ -1115,6 +1116,7 @@ Fermions::Fit2DFermi ()
       fit2dfermi_neldermead (columndensity, fermi2dfit);
       make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit, gaus2dfit,
 				   p->shotnum.c_str ());
+      fermi2d_eval_Azimuth (fermi2dfit, p->shotnum);
     }
 
   if (VERBOSE)
@@ -1296,6 +1298,13 @@ Fermions::GetAzimuthalAverageEllipse ()
   // Define aspect ratio to be used in calculating the azimuthal average
   p->AR = gaus2d_aspect;
 
+  if (VERBOSE)
+    {
+      cout << "\tAspect ratio from trap geometry = " << trap_aspect << endl;
+      cout << "\tAspect ratio from 2D Gauss = " << gaus2d_aspect << endl;
+      cout << "\tAspect ratio used = " << p->AR << endl;
+    }
+
   // Define the number of bins to be used in the radial profile  and the bin size 
   nbins = 1024;
   binsize = 1.2;		//in pixels
@@ -1442,6 +1451,16 @@ Fermions::GetAzimuthalAverageEllipse ()
 		      gsl_vector_get (azimuthal_all_dat, index));
     }
 
+
+  to_dat_file_2 (azimuthal_r, azimuthal_dat, p->shotnum,
+		 "datAzimuth.AZASCII");
+  to_dat_file_2 (azimuthal_all_r, azimuthal_all_dat, p->shotnum,
+		 "datAllAzimuth.AZASCII");
+  to_dat_file_2 (icut_r, icut_dat, p->shotnum, "datIcut.AZASCII");
+  to_dat_file_2 (jcut_r, jcut_dat, p->shotnum, "datJcut.AZASCII");
+
+
+
   return;
 
 
@@ -1472,7 +1491,13 @@ Fermions::FitAzimuthalFermi ()
 
   gsl_vector *azimuthal_[2] = { azimuthal_r, azimuthal_dat };
   if (!p->blanks)
-    fit1dfermi_azimuthal_neldermead (azimuthal_, fermi_azimuth_fit);
+    {
+      fit1dfermi_azimuthal_neldermead (azimuthal_, fermi_azimuth_fit);
+      gsl_vector *fitAzimuth =
+	fermiAzimuth_eval (azimuthal_r, fermi_azimuth_fit);
+      to_dat_file_2 (azimuthal_r, fitAzimuth, p->shotnum,
+		     "fitAzimuth.AZASCII");
+    }
 
   fermi_azimuth_fit[2] = fabs (fermi_azimuth_fit[2]);
   r_az = fermi_azimuth_fit[2];
@@ -1499,7 +1524,15 @@ Fermions::FitAzimuthalFermi ()
   fermi_azimuth_fit_zero[2] = B_az;
   fermi_azimuth_fit_zero[3] = mx_az;
 
-  fit1dfermi_azimuthal_zero_neldermead (azimuthal_, fermi_azimuth_fit_zero);
+  if (!p->blanks)
+    {
+      fit1dfermi_azimuthal_zero_neldermead (azimuthal_,
+					    fermi_azimuth_fit_zero);
+      gsl_vector *fitAzimuthZeroT =
+	fermiAzimuthZeroT_eval (azimuthal_r, fermi_azimuth_fit_zero);
+      to_dat_file_2 (azimuthal_r, fitAzimuthZeroT, p->shotnum,
+		     "fitAzimuthZeroT.AZASCII");
+    }
 
   fermi_azimuth_fit[1] = fabs (fermi_azimuth_fit[1]);
 
@@ -1990,7 +2023,9 @@ Fermions::ComputeIntegrated1DDensity ()
   fit1d_fermi_0[4] = fit1d_gaus_0[3];
 
   if (p->fitfermi1D && !p->blanks)
-    fit1dfermi_neldermead (sum_density_0, fit1d_fermi_0);
+    {
+      fit1dfermi_neldermead (sum_density_0, fit1d_fermi_0);
+    }
 
   if (VERBOSE)
     printf ("\n---> Finished _0 axis\n\n");

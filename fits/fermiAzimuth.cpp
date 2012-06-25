@@ -31,20 +31,21 @@ fermiAzimuth_model (double dist, const gsl_vector * v)
 /* Azimuthal-type data after model evaluation
  */
 gsl_vector *
-fermiAzimuth_eval (gsl_vector ** d, const double fermi_azimuth_fit[5])
+fermiAzimuth_eval (gsl_vector * d, const double fermi_azimuth_fit[5])
 {
-  gsl_vector *dat = gsl_vector_alloc (d[0]->size);
+  gsl_vector *dat = gsl_vector_alloc (d->size);
   int nparams = 5;
   gsl_vector *v = gsl_vector_alloc (nparams);
   for (int e = 0; e < nparams; e++)
     gsl_vector_set (v, e, fermi_azimuth_fit[e]);
-  for (unsigned int i = 0; i < d[0]->size; i++)
+  for (unsigned int i = 0; i < d->size; i++)
     {
-      double dist = gsl_vector_get (d[0], i);
+      double dist = gsl_vector_get (d, i);
       gsl_vector_set (dat, i, fermiAzimuth_model (dist, v));
     }
   return dat;
 }
+
 
 /* Model to evaluate the Fermi azimuthal average at T=0.
  * This is just the 2D Fermi with a radiux insted of (x,y)
@@ -63,17 +64,17 @@ fermiAzimuthZeroT_model (double dist, const gsl_vector * v)
 /* T=0 Azimuthal-type data after model evaluation
  */
 gsl_vector *
-fermiAzimuthZeroT_eval (gsl_vector ** d,
+fermiAzimuthZeroT_eval (gsl_vector * d,
 			const double fermi_azimuth_fit_zero[4])
 {
-  gsl_vector *dat = gsl_vector_alloc (d[0]->size);
+  gsl_vector *dat = gsl_vector_alloc (d->size);
   int nparams = 4;
   gsl_vector *v = gsl_vector_alloc (nparams);
   for (int e = 0; e < nparams; e++)
     gsl_vector_set (v, e, fermi_azimuth_fit_zero[e]);
-  for (unsigned int i = 0; i < d[0]->size; i++)
+  for (unsigned int i = 0; i < d->size; i++)
     {
-      double dist = gsl_vector_get (d[0], i);
+      double dist = gsl_vector_get (d, i);
       gsl_vector_set (dat, i, fermiAzimuthZeroT_model (dist, v));
     }
   return dat;

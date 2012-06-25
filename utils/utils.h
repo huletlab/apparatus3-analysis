@@ -54,9 +54,12 @@ bool save_gsl_matrix_ASCII (gsl_matrix * m, string & file);
 gsl_matrix *read_gsl_matrix_ASCII (string & file);
 void toTiffImage (gsl_matrix * m, string & filename, bool invert = false);
 
-void to_dat_file (gsl_vector * vecs[], unsigned int N, string shot,
-		  string datfile);
+void to_dat_file (gsl_vector * vecs[], unsigned int N, string prefix,
+		  string sufix);
 
+void
+to_dat_file_2 (gsl_vector * one, gsl_vector * two, string prefix,
+	       string sufix);
 
 
 /* 

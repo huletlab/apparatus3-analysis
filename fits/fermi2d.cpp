@@ -33,6 +33,7 @@ fermi2d_model (double i, double j, const gsl_vector * v)
 					       pow ((i - ci) / ri, 2))) + B;
 }
 
+
 /* Matrix data for 2D Fermi evaluation
  *
  */
@@ -54,6 +55,40 @@ fermi2d_eval (const gsl_matrix * d, const double fermi_fit[7])
     }
   return eval;
 }
+
+
+/* Evaluate the azimuthal average of a 2D Fermi function
+ * and save it to file
+ *
+ */
+void
+fermi2d_eval_Azimuth (const double fermi_fit[7], string prefix)
+{
+  int nparams = 7;
+  gsl_vector *v = gsl_vector_alloc (nparams);
+  for (int e = 0; e < nparams; e++)
+    gsl_vector_set (v, e, fermi_fit[e]);
+
+  unsigned int jmax = (unsigned int) floor (3.5 * fermi_fit[3]);
+
+  gsl_vector *r = gsl_vector_alloc (jmax);
+  gsl_vector *dat = gsl_vector_alloc (jmax);
+
+  for (unsigned int j = 0; j < jmax; j++)
+    {
+      gsl_vector_set (r, j, (double) j);
+      gsl_vector_set (dat, j,
+		      fermi2d_model (fermi_fit[4], j + fermi_fit[5], v));
+    }
+
+  to_dat_file_2 (r, dat, prefix, "fit2DFermi.AZASCII");
+
+  return;
+}
+
+
+
+
 
 void
 make_fermi2d_inspect (gsl_matrix * c, const double fermi2d_fit[6],
