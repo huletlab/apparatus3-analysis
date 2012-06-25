@@ -13,5 +13,4 @@ f u 1:10 w lines title 'fermi 2d fit' ,\
 f u 1:11 w lines title 'fermi azimuth fit' ,\
 f u 1:12 w lines title 'fermi 2d T=0' ,\
 f u 1:13 w lines title 'fermi azimuth T=0' ,\
-f u 1:14 w lines title 'fermi azimuth T=0 (fit)',\
-f u 1:($10-$12) w lines axes x1y2 title '2d MINUS 2d,T=0'
+f u 1:14 w lines title 'fermi azimuth T=0 (fit)'

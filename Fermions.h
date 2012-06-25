@@ -202,7 +202,7 @@ public:
   void SaveColumnDensity ();
   void FindMoments ();
   void MomentsCrop ();
-  void MinimalCrop ();
+  void MinimalCrop (double CROP_FACTOR);
   void CropAll (unsigned int roi[4]);
   double GetNPixels ()
   {
@@ -955,10 +955,41 @@ Fermions::Fit1DGauss (bool col_row)
   return;
 }
 
+
+void
+Fermions::CropAll (unsigned int roi[4])
+{
+  gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
+  gsl_matrix *cropped_columndensity_scattered_ph =
+    cropImage_ROI (roi, columndensity_scattered_ph);
+  gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
+  gsl_matrix *cropped_missing_counts = cropImage_ROI (roi, missing_counts);
+
+  gsl_matrix_free (columndensity);
+  gsl_matrix_free (columndensity_scattered_ph);
+  gsl_matrix_free (probe);
+  gsl_matrix_free (missing_counts);
+
+  columndensity = cropped_columndensity;
+  columndensity_scattered_ph = cropped_columndensity_scattered_ph;
+  probe = cropped_probe;
+  missing_counts = cropped_missing_counts;
+
+  return;
+}
+
 void
 Fermions::FindMoments ()
 {
-  if (VERBOSE)
+  Gaus2DGuess (columndensity, gaus2dfit, p->shotnum, true);
+  ci = (unsigned int) floor (gaus2dfit[0]) - 1;
+  cj = (unsigned int) floor (gaus2dfit[2]) - 1;
+
+  ci = coerce_matrix_index (ci, columndensity->size1);
+  cj = coerce_matrix_index (cj, columndensity->size2);
+  wi1e = (unsigned int) ceil (gaus2dfit[1]);
+  wj1e = (unsigned int) ceil (gaus2dfit[3]);
+/*  if (VERBOSE)
     cout << endl <<
       "------------ FINDING MOMENTS OF DISTRIBUTION ------------" << endl;
 
@@ -998,7 +1029,147 @@ Fermions::FindMoments ()
       printf ("\n    Results of Moments:\n");
       printf ("    ci = %d,  cj = %d,  wi1e = %d, wj1e = %d\n", ci, cj, wi1e,
 	      wj1e);
+    } */
+  return;
+}
+
+
+void
+Fermions::MinimalCrop (double CROP_FACTOR)
+{
+  /********************************************
+  Three matrices are cropped here 
+ 
+  ... The same four that are created inside Fermions::ComputeColumnDensity() 
+
+  ********************************************/
+  if (VERBOSE)
+    cout << endl <<
+      "------------ CROPPING COLUMN DENSITY TO MINIMAL AREA------------" <<
+      endl;
+
+  // Results from 2DGaus Fit are used to crop the column density
+  // center is (ci_,cj_)  
+  // sizes are (wi_1e, wj_1e)
+
+
+  // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
+  unsigned int roi[4];
+
+
+  // ROI pos
+  double pos0 = max (gaus2dfit[0] - CROP_FACTOR * gaus2dfit[1], 0.);
+  double pos1 = max (gaus2dfit[2] - CROP_FACTOR * gaus2dfit[3], 0.);
+  double siz0 = min (columndensity->size1 - pos0,
+		     gaus2dfit[0] + CROP_FACTOR * gaus2dfit[1] - pos0);
+  double siz1 = min (columndensity->size2 - pos1,
+		     gaus2dfit[2] + CROP_FACTOR * gaus2dfit[3] - pos1);
+
+
+  roi[0] = (unsigned int) floor (pos0);
+  roi[1] = (unsigned int) floor (pos1);
+  roi[2] = (unsigned int) floor (siz0);
+  roi[3] = (unsigned int) floor (siz1);
+
+  if (VERBOSE)
+    {
+      printf ("\n    Results of 2D Gaussian fit:\n");
+      printf ("    ci = %.1f,  cj = %.1f,  wi = %.1f, wj = %.1f\n", ci_, cj_,
+	      wi_1e, wj_1e);
+      printf ("    Determined ROI for minimal crop [%d,%d,%d,%d]\n", roi[0],
+	      roi[1], roi[2], roi[3]);
     }
+
+  abs_ci += roi[0];
+  abs_cj += roi[1];
+
+  CropAll (roi);
+/*  gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
+  gsl_matrix *cropped_columndensity_scattered_ph = cropImage_ROI (roi, columndensity_scattered_ph);
+  gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
+  gsl_matrix_free (columndensity);
+  gsl_matrix_free (columndensity_scattered_ph);
+  gsl_matrix_free (probe);
+  columndensity = cropped_columndensity;
+  columndensity_scattered_ph = cropped_columndensity_scattered_ph;
+  probe = cropped_probe; */
+
+  if (VERBOSE)
+    {
+      printf ("\n    New matrix dimensions = %d, %d\n\n",
+	      (unsigned int) columndensity->size1,
+	      (unsigned int) columndensity->size2);
+    }
+  return;
+}
+
+
+void
+Fermions::MomentsCrop ()
+{
+  /********************************************
+  Four matrices are cropped here  
+
+  ... The same four that are created inside Fermions::ComputeColumnDensity() 
+
+  ********************************************/
+  if (VERBOSE)
+    cout << endl <<
+      "------ CROPPING COLUMN DENSITY TO AREA DETERMINED FROM MOMENTS ------"
+      << endl;
+
+  // Results from 2DGaus Fit are used to crop the column density
+  // center is (ci_,cj_)  
+  // sizes are (wi_1e, wj_1e)
+
+
+  // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
+  unsigned int roi[4];
+
+  double CROP_FACTOR = 5.;
+
+
+  // ROI pos
+  double pos0 = max (ci - CROP_FACTOR * wi1e, 0.);
+  double pos1 = max (cj - CROP_FACTOR * wj1e, 0.);
+  double siz0 =
+    min (columndensity->size1 - pos0, ci + CROP_FACTOR * wi1e - pos0);
+  double siz1 =
+    min (columndensity->size2 - pos1, cj + CROP_FACTOR * wj1e - pos1);
+
+
+  roi[0] = (unsigned int) floor (pos0);
+  roi[1] = (unsigned int) floor (pos1);
+  roi[2] = (unsigned int) floor (siz0);
+  roi[3] = (unsigned int) floor (siz1);
+
+  if (VERBOSE)
+    {
+      printf ("\n    Determined ROI for moments crop [%d,%d,%d,%d]\n", roi[0],
+	      roi[1], roi[2], roi[3]);
+    }
+
+  abs_ci += roi[0];
+  abs_cj += roi[1];
+
+  CropAll (roi);
+/*  gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
+  gsl_matrix *cropped_columndensity_scattered_ph = cropImage_ROI (roi, columndensity_scattered_ph);
+  gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
+  gsl_matrix_free (columndensity);
+  gsl_matrix_free (columndensity_scattered_ph);
+  gsl_matrix_free (probe);
+  columndensity = cropped_columndensity;
+  columndensity_scattered_ph = cropped_columndensity_scattered_ph;
+  probe = cropped_probe; */
+
+  if (VERBOSE)
+    {
+      printf ("\n    New matrix dimensions = %d, %d\n\n",
+	      (unsigned int) columndensity->size1,
+	      (unsigned int) columndensity->size2);
+    }
+
   return;
 }
 
@@ -1017,12 +1188,12 @@ Fermions::Fit2DGauss ()
     cout << endl;
   //Fit1DGauss (true);          //True is to fit column
 
-  gaus2dfit[0] = ci_;
+/*  gaus2dfit[0] = ci_;
   gaus2dfit[1] = wi_1e;
   gaus2dfit[2] = cj_;
   gaus2dfit[3] = wj_1e;
   gaus2dfit[4] = peak;
-  gaus2dfit[5] = 0.1;
+  gaus2dfit[5] = 0.1; */
 
   gaus2dfit_err[0] = 1e15;
   gaus2dfit_err[1] = 1e15;
@@ -1048,15 +1219,15 @@ Fermions::Fit2DGauss ()
   if (VERBOSE)
     cout << endl;
 
-  gaus2dfit[1] = fabs (gaus2dfit[1]);
-  gaus2dfit[3] = fabs (gaus2dfit[3]);
+/*  gaus2dfit[1] = fabs (gaus2dfit[1]);
+  gaus2dfit[3] = fabs (gaus2dfit[3]); */
 
-  ci_ = gaus2dfit[0];
+/*  ci_ = gaus2dfit[0];
   wi_1e = gaus2dfit[1];
   cj_ = gaus2dfit[2];
   wj_1e = gaus2dfit[3];
   peak = gaus2dfit[4];
-  offset = gaus2dfit[5];
+  offset = gaus2dfit[5]; */
 
   nfit = gaus2dfit[4] * M_PI * gaus2dfit[1] * gaus2dfit[3];
 
@@ -1085,8 +1256,11 @@ Fermions::Fit2DGauss ()
   //residuals = gsl_matrix_alloc (columndensity->size1, columndensity->size2);
   residuals = gaus2d_residual (columndensity, gaus2dfit);
 
-  ci = (unsigned int) floor (ci_) - 1;
-  cj = (unsigned int) floor (cj_) - 1;
+  ci = (unsigned int) floor (gaus2dfit[0]) - 1;
+  cj = (unsigned int) floor (gaus2dfit[2]) - 1;
+
+  wi1e = (unsigned int) ceil (gaus2dfit[1]);
+  wj1e = (unsigned int) ceil (gaus2dfit[3]);
 
   ci = coerce_matrix_index (ci, columndensity->size1);
   cj = coerce_matrix_index (cj, columndensity->size2);
@@ -1378,169 +1552,10 @@ Fermions::Get2DCuts (bool gauss, bool fermi)
 
 
 
-void
-Fermions::MomentsCrop ()
-{
-  /********************************************
-  Four matrices are cropped here  
-
-  ... The same four that are created inside Fermions::ComputeColumnDensity() 
-
-  ********************************************/
-  if (VERBOSE)
-    cout << endl <<
-      "------ CROPPING COLUMN DENSITY TO AREA DETERMINED FROM MOMENTS ------"
-      << endl;
-
-  // Results from 2DGaus Fit are used to crop the column density
-  // center is (ci_,cj_)  
-  // sizes are (wi_1e, wj_1e)
 
 
-  // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
-  unsigned int roi[4];
-
-  double CROP_FACTOR = 5.;
 
 
-  // ROI pos
-  double pos0 = max (ci - CROP_FACTOR * wi1e, 0.);
-  double pos1 = max (cj - CROP_FACTOR * wj1e, 0.);
-  double siz0 =
-    min (columndensity->size1 - pos0, ci + CROP_FACTOR * wi1e - pos0);
-  double siz1 =
-    min (columndensity->size2 - pos1, cj + CROP_FACTOR * wj1e - pos1);
-
-
-  roi[0] = (unsigned int) floor (pos0);
-  roi[1] = (unsigned int) floor (pos1);
-  roi[2] = (unsigned int) floor (siz0);
-  roi[3] = (unsigned int) floor (siz1);
-
-  if (VERBOSE)
-    {
-      printf ("\n    Determined ROI for moments crop [%d,%d,%d,%d]\n", roi[0],
-	      roi[1], roi[2], roi[3]);
-    }
-
-  abs_ci += roi[0];
-  abs_cj += roi[1];
-
-  CropAll (roi);
-/*  gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
-  gsl_matrix *cropped_columndensity_scattered_ph = cropImage_ROI (roi, columndensity_scattered_ph);
-  gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
-  gsl_matrix_free (columndensity);
-  gsl_matrix_free (columndensity_scattered_ph);
-  gsl_matrix_free (probe);
-  columndensity = cropped_columndensity;
-  columndensity_scattered_ph = cropped_columndensity_scattered_ph;
-  probe = cropped_probe; */
-
-  if (VERBOSE)
-    {
-      printf ("\n    New matrix dimensions = %d, %d\n\n",
-	      (unsigned int) columndensity->size1,
-	      (unsigned int) columndensity->size2);
-    }
-
-  return;
-}
-
-
-void
-Fermions::CropAll (unsigned int roi[4])
-{
-  gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
-  gsl_matrix *cropped_columndensity_scattered_ph =
-    cropImage_ROI (roi, columndensity_scattered_ph);
-  gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
-  gsl_matrix *cropped_missing_counts = cropImage_ROI (roi, missing_counts);
-
-  gsl_matrix_free (columndensity);
-  gsl_matrix_free (columndensity_scattered_ph);
-  gsl_matrix_free (probe);
-  gsl_matrix_free (missing_counts);
-
-  columndensity = cropped_columndensity;
-  columndensity_scattered_ph = cropped_columndensity_scattered_ph;
-  probe = cropped_probe;
-  missing_counts = cropped_missing_counts;
-
-  return;
-}
-
-
-void
-Fermions::MinimalCrop ()
-{
-  /********************************************
-  Three matrices are cropped here 
- 
-  ... The same four that are created inside Fermions::ComputeColumnDensity() 
-
-  ********************************************/
-  if (VERBOSE)
-    cout << endl <<
-      "------------ CROPPING COLUMN DENSITY TO MINIMAL AREA------------" <<
-      endl;
-
-  // Results from 2DGaus Fit are used to crop the column density
-  // center is (ci_,cj_)  
-  // sizes are (wi_1e, wj_1e)
-
-
-  // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
-  unsigned int roi[4];
-
-  double CROP_FACTOR = 3.5;
-
-
-  // ROI pos
-  double pos0 = max (ci_ - CROP_FACTOR * wi_1e, 0.);
-  double pos1 = max (cj_ - CROP_FACTOR * wj_1e, 0.);
-  double siz0 =
-    min (columndensity->size1 - pos0, ci_ + CROP_FACTOR * wi_1e - pos0);
-  double siz1 =
-    min (columndensity->size2 - pos1, cj_ + CROP_FACTOR * wj_1e - pos1);
-
-
-  roi[0] = (unsigned int) floor (pos0);
-  roi[1] = (unsigned int) floor (pos1);
-  roi[2] = (unsigned int) floor (siz0);
-  roi[3] = (unsigned int) floor (siz1);
-
-  if (VERBOSE)
-    {
-      printf ("\n    Results of 2D Gaussian fit:\n");
-      printf ("    ci = %.1f,  cj = %.1f,  wi = %.1f, wj = %.1f\n", ci_, cj_,
-	      wi_1e, wj_1e);
-      printf ("    Determined ROI for minimal crop [%d,%d,%d,%d]\n", roi[0],
-	      roi[1], roi[2], roi[3]);
-    }
-
-  abs_ci += roi[0];
-  abs_cj += roi[1];
-
-  CropAll (roi);
-/*  gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
-  gsl_matrix *cropped_columndensity_scattered_ph = cropImage_ROI (roi, columndensity_scattered_ph);
-  gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
-  gsl_matrix_free (columndensity);
-  gsl_matrix_free (columndensity_scattered_ph);
-  gsl_matrix_free (probe);
-  columndensity = cropped_columndensity;
-  columndensity_scattered_ph = cropped_columndensity_scattered_ph;
-  probe = cropped_probe; */
-
-  if (VERBOSE)
-    {
-      printf ("\n    New matrix dimensions = %d, %d\n\n",
-	      (unsigned int) columndensity->size1,
-	      (unsigned int) columndensity->size2);
-    }
-  return;
-}
 
 void
 Fermions::Fit2DFermi ()

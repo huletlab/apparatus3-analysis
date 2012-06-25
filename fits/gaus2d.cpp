@@ -742,6 +742,8 @@ fit2dgaus_err (gsl_matrix * m, double *fit, double *err)
   fit[4] = FIT (4);
   fit[5] = FIT (5);
 
+  fit[1] = fabs (fit[1]);
+  fit[3] = fabs (fit[3]);
 
   err[0] = c * ERR (0);
   err[1] = c * ERR (1);

@@ -45,7 +45,7 @@ main (int argc, char **argv)
   f->FindMoments ();
   if (!p.keeproi)
     {
-      f->MomentsCrop ();
+      f->MinimalCrop (5.0);
       f->FindMoments ();
     }
 
@@ -53,7 +53,7 @@ main (int argc, char **argv)
   f->SaveColumnDensity ();
   if (!p.keeproi)
     {
-      f->MinimalCrop ();
+      f->MinimalCrop (3.5);
       f->FindMoments ();
       f->Fit2DGauss ();
       f->SaveColumnDensity ();
@@ -128,8 +128,8 @@ main (int argc, char **argv)
     }
 
   //Get centr of cloud with respect to the Andor full frame
-  f->abs_ci += f->ci_;
-  f->abs_cj += f->cj_;
+  f->abs_ci += f->gaus2dfit[0];
+  f->abs_cj += f->gaus2dfit[2];
 
 
   if (!p.phc)
