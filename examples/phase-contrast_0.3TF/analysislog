@@ -35,3 +35,8 @@
  Sun 24 Jun 2012 23:50:34 PM CDT   |   analyze 3195 -f 
  Mon 25 Jun 2012 01:30:36 AM CDT   |   analyze 3195 -f --fermi-azimuth --start-azimuth 0 
  Mon 25 Jun 2012 01:31:00 AM CDT   |   analyze 3195 -f --fermi2d 
+ Mon 25 Jun 2012 01:38:06 AM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth -v 
+ Mon 25 Jun 2012 01:38:12 AM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth -v 
+ Mon 25 Jun 2012 01:40:43 AM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth -v 
+ Mon 25 Jun 2012 01:41:44 AM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth -v 
+ Mon 25 Jun 2012 01:45:04 AM CDT   |   analyze 3195 -f --fermi2d --fermi-azimuth -v 

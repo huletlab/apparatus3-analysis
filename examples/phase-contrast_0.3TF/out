@@ -1,0 +1,58 @@
+
+
+   Andor magnification     = 3.2 um/pixel
+   Phase-contrast detuning = -33.8983 Gamma  = -200 MHz
+
+------------ Column Density Stats ------------
+
+----> Method used : phase contrast
+	s1=512, s2=512
+	alphastar = 1
+	max term1 = -4.76369e+07
+	max term2 = -4.76369e+07
+	max OD = 0.19457
+	max probe intensity = 6.21426 Isat 
+	max CD = 851.546
+	max scattered photons = 0
+	max number from scattered photons = 0
+	max rho_{ee} = 0
+	counts in atoms picture:     ( 1579.000000 to 9314.000000 )
+	counts in no atoms picture:  ( 1545.000000 to 9203.000000 )
+	total scattered photons = 0
+	total number from scattered photons = 0
+
+total number of photons in probe pulse = 1.66761e+10
+First few elements of column density matrix: 
+135.66687	 27.97693	 34.34044	 -60.62684	 13.34186	 ... 
+68.60198	 14.11159	 -95.49528	 -4.57850	 -57.85118	 ... 
+15.04611	 -87.77935	 -47.50320	 -75.72770	 -66.23928	 ... 
+-29.08650	 -152.14366	 -211.95293	 -164.26799	 -91.29790	 ... 
+-78.64057	 -160.32464	 -135.93178	 -126.10553	 -75.33557	 ... 
+
+--------- FINDING INITIAL GUESS FOR GAUS2D FIT PARAMETERS ---------
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_smoothed.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_masked.ascii
+
+Center of mass results:  ci = 234.135,  cj = 343.945
+Conversion to unsigned int:  ci = 234,  cj = 344
+	Center found at ( 234, 344 ) = 1
+
+   Initial guess values:
+    ci = 234.00,  cj = 21.00,  wi1e = 344.00, wj1e = 38.00, peak = 728.90, offset = 0.10
+
+------------ CROPPING COLUMN DENSITY TO MINIMAL AREA------------
+    Determined ROI for minimal crop [129,154,210,358]
+
+Cropping image (512, 512) ==> ( 129:129+210, 154:154+358 )
+Cropping image (512, 512) ==> ( 129:129+210, 154:154+358 )
+Cropping image (512, 512) ==> ( 129:129+210, 154:154+358 )
+Cropping image (512, 512) ==> ( 129:129+210, 154:154+358 )
+    New matrix dimensions = 210, 358
+
+
+------------ FIT COLUMN DENSITY WITH 2D GAUSSIAN ------------
+
+
+------------ Fitting with 2D Gaussian ------------

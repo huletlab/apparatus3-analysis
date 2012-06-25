@@ -1,0 +1,430 @@
+
+
+   Andor magnification     = 3.2 um/pixel
+   Phase-contrast detuning = -33.8983 Gamma  = -200 MHz
+
+------------ Column Density Stats ------------
+
+----> Method used : phase contrast
+	s1=512, s2=512
+	alphastar = 1
+	max term1 = -4.76369e+07
+	max term2 = -4.76369e+07
+	max OD = 0.19457
+	max probe intensity = 6.21426 Isat 
+	max CD = 851.546
+	max scattered photons = 0
+	max number from scattered photons = 0
+	max rho_{ee} = 0
+	counts in atoms picture:     ( 1579.000000 to 9314.000000 )
+	counts in no atoms picture:  ( 1545.000000 to 9203.000000 )
+	total scattered photons = 0
+	total number from scattered photons = 0
+
+total number of photons in probe pulse = 1.66761e+10
+First few elements of column density matrix: 
+135.66687	 27.97693	 34.34044	 -60.62684	 13.34186	 ... 
+68.60198	 14.11159	 -95.49528	 -4.57850	 -57.85118	 ... 
+15.04611	 -87.77935	 -47.50320	 -75.72770	 -66.23928	 ... 
+-29.08650	 -152.14366	 -211.95293	 -164.26799	 -91.29790	 ... 
+-78.64057	 -160.32464	 -135.93178	 -126.10553	 -75.33557	 ... 
+
+------------ FINDING MOMENTS OF DISTRIBUTION ------------
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_smoothed.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_masked.ascii
+
+Center of mass results:  ci = 234.135,  cj = 343.945
+Conversion to unsigned int:  ci = 234,  cj = 344
+	Center found at ( 234, 344 ) = 1
+
+	Peak found at ( 233, 342 ) = 851.546
+    Results of Moments:
+    ci = 234,  cj = 344,  wi1e = 21, wj1e = 38
+
+------ CROPPING COLUMN DENSITY TO AREA DETERMINED FROM MOMENTS ------
+
+    Determined ROI for moments crop [129,154,210,358]
+
+Cropping image (512, 512) ==> ( 129:129+210, 154:154+358 )
+Cropping image (512, 512) ==> ( 129:129+210, 154:154+358 )
+Cropping image (512, 512) ==> ( 129:129+210, 154:154+358 )
+Cropping image (512, 512) ==> ( 129:129+210, 154:154+358 )
+    New matrix dimensions = 210, 358
+
+
+------------ FINDING MOMENTS OF DISTRIBUTION ------------
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_smoothed.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_masked.ascii
+
+Center of mass results:  ci = 105.066,  cj = 189.925
+Conversion to unsigned int:  ci = 105,  cj = 190
+	Center found at ( 105, 190 ) = 1
+
+	Peak found at ( 104, 188 ) = 851.546
+    Results of Moments:
+    ci = 105,  cj = 190,  wi1e = 20, wj1e = 37
+
+------------ FIT COLUMN DENSITY WITH 2D GAUSSIAN ------------
+
+
+
+------------ Fitting with 2D Gaussian ------------
+iter:   0 x =    105.00000000     20.00000000    190.00000000     37.00000000    851.54622709      0.10000000 |f(x)| = 19627.2
+status = success
+iter:   1 x =    105.18145990     23.06099361    189.51564974     40.99805199    679.48212615     40.73181178 |f(x)| = 15309.1
+status = success
+iter:   2 x =    105.29752085     23.32896075    189.52639158     41.23475119    700.81911388     40.46367386 |f(x)| = 15272.3
+status = success
+iter:   3 x =    105.29928547     23.29948954    189.52743627     41.19824116    701.38181656     40.48506695 |f(x)| = 15272.3
+status = success
+iter:   4 x =    105.29865381     23.30253461    189.52613696     41.20213280    701.31079068     40.48159859 |f(x)| = 15272.3
+status = success
+iter:   5 x =    105.29874248     23.30219211    189.52630146     41.20165673    701.31920636     40.48199991 |f(x)| = 15272.3
+chisq/dof = 3102.7
+cx     = 105.29874 +/- 0.04766
+wx     = 23.30219 +/- 0.06899
+cy     = 189.52630 +/- 0.08427
+wy     = 41.20166 +/- 0.12198
+A      = 701.31921 +/- 2.02847
+B      = 40.48200 +/- 0.22172
+status = success
+
+saving matrix to ASCII: 3195_gaus2ddat.ascii
+
+saving matrix to ASCII: 3195_gaus2dfit.ascii
+
+..............  GAUSSIAN 2D FIT RESULTS ..............
+ci     = 105.3 pixels
+wi     = 23.3 pixels
+cj     = 189.5 pixels
+wj     = 41.2 pixels
+peak   = 7.013e+02 
+offset = 4.048e+01 
+N from fit = 2.115e+06 
+--- coercing gsl_matrix index: 104 into 210
+--- coercing gsl_matrix index: 188 into 358
+ci = 104 ; cj = 188
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_column.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_column_scatt.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_probe.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_missing_counts.ascii
+
+------------ CROPPING COLUMN DENSITY TO MINIMAL AREA------------
+
+    Results of 2D Gaussian fit:
+    ci = 105.3,  cj = 189.5,  wi = 23.3, wj = 41.2
+    Determined ROI for minimal crop [23,45,163,288]
+
+Cropping image (210, 358) ==> ( 23:23+163, 45:45+288 )
+Cropping image (210, 358) ==> ( 23:23+163, 45:45+288 )
+Cropping image (210, 358) ==> ( 23:23+163, 45:45+288 )
+Cropping image (210, 358) ==> ( 23:23+163, 45:45+288 )
+    New matrix dimensions = 163, 288
+
+
+------------ FINDING MOMENTS OF DISTRIBUTION ------------
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_smoothed.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_masked.ascii
+
+Center of mass results:  ci = 82.0665,  cj = 144.925
+Conversion to unsigned int:  ci = 82,  cj = 145
+	Center found at ( 82, 145 ) = 1
+
+	Peak found at ( 81, 143 ) = 851.546
+    Results of Moments:
+    ci = 82,  cj = 145,  wi1e = 20, wj1e = 37
+
+------------ FIT COLUMN DENSITY WITH 2D GAUSSIAN ------------
+
+
+
+------------ Fitting with 2D Gaussian ------------
+iter:   0 x =     82.00000000     20.00000000    145.00000000     37.00000000    851.54622709      0.10000000 |f(x)| = 15854.5
+status = success
+iter:   1 x =     82.18145991     23.03050813    144.51564892     40.94164499    679.48221167     41.38081346 |f(x)| = 12046.1
+status = success
+iter:   2 x =     82.29681375     23.30149281    144.52463939     41.18383534    700.71737028     40.93850235 |f(x)| = 12000.6
+status = success
+iter:   3 x =     82.29869819     23.26961174    144.52594792     41.14352184    701.30898083     40.97935815 |f(x)| = 12000.6
+status = success
+iter:   4 x =     82.29801093     23.27323184    144.52452469     41.14827612    701.22914351     40.97231993 |f(x)| = 12000.6
+status = success
+iter:   5 x =     82.29811410     23.27278762    144.52471934     41.14765134    701.23941151     40.97320256 |f(x)| = 12000.6
+chisq/dof = 3068.17
+cx     = 82.29811 +/- 0.04740
+wx     = 23.27279 +/- 0.06986
+cy     = 144.52472 +/- 0.08380
+wy     = 41.14765 +/- 0.12352
+A      = 701.23941 +/- 2.01975
+B      = 40.97320 +/- 0.29646
+status = success
+
+saving matrix to ASCII: 3195_gaus2ddat.ascii
+
+saving matrix to ASCII: 3195_gaus2dfit.ascii
+
+..............  GAUSSIAN 2D FIT RESULTS ..............
+ci     = 82.3 pixels
+wi     = 23.3 pixels
+cj     = 144.5 pixels
+wj     = 41.1 pixels
+peak   = 7.012e+02 
+offset = 4.097e+01 
+N from fit = 2.110e+06 
+--- coercing gsl_matrix index: 81 into 163
+--- coercing gsl_matrix index: 143 into 288
+ci = 81 ; cj = 143
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_column.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_column_scatt.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_probe.ascii
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_missing_counts.ascii
+
+------------ FIT SCATTERED PHOTONS WITH 2D GAUSISAN ------------
+
+
+------------ Fitting with 2D Gaussian ------------
+iter:   0 x =     82.29811410     23.27278762    144.52471934     41.14765134      0.00000000      0.10000000 |f(x)| = 21.6666
+status = success
+iter:   1 x =     82.29811410     23.27278762    144.52471934     41.14765134      0.00000000     -0.00000000 |f(x)| = 9.01393e-15
+status = success
+iter:   2 x =     82.29811410     23.27278762    144.52471934     41.14765134      0.00000000     -0.00000000 |f(x)| = 1.33397e-30
+chisq/dof = 3.79113e-65
+cx     = 82.29811 +/- 6231337141310522515812130131804160.00000
+wx     = 23.27279 +/- 9184274808909623598440297596452864.00000
+cy     = 144.52472 +/- 11017368968301788750514849415430144.00000
+wy     = 41.14765 +/- 16238337397103948702287780558929920.00000
+A      = 0.00000 +/- 0.03646
+B      = -0.00000 +/- 0.00535
+status = success
+
+..............  SCATTERED PHOTONS 2D FIT RESULTS ..............
+ci     = 82.3 pixels
+wi     = 23.3 pixels
+cj     = 144.5 pixels
+wj     = 41.1 pixels
+peak   = 9.630e-35 
+ photonsoffset = -6.163e-33 
+N from scattered photons = 2.897e-31 
+
+------------ PRODUCE 1D CUTS FROM RESULTS OF 2D FITS ------------
+
+------------ FIT COLUMN DENSITY WITH 2D FERMI-DIRAC ------------
+ Nelder-Mead 2D Fermi fit started   ==>  BetaMu= -5.000
+   20  7.014e+02 -4.380e+00  2.329e+01  4.118e+01  8.230e+01  1.445e+02  4.092e+01 f() = 1.440e+08 size = 0.372
+   40  7.012e+02 -2.799e+00  2.345e+01  4.162e+01  8.228e+01  1.445e+02  4.069e+01 f() = 1.440e+08 size = 0.373
+   60  6.963e+02 -1.802e+00  2.397e+01  4.223e+01  8.222e+01  1.444e+02  4.195e+01 f() = 1.439e+08 size = 1.139
+   80  6.934e+02 -1.179e+00  2.439e+01  4.322e+01  8.231e+01  1.448e+02  4.181e+01 f() = 1.438e+08 size = 1.347
+  100  6.902e+02 -7.626e-01  2.474e+01  4.414e+01  8.235e+01  1.448e+02  4.223e+01 f() = 1.437e+08 size = 0.987
+  120  6.874e+02 -5.397e-01  2.517e+01  4.479e+01  8.238e+01  1.448e+02  4.224e+01 f() = 1.437e+08 size = 1.191
+  140  6.820e+02 -8.308e-02  2.613e+01  4.632e+01  8.246e+01  1.445e+02  4.172e+01 f() = 1.434e+08 size = 2.193
+  160  6.694e+02  6.444e-01  2.789e+01  4.902e+01  8.252e+01  1.443e+02  4.263e+01 f() = 1.433e+08 size = 2.796
+  180  6.653e+02  8.505e-01  2.855e+01  5.049e+01  8.258e+01  1.444e+02  4.154e+01 f() = 1.433e+08 size = 1.774
+  200  6.633e+02  9.490e-01  2.877e+01  5.096e+01  8.259e+01  1.444e+02  4.189e+01 f() = 1.433e+08 size = 1.061
+  220  6.635e+02  9.326e-01  2.873e+01  5.084e+01  8.258e+01  1.444e+02  4.195e+01 f() = 1.433e+08 size = 0.412
+  240  6.631e+02  9.538e-01  2.879e+01  5.093e+01  8.258e+01  1.445e+02  4.193e+01 f() = 1.433e+08 size = 0.359
+  260  6.623e+02  9.770e-01  2.889e+01  5.111e+01  8.258e+01  1.445e+02  4.199e+01 f() = 1.433e+08 size = 0.419
+  280  6.628e+02  9.460e-01  2.882e+01  5.110e+01  8.256e+01  1.445e+02  4.189e+01 f() = 1.433e+08 size = 0.840
+  300  6.630e+02  9.454e-01  2.879e+01  5.111e+01  8.254e+01  1.446e+02  4.177e+01 f() = 1.432e+08 size = 1.055
+  320  6.545e+02  1.348e+00  2.998e+01  5.306e+01  8.243e+01  1.444e+02  4.261e+01 f() = 1.432e+08 size = 1.841
+  340  6.554e+02  1.418e+00  3.001e+01  5.358e+01  8.222e+01  1.445e+02  4.168e+01 f() = 1.431e+08 size = 2.995
+  360  6.569e+02  1.338e+00  2.980e+01  5.295e+01  8.223e+01  1.445e+02  4.192e+01 f() = 1.431e+08 size = 1.058
+  380  6.575e+02  1.305e+00  2.970e+01  5.281e+01  8.224e+01  1.445e+02  4.191e+01 f() = 1.431e+08 size = 0.364
+  400  6.575e+02  1.314e+00  2.970e+01  5.285e+01  8.225e+01  1.445e+02  4.194e+01 f() = 1.431e+08 size = 0.184
+  420  6.580e+02  1.291e+00  2.962e+01  5.274e+01  8.225e+01  1.445e+02  4.194e+01 f() = 1.431e+08 size = 0.181
+  440  6.579e+02  1.301e+00  2.964e+01  5.280e+01  8.224e+01  1.445e+02  4.191e+01 f() = 1.431e+08 size = 0.112
+  460  6.578e+02  1.303e+00  2.966e+01  5.281e+01  8.225e+01  1.445e+02  4.191e+01 f() = 1.431e+08 size = 0.080
+  480  6.577e+02  1.302e+00  2.968e+01  5.279e+01  8.224e+01  1.445e+02  4.191e+01 f() = 1.431e+08 size = 0.101
+  500  6.578e+02  1.305e+00  2.973e+01  5.273e+01  8.223e+01  1.445e+02  4.188e+01 f() = 1.431e+08 size = 0.227
+  520  6.588e+02  1.290e+00  2.963e+01  5.263e+01  8.222e+01  1.445e+02  4.177e+01 f() = 1.431e+08 size = 0.514
+  540  6.604e+02  1.284e+00  2.956e+01  5.256e+01  8.221e+01  1.445e+02  4.143e+01 f() = 1.431e+08 size = 0.716
+  560  6.573e+02  1.575e+00  3.049e+01  5.400e+01  8.223e+01  1.445e+02  4.078e+01 f() = 1.430e+08 size = 1.188
+  580  6.586e+02  2.226e+00  3.228e+01  5.668e+01  8.197e+01  1.446e+02  4.114e+01 f() = 1.429e+08 size = 2.178
+  600  6.629e+02  2.516e+00  3.265e+01  5.790e+01  8.215e+01  1.445e+02  4.226e+01 f() = 1.427e+08 size = 2.600
+  620  6.618e+02  2.374e+00  3.229e+01  5.730e+01  8.230e+01  1.445e+02  4.256e+01 f() = 1.426e+08 size = 0.970
+  640  6.623e+02  2.417e+00  3.240e+01  5.745e+01  8.228e+01  1.445e+02  4.253e+01 f() = 1.426e+08 size = 0.303
+  660  6.625e+02  2.436e+00  3.244e+01  5.751e+01  8.228e+01  1.445e+02  4.256e+01 f() = 1.426e+08 size = 0.085
+  680  6.627e+02  2.430e+00  3.242e+01  5.746e+01  8.228e+01  1.445e+02  4.256e+01 f() = 1.426e+08 size = 0.067
+  700  6.623e+02  2.471e+00  3.250e+01  5.764e+01  8.228e+01  1.445e+02  4.262e+01 f() = 1.426e+08 size = 0.128
+  720  6.617e+02  2.481e+00  3.253e+01  5.769e+01  8.228e+01  1.445e+02  4.264e+01 f() = 1.426e+08 size = 0.122
+  740  6.617e+02  2.491e+00  3.256e+01  5.772e+01  8.228e+01  1.445e+02  4.267e+01 f() = 1.426e+08 size = 0.078
+  760  6.615e+02  2.513e+00  3.261e+01  5.780e+01  8.228e+01  1.446e+02  4.263e+01 f() = 1.426e+08 size = 0.116
+  780  6.615e+02  2.507e+00  3.261e+01  5.778e+01  8.228e+01  1.446e+02  4.262e+01 f() = 1.426e+08 size = 0.043
+ converged to minimum at 
+
+..............  FERMI 2D FIT RESULTS ..............
+n0     = 6.61e+02
+BetaMu = 2.51e+00 -->  f2(BetaMu) = 6.8498, T/TF = 0.29
+ri     = 32.6 pixels
+rj     = 57.8 pixels
+ci     = 82.3 pixels
+cj     = 144.6 pixels
+B      = 4.26e+01 
+fugacity   = 1.23e+01
+f(z)       = 2.80e+00
+T_2d_rd   = 0.31 uK
+T_2d_ax   = 2.91 uK
+TF     = 3.21 uK
+
+saving matrix to ASCII: 3195_fermi2ddat.ascii
+
+saving matrix to ASCII: 3195_fermi2dfit.ascii
+
+saving matrix to ASCII: 3195_gaus2dfit.ascii
+
+------------ PRODUCE 1D CUTS FROM RESULTS OF 2D FITS ------------
+
+------------ GET AZIMUTHAL AVERAGE OF CLOUD (ELLIPSE) ------------
+
+saving matrix to ASCII: /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_rho.ascii
+
+------------ FIT AZIMUTHAL AVERAGE WITH FERMI-DIRAC ------------
+   20  7.017e+02 -4.271e+00  4.069e+01  4.069e+01 -1.567e-02 f() = 1.863e+04 size = 0.22354
+   40  6.998e+02 -3.391e+00  4.107e+01  4.118e+01 -1.418e-02 f() = 1.790e+04 size = 0.53053
+   60  6.946e+02 -1.400e+00  4.234e+01  4.283e+01 -2.032e-02 f() = 1.654e+04 size = 0.90075
+   80  6.924e+02 -8.440e-01  4.317e+01  4.367e+01 -2.704e-02 f() = 1.613e+04 size = 0.51135
+  100  6.906e+02 -5.080e-01  4.398e+01  4.448e+01 -3.275e-02 f() = 1.572e+04 size = 0.51689
+  120  6.808e+02  8.416e-01  4.872e+01  4.854e+01 -6.873e-02 f() = 1.461e+04 size = 2.41344
+  140  6.790e+02  1.067e+00  4.967e+01  4.921e+01 -6.332e-02 f() = 1.436e+04 size = 1.43017
+  160  6.778e+02  1.214e+00  5.033e+01  4.962e+01 -6.649e-02 f() = 1.433e+04 size = 0.20161
+  180  6.782e+02  1.181e+00  5.023e+01  4.937e+01 -6.555e-02 f() = 1.432e+04 size = 0.23236
+  200  6.821e+02  9.877e-01  4.960e+01  4.563e+01 -4.415e-02 f() = 1.413e+04 size = 1.43630
+  220  6.834e+02  1.081e+00  5.016e+01  4.324e+01 -2.662e-02 f() = 1.402e+04 size = 0.86276
+  240  6.844e+02  1.037e+00  4.999e+01  4.229e+01 -1.827e-02 f() = 1.400e+04 size = 0.55660
+  260  6.844e+02  1.035e+00  4.995e+01  4.226e+01 -1.815e-02 f() = 1.400e+04 size = 0.10859
+  280  6.844e+02  1.028e+00  4.992e+01  4.235e+01 -1.873e-02 f() = 1.400e+04 size = 0.07781
+  300  6.842e+02  1.048e+00  5.000e+01  4.239e+01 -1.944e-02 f() = 1.400e+04 size = 0.13484
+  320  6.854e+02  8.976e-01  4.936e+01  4.175e+01 -1.659e-02 f() = 1.397e+04 size = 0.50501
+  340  6.854e+02  5.664e-01  4.801e+01  4.095e+01 -1.143e-02 f() = 1.352e+04 size = 1.06791
+  360  6.743e+02  8.227e-01  4.933e+01  4.415e+01 -3.544e-02 f() = 1.284e+04 size = 1.86223
+  380  6.754e+02  8.523e-01  4.951e+01  4.324e+01 -2.618e-02 f() = 1.279e+04 size = 0.94032
+  400  6.762e+02  8.426e-01  4.948e+01  4.257e+01 -2.148e-02 f() = 1.278e+04 size = 0.12687
+  420  6.763e+02  8.351e-01  4.943e+01  4.265e+01 -2.180e-02 f() = 1.278e+04 size = 0.05190
+  440  6.762e+02  8.408e-01  4.946e+01  4.271e+01 -2.219e-02 f() = 1.278e+04 size = 0.01154
+  460  6.762e+02  8.414e-01  4.946e+01  4.270e+01 -2.210e-02 f() = 1.278e+04 size = 0.00473
+  480  6.762e+02  8.416e-01  4.946e+01  4.270e+01 -2.209e-02 f() = 1.278e+04 size = 0.00063
+  500  6.762e+02  8.416e-01  4.946e+01  4.270e+01 -2.209e-02 f() = 1.278e+04 size = 0.00009
+  520  6.762e+02  8.416e-01  4.946e+01  4.270e+01 -2.209e-02 f() = 1.278e+04 size = 0.00002
+  540  6.762e+02  8.416e-01  4.946e+01  4.270e+01 -2.209e-02 f() = 1.278e+04 size = 0.00001
+ converged to minimum at 
+
+---------- FIT AZIMUTHAL AVERAGE WITH T=0 FERMI-DIRAC -----------
+   20  6.664e+02  7.046e+01  4.448e+01 -1.167e-01 f() = 6.728e+04 size = 5.19119
+   40  6.677e+02  6.870e+01  4.443e+01 -2.026e-02 f() = 4.379e+04 size = 0.17454
+   60  6.665e+02  6.874e+01  4.576e+01 -2.521e-02 f() = 4.328e+04 size = 0.41669
+   80  6.430e+02  6.708e+01  7.272e+01 -2.134e-01 f() = 3.722e+04 size = 3.26248
+  100  6.446e+02  6.699e+01  7.088e+01 -1.999e-01 f() = 3.711e+04 size = 0.55559
+  120  6.445e+02  6.747e+01  6.712e+01 -1.626e-01 f() = 3.611e+04 size = 1.35012
+  140  6.309e+02  6.786e+01  7.028e+01 -1.979e-01 f() = 3.377e+04 size = 2.21624
+  160  6.312e+02  6.786e+01  7.012e+01 -1.941e-01 f() = 3.375e+04 size = 0.09370
+  180  6.312e+02  6.785e+01  7.009e+01 -1.938e-01 f() = 3.375e+04 size = 0.00809
+  200  6.312e+02  6.785e+01  7.009e+01 -1.938e-01 f() = 3.375e+04 size = 0.00077
+  220  6.312e+02  6.785e+01  7.009e+01 -1.938e-01 f() = 3.375e+04 size = 0.00005
+  240  6.312e+02  6.785e+01  7.009e+01 -1.938e-01 f() = 3.375e+04 size = 0.00001
+ converged to minimum at 
+
+..............  FERMI AZIMUTHAL FIT RESULTS ..............
+n0         = 6.76e+02
+BetaMu     = 8.42e-01 -->  f2(BetaMu) = 1.8940, T/TF = 0.45
+r          = 49.5 pixels
+r (zero T) = 67.9 pixels
+offset     = 42.7 pixels
+mx         = -0.0 pixels
+fugacity   = 2.32e+00
+f(z) = 1.72e+00
+T_az = 1.15 uK
+TF   = 3.21 uK
+
+----------- COMPUTE INTEGRATED 1D DENSITY ------------
+
+
+------------- FIT INTEGRATED 1D WITH GAUSSIAN  --------------
+iter:   0 x =     82.29811410     23.27278762  67878.64155736      0.10000000  |f(x)| = 114530
+status = success
+iter:   1 x =     82.44181225     22.57356645  55809.28525746  11135.48416350  |f(x)| = 28463.2
+status = success
+iter:   2 x =     82.44296652     22.49192752  55812.59266284  11092.45321708  |f(x)| = 28431.5
+status = success
+iter:   3 x =     82.43993256     22.49760327  55809.68266757  11089.72329115  |f(x)| = 28431.5
+status = success
+iter:   4 x =     82.44014217     22.49691738  55810.08619784  11090.04099110  |f(x)| = 28431.5
+chisq/dof = 5.08396e+06
+cx     = 82.44014 +/- 0.17117
+wx     = 22.49692 +/- 0.28225
+A      = 55810.08620 +/- 550.34797
+B      = 11090.04099 +/- 254.62685
+status = success
+iter:   0 x =    144.52471934     41.14765134  36931.57370630      0.10000000  |f(x)| = 100280
+status = success
+iter:   1 x =    144.13671237     38.92548917  28757.91948925   7226.27700418  |f(x)| = 36053.2
+status = success
+iter:   2 x =    143.93898697     38.57210578  28788.09263571   7169.81557699  |f(x)| = 35970.7
+status = success
+iter:   3 x =    143.92314367     38.58895524  28786.97880316   7167.16040101  |f(x)| = 35970.5
+status = success
+iter:   4 x =    143.92395462     38.58491731  28787.72959094   7167.69759032  |f(x)| = 35970.5
+status = success
+iter:   5 x =    143.92375937     38.58549796  28787.62269650   7167.62011823  |f(x)| = 35970.5
+chisq/dof = 4.55592e+06
+cx     = 143.92376 +/- 0.41140
+wx     = 38.58550 +/- 0.67308
+A      = 28787.62270 +/- 396.55013
+B      = 7167.62012 +/- 178.54143
+status = success
+
+----------- FIT INTEGRATED 1D WITH FERMI-DIRAC  ------------
+
+---> Finished _0 axis
+
+
+------------ INTEGRATED 1D GAUS FIT RESULTS ------------
+
+_0 Profile:
+c_ref = (152,199)
+	c_rd = 82.4
+	w_rd = 22.50
+	A_rd = 5.581e+04
+	B_rd = 1.109e+04
+
+_1 Profile:
+	c_ax = 143.9
+	w_ax = 38.59
+	A_ax = 2.879e+04
+	B_ax = 7.168e+03
+
+----------------- MAKE PLOTS ----------------
+
+---> Filling in arrays for results of integrated 1D fit along _0
+---> Filling in arrays for results of integrated 1D fit along _1
+
+---> Filling in arrays for results of azimuthal and 2D fits
+
+---> Saving all arrays to dat file
+
+---> Producing plots with GNUPLOT
+
+---> Running script for 1D .png plot:
+	gnuplot /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_1d.gpl
+
+---> Running script for 1D MISSING COUNTS .png plot:
+	gnuplot /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_missing_counts_1d.gpl
+
+---> Running script for AZIMUTHAL .png plot:
+	gnuplot /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_azimuthal.gpl
+
+---> Running script for AZIMUTHAL NO CUTS .png plot:
+	gnuplot /lab/software/apparatus3/cpp/examples/phase-contrast_0.3TF/3195_azimuthal_nocuts.gpl
+3195  N = 2.11e+06, Ph = 1.67e+10, n = 5.19e+11, ax0w = 74.5 +/- 0.2, c = (234,344), Imax = 6.21, PHImax = 0.174, CDmax = 851.5, T/TF_2d = 0.29, z = 12.32, f(z) = 2.80, T/TF_az = 0.45, z = 2.32, f(z) = 1.72

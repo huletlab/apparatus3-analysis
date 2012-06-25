@@ -74,7 +74,7 @@ main (int argc, char **argv)
   setINI_num (p.reportfile, "CPP", "ax1c", f->abs_cj);
   setINI_num (p.reportfile, "CPP", "TF", f->TF);
   setINI_num (p.reportfile, "CPP", "ph_per_at", f->Tsp / f->nfit);
-  setINI_num (p.reportfile, "CPP", "peak_cd", f->peak);
+  setINI_num (p.reportfile, "CPP", "peak_cd", f->gaus2dfit[4]);
   setINI_num (p.reportfile, "CPP", "photons_in_pulse", f->Tp0);
   setINI_num (p.reportfile, "CPP", "alphastar", p.alphastar);
 

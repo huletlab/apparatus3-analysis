@@ -240,8 +240,6 @@ public:
   double T_rd, T_ax, T_2d_rd, T_2d_ax, T_az;	// T for various Fermi fits obtained from cloud size
 
 
-  double offset, peak;
-  //double  ci_, cj_, wi_1e, wj_1e;     // 2D Gauss parameters
   double n0, BetaMu, cj_Fermi, rj_Fermi, ci_Fermi, ri_Fermi, B_Fermi, Fugacity_Fermi, f_Fermi;	// 2D Fermi parameters 
   double n0_az, BetaMu_az, r_az, B_az, mx_az, Fugacity_az, f_az;	// Azimuthal Fermi parameters
   double n0_az_zeroT, r_az_zeroT, B_az_zeroT, mx_az_zeroT;	// Azimuthal Zero T Fermi parameters
@@ -1087,13 +1085,22 @@ Fermions::Fit2DFermi ()
       "------------ FIT COLUMN DENSITY WITH 2D FERMI-DIRAC ------------" <<
       endl;
 
-  fermi2dfit[0] = peak;
+  fermi2dfit[0] = gaus2dfit[4];
   fermi2dfit[1] = -5.0;
   fermi2dfit[2] = gaus2dfit[1];
   fermi2dfit[3] = gaus2dfit[3];
   fermi2dfit[4] = gaus2dfit[0];
   fermi2dfit[5] = gaus2dfit[2];
-  fermi2dfit[6] = offset;
+  fermi2dfit[6] = gaus2dfit[5];
+
+  if (VERBOSE)
+    {
+      printf ("Starting fit values:\n");
+      for (int e = 0; e < 7; e++)
+	{
+	  printf (" fermi2dfit[%d] = %f\n", e, fermi2dfit[e]);
+	}
+    }
 
   //override so that it doesn't take forever
 /*  fermi2dfit[0] = 1.63e+02;
@@ -1456,11 +1463,11 @@ Fermions::FitAzimuthalFermi ()
       endl;
 
   /********************************* Finite temperature azimuthal fit ***/
-  fermi_azimuth_fit[0] = peak;
+  fermi_azimuth_fit[0] = gaus2dfit[4];
   fermi_azimuth_fit[1] = -5.0;
   //fermi_azimuth_fit[2] = pow(wi_1e*wj_1e,0.5); 
   fermi_azimuth_fit[2] = gaus2dfit[3];
-  fermi_azimuth_fit[3] = offset;
+  fermi_azimuth_fit[3] = gaus2dfit[5];
   fermi_azimuth_fit[4] = 0.1;
 
   gsl_vector *azimuthal_[2] = { azimuthal_r, azimuthal_dat };
@@ -1677,8 +1684,9 @@ Fermions::MakePlots ()
 
 
       model_gauss =
-	offset +
-	peak * exp (-1. * pow (r, 2) / (p->AR * gaus2dfit[1] * gaus2dfit[3]));
+	gaus2dfit[5] +
+	gaus2dfit[4] * exp (-1. * pow (r, 2) /
+			    (p->AR * gaus2dfit[1] * gaus2dfit[3]));
 
 
 
