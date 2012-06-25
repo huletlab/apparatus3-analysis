@@ -1,113 +1,203 @@
 /*
  * Project:  This file defines various functions to fit data to a 2D Gaussian
- *           Several methods are implemented, see the function prototypes for
- *           a list 
  *
  * Author:   Pedro M Duarte 2011-01
  * 
  */
 
-#include <iostream>
-#include <math.h>
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_multifit_nlin.h>
-#include <gsl/gsl_multimin.h>
 
+#include "fits/fits.h"
 
 extern bool VERBOSE;
 using namespace std;
 
-//  Fitting methods:
-void fit2dgaus_neldermead (gsl_matrix *m, double *fit);
-void fit2dgaus( gsl_matrix * m, double *fit);
-void fit2dgaus_err( gsl_matrix * m, double *fit, double *err);
-void fit2dgaus_no_offset( gsl_matrix * m, double *fit);
 
 // Shorthand syntax for getting fit results and fit errors
 #define FIT(i) gsl_vector_get( s->x , i)
 #define ERR(i) sqrt(gsl_matrix_get(covar,i,i))
 
+
+/* High level 2DGaussian fits
+ *
+ */
+void
+Fit2DGaus_High_Level (gsl_matrix * m, double *fit, double *fit_err,
+		      string prefix)
+{
+  Gaus2DGuess (m, fit, prefix, true);
+
+  if (VERBOSE)
+    cout << endl << "------------ Fitting with 2D Gaussian ------------" <<
+      endl;
+  fit2dgaus_err (m, fit, fit_err);
+  if (VERBOSE)
+    cout << endl;
+
+  fit[1] = fabs (fit[1]);
+  fit[3] = fabs (fit[3]);
+  make_gaus2d_inspect (m, fit, prefix.c_str ());
+
+  return;
+}
+
+
+void
+Gaus2DGuess (gsl_matrix * m, double *guess, string prefix, bool save_matrices)
+{
+
+  if (VERBOSE)
+    cout << endl <<
+      "--------- FINDING INITIAL GUESS FOR GAUS2D FIT PARAMETERS ---------" <<
+      endl;
+
+  unsigned int SMOOTH_BINS = 3;
+  gsl_matrix *smoothed = smooth (m, SMOOTH_BINS);
+  double MASK_FACTOR = 0.33;
+  gsl_matrix *masked = mask (smoothed, MASK_FACTOR);
+
+  if (save_matrices)
+    {
+
+      char base[MAXPATHLEN];
+      getcwd (base, MAXPATHLEN);
+
+      string smoothed_path = makepath (base, prefix, "_smoothed.TIFF");
+      string smoothed_ascii_path = makepath (base, prefix, "_smoothed.ascii");
+      toTiffImage (smoothed, smoothed_path);
+      save_gsl_matrix_ASCII (smoothed, smoothed_ascii_path);
+
+      string masked_path = makepath (base, prefix, "_masked.TIFF");
+      string masked_ascii_path = makepath (base, prefix, "_masked.ascii");
+      toTiffImage (masked, masked_path);
+      save_gsl_matrix_ASCII (masked, masked_ascii_path);
+
+    }
+
+  unsigned int ci, cj, wi1e, wj1e;
+  double peak;
+  //findcenter (smoothed, &ci, &cj, &peak);
+  findmoments (masked, &ci, &cj, &peak, &wi1e, &wj1e);
+  peak = gsl_matrix_get (smoothed, ci, cj);
+  guess[0] = (double) ci;
+  guess[2] = (double) cj;
+  guess[1] = (double) wi1e;
+  guess[3] = (double) wj1e;
+  guess[4] = peak;
+  guess[5] = 0.1;
+
+  gsl_matrix_free (smoothed);
+  gsl_matrix_free (masked);
+
+  if (VERBOSE)
+    {
+      printf ("\n   Initial guess values:\n");
+      printf
+	("    ci = %.2f,  cj = %.2f,  wi1e = %.2f, wj1e = %.2f, peak = %.2f, offset = %.2f\n",
+	 guess[0], guess[1], guess[2], guess[3], guess[4], guess[5]);
+    }
+  return;
+}
+
+
 /* Model to evaluate the 2D Gaussian
  *
  */
-double gaus2d_model( double i, double j, const gsl_vector *v){
+double
+gaus2d_model (double i, double j, const gsl_vector * v)
+{
   // In this model width is 1/e
   double cx = gsl_vector_get (v, 0);
   double wx = gsl_vector_get (v, 1);
   double cy = gsl_vector_get (v, 2);
   double wy = gsl_vector_get (v, 3);
   double A = gsl_vector_get (v, 4);
-  double B; 
-  if ( v->size == 6 ) B=gsl_vector_get (v, 5);
-  else if ( v->size == 5) B=0.; 
-  else { printf(" ERROR --> Number of parameters in gaus2d model is invalid "); exit(1); } 
-  
-  return    B +
-	    A * exp (-1.* (pow ((i - cx) / wx, 2.) + pow ((j - cy) / wy, 2.)));
+  double B;
+  if (v->size == 6)
+    B = gsl_vector_get (v, 5);
+  else if (v->size == 5)
+    B = 0.;
+  else
+    {
+      printf (" ERROR --> Number of parameters in gaus2d model is invalid ");
+      exit (1);
+    }
+
+  return B +
+    A * exp (-1. * (pow ((i - cx) / wx, 2.) + pow ((j - cy) / wy, 2.)));
 }
 
 /* Matrix data with 2D Gaussian evaluation
  *
  */
-gsl_matrix *gaus2d_eval( const gsl_matrix  *d, const double gaus_fit[6], const bool offset = true){
-  gsl_matrix *eval = gsl_matrix_alloc( d->size1, d->size2 ) ; 
-  int nparams = offset==true ? 6 :5;
-   
-  gsl_vector *v = gsl_vector_alloc( nparams );
+gsl_matrix *
+gaus2d_eval (const gsl_matrix * d, const double gaus_fit[6],
+	     const bool offset)
+{
+  gsl_matrix *eval = gsl_matrix_alloc (d->size1, d->size2);
+  int nparams = offset == true ? 6 : 5;
+
+  gsl_vector *v = gsl_vector_alloc (nparams);
 //  fprintf( stderr, "\nEvaulating 2D Gaussian fit results. nparams=%d\n",nparams);  
-  for ( int e=0; e < nparams; e++){
-  gsl_vector_set(v, e, gaus_fit[e] ) ; 
+  for (int e = 0; e < nparams; e++)
+    {
+      gsl_vector_set (v, e, gaus_fit[e]);
 //  fprintf( stderr, "gaus2d_fit[%d] = %f\n", e, gaus_fit[e]); 
-    }  
-  
-  for (unsigned int i =0; i< d->size1; i++)
-   { 
-     for ( unsigned int j=0; j<d->size2; j++)
-     {
-       gsl_matrix_set( eval, i, j, gaus2d_model( i, j, v )); 
     }
-  }
-  return eval; 
+
+  for (unsigned int i = 0; i < d->size1; i++)
+    {
+      for (unsigned int j = 0; j < d->size2; j++)
+	{
+	  gsl_matrix_set (eval, i, j, gaus2d_model (i, j, v));
+	}
+    }
+  return eval;
 }
 
 
 /* Matrix data with residuals
  *
  */
-gsl_matrix *gaus2d_residual( const gsl_matrix  *d, const double gaus_fit[6], const bool offset = true){
-  gsl_matrix *residual = gsl_matrix_alloc( d->size1, d->size2 ) ; 
-  int nparams = offset==true ? 6 :5;
-   
-  gsl_vector *v = gsl_vector_alloc( nparams );
+gsl_matrix *
+gaus2d_residual (const gsl_matrix * d, const double gaus_fit[6],
+		 const bool offset)
+{
+  gsl_matrix *residual = gsl_matrix_alloc (d->size1, d->size2);
+  int nparams = offset == true ? 6 : 5;
+
+  gsl_vector *v = gsl_vector_alloc (nparams);
 //  fprintf( stderr, "\nEvaulating 2D Gaussian fit results. nparams=%d\n",nparams);  
-  for ( int e=0; e < nparams; e++){
-  gsl_vector_set(v, e, gaus_fit[e] ) ; 
+  for (int e = 0; e < nparams; e++)
+    {
+      gsl_vector_set (v, e, gaus_fit[e]);
 //  fprintf( stderr, "gaus2d_fit[%d] = %f\n", e, gaus_fit[e]); 
-    }  
-  
-  for (unsigned int i =0; i< d->size1; i++)
-   { 
-     for ( unsigned int j=0; j<d->size2; j++)
-     {
-       gsl_matrix_set( residual, i, j,  gsl_matrix_get( d, i, j) - gaus2d_model( i, j, v )); 
     }
-  }
-  return residual; 
+
+  for (unsigned int i = 0; i < d->size1; i++)
+    {
+      for (unsigned int j = 0; j < d->size2; j++)
+	{
+	  gsl_matrix_set (residual, i, j,
+			  gsl_matrix_get (d, i, j) - gaus2d_model (i, j, v));
+	}
+    }
+  return residual;
 }
 
 
-void make_gaus2d_inspect( gsl_matrix *c, const double gaus2d_fit[6], const char *prefix){
+void
+make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
+		     const char *prefix)
+{
   string datfile (prefix);
-  datfile += "_gaus2ddat.ascii"; 
-  string fitfile (prefix); 
+  datfile += "_gaus2ddat.ascii";
+  string fitfile (prefix);
   fitfile += "_gaus2dfit.ascii";
- 
-  save_gsl_matrix_ASCII ( c , datfile);  
+
+  save_gsl_matrix_ASCII (c, datfile);
   gsl_matrix *fit2d = gaus2d_eval (c, gaus2d_fit);
   save_gsl_matrix_ASCII (fit2d, fitfile);
- 
+
   stringstream inspectstr;
   inspectstr << "inspect2d_ascii.py ";
   inspectstr << datfile;
@@ -123,16 +213,16 @@ void make_gaus2d_inspect( gsl_matrix *c, const double gaus2d_fit[6], const char 
   //cerr << endl << inspectstr.str () << endl;
   system (inspectstr.str ().c_str ());
 
-  remove ( datfile.c_str());
-  remove ( fitfile.c_str());
-  return; 
-} 
- 
+  remove (datfile.c_str ());
+  remove (fitfile.c_str ());
+  return;
+}
+
 
 /* Error function used in the implementation of the Nelder-Mead
  * fitting algorithm.
  *
- */ 
+ */
 double
 gaus2d_simplex_f (const gsl_vector * v, void *params)
 {
@@ -145,7 +235,7 @@ gaus2d_simplex_f (const gsl_vector * v, void *params)
     {
       for (unsigned int j = 0; j < s2; j++)
 	{
-	  double model = gaus2d_model( (double) i, (double) j, v); 
+	  double model = gaus2d_model ((double) i, (double) j, v);
 	  double dat = gsl_matrix_get ((gsl_matrix *) params, i, j);
 	  sumsq += pow (model - dat, 2);
 	}
@@ -157,7 +247,7 @@ gaus2d_simplex_f (const gsl_vector * v, void *params)
 /* Error function used in the implementation of the Nelder-Mead
  * fitting algorithm with no offset
  * 
- */ 
+ */
 double
 gaus2d_no_offset_simplex_f (const gsl_vector * v, void *params)
 {
@@ -170,7 +260,7 @@ gaus2d_no_offset_simplex_f (const gsl_vector * v, void *params)
     {
       for (unsigned int j = 0; j < s2; j++)
 	{
-	  double model = gaus2d_model( (double) i, (double) j, v); 
+	  double model = gaus2d_model ((double) i, (double) j, v);
 	  double dat = gsl_matrix_get ((gsl_matrix *) params, i, j);
 	  sumsq += pow (model - dat, 2);
 	}
@@ -262,7 +352,7 @@ fit2dgaus_no_offset (gsl_matrix * m, double *fit)
 
 /* Nelder-Mead algorithm
  * 
- */ 
+ */
 void
 fit2dgaus_neldermead (gsl_matrix * m, double *fit)
 {
@@ -350,7 +440,7 @@ fit2dgaus_neldermead (gsl_matrix * m, double *fit)
  * algorithm
  * See fit2dgaus
  *
- */ 
+ */
 
 int
 gaus2d_f (const gsl_vector * x, void *data, gsl_vector * f)
@@ -365,7 +455,7 @@ gaus2d_f (const gsl_vector * x, void *data, gsl_vector * f)
     {
       for (unsigned int j = 0; j < s2; j++)
 	{
-	  double model = gaus2d_model( (double) i, (double) j, x); 
+	  double model = gaus2d_model ((double) i, (double) j, x);
 	  double dat = gsl_matrix_get ((gsl_matrix *) data, i, j);
 	  gsl_vector_set (f, ii, (model - dat));
 	  ii++;
@@ -425,7 +515,7 @@ gaus2d_df (const gsl_vector * x, void *data, gsl_matrix * J)
  * Levenberg-Marquardt algorithm. 
  * See fit2dgaus
  *
- */ 
+ */
 int
 gaus2d_fdf (const gsl_vector * x, void *data, gsl_vector * f, gsl_matrix * J)
 {
@@ -461,7 +551,7 @@ print_state (size_t iter, gsl_multifit_fdfsolver * s)
 
 /* Levenberg-Marquardt fitting algorithm
  * 
- */ 
+ */
 void
 fit2dgaus (gsl_matrix * m, double *fit)
 {
@@ -562,7 +652,7 @@ fit2dgaus (gsl_matrix * m, double *fit)
 /* Levenberg-Marquardt fitting algorithm
  * This one also returns the fit errors
  * 
- */ 
+ */
 void
 fit2dgaus_err (gsl_matrix * m, double *fit, double *err)
 {

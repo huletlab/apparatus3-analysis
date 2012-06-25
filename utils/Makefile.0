@@ -16,8 +16,18 @@ LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RU
 
 objs = testutils.o APP3-CPP/qini/qini_utils.o 
 
-testutils: testutils.o APP3-CPP/qini/qini_utils.o
+testutils: testutils.o APP3-CPP/qini/qini_utils.o utils.a
 	g++ $^ ${LFLAGS} -o testutils
+
+utils.a:
+	indent utils.h
+	indent fileutils.cpp 
+	indent readwrite.cpp
+	indent matrices.cpp
+	indent crop.cpp
+	g++ -c ${CFLAGS} fileutils.cpp readwrite.cpp matrices.cpp crop.cpp  
+	ar rcs utils.a fileutils.o readwrite.o matrices.o crop.o 
+	rm fileutils.o readwrite.o matrices.o crop.o 
 
 clean:
 	rm -f *.o

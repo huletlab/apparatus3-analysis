@@ -8,13 +8,9 @@
  */
 
 #include "utils/utils.h"
-#include "utils/readwrite.h"
-#include "utils/matrices.h"
-#include "utils/crop.h"
 #include "funcs/funcs.h"
-#include "fits/gaus1d.h"
-#include "fits/gaus2d.h"
-#include "fits/fermi2d.h"
+#include "fits/fits.h"
+
 #include "vt100_macros.h"
 #include <getopt.h>
 #include <time.h>

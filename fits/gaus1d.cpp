@@ -1,7 +1,5 @@
 /*
  * Project:  This file defines various functions to fit data to a 1D Gaussian
- *           Several methods are implemented,  see the function prototypes for 
- *           a list.  
  *           
  *
  * Author:   Pedro M Duarte 2011-01
@@ -9,31 +7,20 @@
  */
 
 
-#include <iostream>
-#include <math.h>
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_multifit_nlin.h>
-#include <gsl/gsl_multimin.h>
+
+#include "fits/fits.h"
 
 extern bool VERBOSE;
 using namespace std;
 
 
-// Fitting methods
-void fit1dgaus_neldermead (gsl_vector *m, double *fit);
-void fit1dgaus( gsl_vector * m, double *fit);
-
-// Shorthand syntax for getting fit results and fit errors. 
-#define FIT(i) gsl_vector_get( s->x , i)
-#define ERR(i) sqrt(gsl_matrix_get(covar,i,i))
-
 
 /* Model to evaluate the 1D Gaussian
  *
  */
-double gaus1d_model( double x, const  gsl_vector *v){
+double
+gaus1d_model (double x, const gsl_vector * v)
+{
   // In this model width is 1/e 
   // The model parameters are 
 //  double cx = gsl_vector_get (v, 0);
@@ -42,7 +29,15 @@ double gaus1d_model( double x, const  gsl_vector *v){
 //  double B = gsl_vector_get (v, 3);
 
 //  return B + A * exp ( -1.0 * ( pow (( x - cx) / wx, 2) ));
-  return gsl_vector_get(v,3) + gsl_vector_get(v,2) * exp ( -1.0 * ( pow (( x - gsl_vector_get(v,0) ) / gsl_vector_get(v,1), 2) ) );  
+  return gsl_vector_get (v, 3) + gsl_vector_get (v,
+						 2) * exp (-1.0 *
+							   (pow
+							    ((x -
+							      gsl_vector_get
+							      (v,
+							       0)) /
+							     gsl_vector_get
+							     (v, 1), 2)));
 }
 
 
@@ -52,26 +47,30 @@ double gaus1d_model( double x, const  gsl_vector *v){
  * vector has the same length
  *
  */
-gsl_vector *gaus1d_eval(const gsl_vector *d, const double gaus_fit[4]){
-  gsl_vector *eval = gsl_vector_alloc( d->size); 
+gsl_vector *
+gaus1d_eval (const gsl_vector * d, const double gaus_fit[4])
+{
+  gsl_vector *eval = gsl_vector_alloc (d->size);
   int nparams = 4;
-  gsl_vector *v = gsl_vector_alloc( nparams); 
-  for ( int e=0; e<nparams; e++){
-    gsl_vector_set(v, e, gaus_fit[e]);
-  } 
-  for ( unsigned int i =0;  i < v->size ; i++){
-    gsl_vector_set( eval, i, gaus1d_model( i, v));
-  }
+  gsl_vector *v = gsl_vector_alloc (nparams);
+  for (int e = 0; e < nparams; e++)
+    {
+      gsl_vector_set (v, e, gaus_fit[e]);
+    }
+  for (unsigned int i = 0; i < v->size; i++)
+    {
+      gsl_vector_set (eval, i, gaus1d_model (i, v));
+    }
   return eval;
 }
 
-   
+
 
 /* Error function used in the implementation of the Nelder-Mead
    fitting algorithm.
    See fit1dgaus_neldermead   
  *
- */ 
+ */
 double
 gaus1d_simplex_f (const gsl_vector * v, void *params)
 {
@@ -80,9 +79,9 @@ gaus1d_simplex_f (const gsl_vector * v, void *params)
 
   for (unsigned int i = 0; i < s1; i++)
     {
-	  double model = gaus1d_model( i, v) ;
-	  double dat = gsl_vector_get ((gsl_vector *) params, i);
-	  sumsq += pow (model - dat, 2);
+      double model = gaus1d_model (i, v);
+      double dat = gsl_vector_get ((gsl_vector *) params, i);
+      sumsq += pow (model - dat, 2);
     }
 
   return sumsq;
@@ -91,7 +90,7 @@ gaus1d_simplex_f (const gsl_vector * v, void *params)
 
 /* Nelder-Mead fitting algorithm
  *
- */ 
+ */
 void
 fit1dgaus_neldermead (gsl_vector * m, double *fit)
 {
@@ -182,10 +181,10 @@ gaus1d_f (const gsl_vector * x, void *data, gsl_vector * f)
 
   for (unsigned int i = 0; i < s1; i++)
     {
-	  double model = gaus1d_model( i, x) ;
-	  double dat = gsl_vector_get ((gsl_vector *) data, i);
-	  gsl_vector_set (f, ii, model - dat);
-	  ii++;
+      double model = gaus1d_model (i, x);
+      double dat = gsl_vector_get ((gsl_vector *) data, i);
+      gsl_vector_set (f, ii, model - dat);
+      ii++;
     }
 
   return GSL_SUCCESS;
@@ -213,18 +212,18 @@ gaus1d_df (const gsl_vector * x, void *data, gsl_matrix * J)
 
   for (unsigned int i = 0; i < s1; i++)
     {
-	  double E =  exp (-1.0 * (pow ((i - cx) / wx, 2) ));
-	  double df_dcx = A * E * 2. * (i - cx) / pow (wx, 2);
-	  double df_dwx = A * E * pow (i - cx, 2) * 2.0 / pow (wx, 3);
-	  double df_dA = E;
-	  double df_dB = 1;
+      double E = exp (-1.0 * (pow ((i - cx) / wx, 2)));
+      double df_dcx = A * E * 2. * (i - cx) / pow (wx, 2);
+      double df_dwx = A * E * pow (i - cx, 2) * 2.0 / pow (wx, 3);
+      double df_dA = E;
+      double df_dB = 1;
 
-	  gsl_matrix_set (J, ii, 0, df_dcx);
-	  gsl_matrix_set (J, ii, 1, df_dwx);
-	  gsl_matrix_set (J, ii, 2, df_dA);
-	  gsl_matrix_set (J, ii, 3, df_dB);
+      gsl_matrix_set (J, ii, 0, df_dcx);
+      gsl_matrix_set (J, ii, 1, df_dwx);
+      gsl_matrix_set (J, ii, 2, df_dA);
+      gsl_matrix_set (J, ii, 3, df_dB);
 
-	  ii++;
+      ii++;
     }
   return GSL_SUCCESS;
 }
@@ -234,7 +233,7 @@ gaus1d_df (const gsl_vector * x, void *data, gsl_matrix * J)
  * Levenberg-Marquardt algorithm. 
  * See fit1dgaus
  *
- */ 
+ */
 int
 gaus1d_fdf (const gsl_vector * x, void *data, gsl_vector * f, gsl_matrix * J)
 {
@@ -267,7 +266,7 @@ print_state_1d (size_t iter, gsl_multifit_fdfsolver * s)
 
 /* Levenberg-Marquardt fitting algorithm
  * 
- */ 
+ */
 void
 fit1dgaus (gsl_vector * m, double *fit)
 {

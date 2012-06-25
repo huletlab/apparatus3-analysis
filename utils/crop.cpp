@@ -7,16 +7,9 @@
  * 
  */
 
+#include "utils/utils.h"
+
 extern bool VERBOSE;
-
-
-/***** Function prototypes *****/
-
-
-gsl_matrix * autocropImage(gsl_matrix * raw, double nFWHM); 
-gsl_matrix * cropImage_ROI( unsigned int roi[], gsl_matrix * raw);
-gsl_matrix * cropImage( string & reportfile, gsl_matrix * raw);
-
 
 
 /***** Function code *****/

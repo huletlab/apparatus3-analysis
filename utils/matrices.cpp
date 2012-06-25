@@ -6,26 +6,11 @@
  * 
  */
 
+#include "utils/utils.h"
 
 extern bool VERBOSE;
 
-/***** Function prototypes *****/
 
-
-void getmaxRowCol(gsl_matrix *m, gsl_vector * max_row, gsl_vector * max_col); 
-void findpeak( gsl_matrix *m, unsigned int * i_max_ptr, unsigned int * j_max_ptr, double * max_ptr); 
-void findpeak_running_avg( gsl_matrix *m, unsigned int * i_max_ptr, unsigned int * j_max_ptr, double * max_ptr, unsigned int ravg);
-void findmoments(gsl_matrix *m, unsigned int *ci, unsigned int *cj,  double *peak, unsigned int *wi1e, unsigned int *wj1e);
-void findcenter( gsl_matrix *m, unsigned int * i_max_ptr, unsigned int * j_max_ptr, double * max_ptr); 
-void findFWHM ( gsl_matrix * m, unsigned int * FWHM_i, unsigned int * FWHM_j);
-
-gsl_matrix *mask ( gsl_matrix *m, double factor=5);
-gsl_matrix * smooth(gsl_matrix * raw, unsigned int bins);  
-gsl_matrix * subtract( gsl_matrix* m1, gsl_matrix* m2);
-
-unsigned int coerce_matrix_index( unsigned int i, unsigned int size);
-
- 
 /***** Function code *****/
 
 
@@ -489,6 +474,10 @@ subtract (gsl_matrix * m1, gsl_matrix * m2)
   return s;
 }
 
+
+
+
+
 unsigned int
 coerce_matrix_index (unsigned int i, unsigned int size)
 {
@@ -504,3 +493,45 @@ coerce_matrix_index (unsigned int i, unsigned int size)
   return i;
 }
 
+/********** IMAGE STATISTICS UTILITIES **********/
+
+double
+img_counts (gsl_matrix * m)
+{
+  double c = 0.;
+  for (unsigned int i = 0; i < m->size1; i++)
+    {
+      for (unsigned int j = 0; j < m->size2; j++)
+	{
+	  c += gsl_matrix_get (m, i, j);
+	}
+    }
+  return c;
+}
+
+double
+img_peak (gsl_matrix * m, double *pos)
+{
+  double peak = 0.;
+  double pix;
+  int imax = 0, jmax = 0;
+  for (unsigned int i = 0; i < m->size1; i++)
+    {
+      for (unsigned int j = 0; j < m->size2; j++)
+	{
+	  pix = gsl_matrix_get (m, i, j);
+//        cout << pix << "\t" << endl;
+	  if (pix > peak)
+	    {
+	      peak = pix;
+	      imax = i;
+	      jmax = j;
+	    }
+	}
+    }
+  pos[0] = imax;
+  pos[1] = jmax;
+/*  cout << "Peak " << peak << "  at imax=" << imax << ";  jmax=" << jmax <<
+  endl; */
+  return peak;
+}

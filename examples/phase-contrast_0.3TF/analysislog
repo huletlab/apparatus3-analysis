@@ -20,3 +20,6 @@
  Wed 20 Jun 2012 13:59:26 PM CDT   |   analyze 3195 -f 
  Thu 21 Jun 2012 00:38:51 AM CDT   |   analyze 3195 -f 
  Fri 22 Jun 2012 11:42:03 AM CDT   |   analyze 3195 -f 
+ Fri 22 Jun 2012 18:36:44 PM CDT   |   analyze 3195 -f 
+ Fri 22 Jun 2012 18:37:09 PM CDT   |   analyze 3195 -v -f --fermi-2d 
+ Fri 22 Jun 2012 18:38:22 PM CDT   |   analyze 3195 -v -f --fermi2d 

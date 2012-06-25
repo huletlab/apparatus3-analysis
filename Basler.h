@@ -8,10 +8,6 @@
  * 
  */
 
-#include "fits/gaus1d.h"
-#include "fits/gaus2d.h"
-#include "fits/fermi2d.h"
-
 // This structure contains all parameters relevant for analysis
 
 // Convention is  size1 : 0 : radial : i

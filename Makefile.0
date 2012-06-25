@@ -14,9 +14,9 @@ RUN_TIME_PATHS = -RCPPTOOLS/gsl-1.15/.libs/:CPPTOOLS/gsl-1.15/cblas/.libs/:CPPTO
 CFLAGS =  -Wall ${INC}
 LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS}
 
-objs = APP3-CPP/funcs/funcs.o APP3-CPP/qini/qini_utils.o  
+objs =   APP3-CPP/funcs/funcs.o APP3-CPP/qini/qini_utils.o APP3-CPP/fits/fits.a APP3-CPP/utils/utils.a
  
-analyze: analyze.o ${objs} Fermions.h
+analyze: analyze.o ${objs}
 	g++ analyze.o ${objs} ${LFLAGS} -o analyze
 	chmod a+w analyze 
 	cp -v analyze APP3-CPP/bin/analyze

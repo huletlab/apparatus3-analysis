@@ -1,8 +1,5 @@
 
 #include "utils/utils.h"
-#include "utils/readwrite.h"
-#include "utils/matrices.h"
-#include "utils/crop.h"
 
 bool VERBOSE;
 
@@ -61,8 +58,5 @@ main (int argc, char **argv)
     }
   cout << "..." << endl << endl;
   gsl_matrix_free (m);
-  //Testing counts2atoms conversion factor obtained from the report data
-  string report ("../examples/testutils/report0562.INI");
-  cout << "counts2atoms = " << counts2atoms (report) << endl;
   return 0;
 }

@@ -8,27 +8,12 @@
  */
 
 
-
-/***** Function prototypes *****/
-
-
-#define ROW 779
-#define COL 1034
+#include "utils/utils.h"
 
 extern bool VERBOSE;
 
-bool ReadFluorImg(string & datafile, double img[ROW][COL]);
-gsl_matrix * ReadFluorImg_gsl_matrix (string & datafile);
-bool ReadFitsImg (string & datafile, valarray < unsigned long >&imgdata);
-gsl_matrix * ReadFitsImg_gsl_matrix (string & datafile); 
 
-bool save_gsl_matrix_ASCII(gsl_matrix *m, string & file);
-gsl_matrix * read_gsl_matrix_ASCII(string & file);
-void toTiffImage (gsl_matrix * m, string & filename, bool invert = false);
 
-void to_dat_file( gsl_vector *vecs[], unsigned int N, string shot, string datfile );
-
- 
 //Reads a fluorescence image from file
 bool
 ReadFluorImg (string & datafile, double img[ROW][COL])
@@ -149,7 +134,6 @@ save_gsl_matrix_ASCII (gsl_matrix * m, string & file)
 gsl_matrix *
 read_gsl_matrix_ASCII (string & file)
 {
-  bool errflg = false;
   ifstream in (file.c_str ());
   //cout << datafile << " is good: " << in.good () << endl;
 

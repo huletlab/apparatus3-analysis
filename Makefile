@@ -14,9 +14,9 @@ RUN_TIME_PATHS = -R/lab/software/apparatus3/cpptools/gsl-1.15/.libs/:/lab/softwa
 CFLAGS =  -Wall ${INC}
 LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS}
 
-objs = /lab/software/apparatus3/cpp/funcs/funcs.o /lab/software/apparatus3/cpp/qini/qini_utils.o  
+objs =   /lab/software/apparatus3/cpp/funcs/funcs.o /lab/software/apparatus3/cpp/qini/qini_utils.o /lab/software/apparatus3/cpp/fits/fits.a /lab/software/apparatus3/cpp/utils/utils.a
  
-analyze: analyze.o ${objs} Fermions.h
+analyze: analyze.o ${objs}
 	g++ analyze.o ${objs} ${LFLAGS} -o analyze
 	chmod a+w analyze 
 	cp -v analyze /lab/software/apparatus3/cpp/bin/analyze

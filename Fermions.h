@@ -16,26 +16,10 @@
 
 
 #include <math.h>
-
-
-
-
-
-
 #include <sstream>
 
 extern bool VERBOSE;
 
-string
-makepath (char *base, string shotnum, char *identifier)
-{
-  string out ("");
-  out += base;
-  out += "/";
-  out += shotnum;
-  out += identifier;
-  return out;
-}
 
 struct params
 {
@@ -1006,8 +990,6 @@ Fermions::FindMoments ()
   wi_1e = (double) wi1e;
   wj_1e = (double) wj1e;
 
-  //findcenter (columndensity, &ci, &cj, &peak);
-  //findFWHM (columndensity, &FWHMi, &FWHMj);
   gsl_matrix_free (smoothed);
   gsl_matrix_free (masked);
 
@@ -1629,6 +1611,8 @@ Fermions::Fit2DFermi ()
       printf ("TF     = %.2f uK\n", TF);
     }
 
+  make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit, gaus2dfit,
+			       p->shotnum.c_str ());
   n0 = fermi2dfit[0];
   ci_Fermi = fermi2dfit[4];
   cj_Fermi = fermi2dfit[5];

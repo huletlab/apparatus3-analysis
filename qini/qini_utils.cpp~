@@ -62,6 +62,30 @@ setINI_num (string & inifile, char *SECTION, char *KEY, double val)
 
 }
 
+int
+setINI (string & inifile, const char *SECTION, const char *KEY,
+	const char *value)
+{
+  //Loads INI file
+  CSimpleIni reportINI (false, false, false);
+  if (reportINI.LoadFile (inifile.c_str ()) < 0)
+    {
+      cout << "#Failed to load " << inifile << endl;
+      exit (1);
+    }
+  reportINI.SetValue (SECTION, KEY, value, NULL);
+  //  Save the data back to the file
+  SI_Error rc = reportINI.SaveFile (inifile.c_str ());
+  if (rc < 0)
+    {
+      cout << "Failure saving report file" << endl;
+      exit (EXIT_FAILURE);
+    }
+
+  return EXIT_SUCCESS;
+
+}
+
 bool
 sectionExists (string & inifile, char *SECTION)
 {

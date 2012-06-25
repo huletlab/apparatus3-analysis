@@ -5,16 +5,11 @@
  * 
  */
 
+#include "funcs/funcs.h"
 #include "utils/utils.h"
-#include "utils/readwrite.h"
-#include "utils/matrices.h"
-#include "utils/crop.h"
+#include "fits/fits.h"
 
 #include <math.h>
-#include "gaus1d.h"
-#include "gaus2d.h"
-#include "fermi2d.h"
-#include "funcs/funcs.h"
 
 using namespace std;
 
@@ -25,7 +20,7 @@ main (int argc, char **argv)
 {
 
   VERBOSE = true;
-
+/*
   // Load data from file 
   string file ("fitexamples/0649.fluor");
   gsl_matrix *img = ReadFluorImg_gsl_matrix (file);
@@ -81,7 +76,7 @@ main (int argc, char **argv)
   fit2dgaus_neldermead (c, gaus2d_fit);
   make_gaus2d_inspect (c, gaus2d_fit, "fitexamples/0649nm");
   for (int e = 0; e < 6; e++)
-    fprintf (stderr, "[%d]=%f, ", e, gaus2d_fit[e]);
+    fprintf (stderr, "[%d]=%f, ", e, gaus2d_fit[e]); */
 
   // Load data from file 
   string file2 ("fitexamples/9568_column.ascii");
@@ -103,7 +98,24 @@ main (int argc, char **argv)
   make_fermi2d_inspect (cold, fermi2d_fit, "fitexamples/9568nm");
   make_fermi2d_gaus2d_inspect (cold, fermi2d_fit, gaus2dfit,
 			       "fitexamples/9568nm");
+
+  //Try out the High Level 2D Gaus fit
+  double gaus2dfit_high_level[6];
+  double gaus2dfit_high_level_err[6];
+  string prefix ("fitexamples/high_level");
+  Fit2DGaus_High_Level (cold, gaus2dfit_high_level, gaus2dfit_high_level_err,
+			prefix);
+
+  fprintf (stderr, "\n\nResults of first 2D Gaus Fit\n");
   for (int e = 0; e < 6; e++)
+    fprintf (stderr, "[%d]=%f, ", e, gaus2dfit[e]);
+
+  fprintf (stderr, "\n\nResults of second  2D Gaus Fit\n");
+  for (int e = 0; e < 6; e++)
+    fprintf (stderr, "[%d]=%f, ", e, gaus2dfit_high_level[e]);
+
+  fprintf (stderr, "\n\nResults of 2D Fermi Fit\n");
+  for (int e = 0; e < 7; e++)
     fprintf (stderr, "[%d]=%f, ", e, fermi2d_fit[e]);
 
 

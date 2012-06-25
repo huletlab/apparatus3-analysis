@@ -1,73 +1,73 @@
-
-#include <omp.h>
-
-#include "funcs/funcs.h"
-#include <iostream>
-#include <math.h>
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_matrix.h>
-#include <gsl/gsl_blas.h>
-#include <gsl/gsl_multifit_nlin.h>
-#include <gsl/gsl_multimin.h>
+/*
+ * Project:  This file defines various functions to fit data to a 2D Fermi
+ *           density distribution.
+ *
+ * Author:   Pedro M Duarte 2011-01
+ * 
+ */
 
 
-#define FIT(i) gsl_vector_get( s->x , i)
-#define ERR(i) sqrt(gsl_matrix_get(covar,i,i))
+#include "fits/fits.h"
 
 extern bool VERBOSE;
 using namespace std;
 
 
-void fit2dfermi_neldermead (gsl_matrix *m, double *fit);
-void fit1dfermi_neldermead (gsl_vector * m, double *fit);
-void fit1dfermi_azimuthal_neldermead (gsl_vector ** a, double *fit);
-void fit1dfermi_azimuthal_zero_neldermead (gsl_vector ** a, double *fit);
-
 
 /* Model to evaluate the 2D Fermi
  *
  */
-double fermi2d_model( double i, double j, const gsl_vector *v){
-  double n0     = gsl_vector_get (v, 0);
+double
+fermi2d_model (double i, double j, const gsl_vector * v)
+{
+  double n0 = gsl_vector_get (v, 0);
   double BetaMu = gsl_vector_get (v, 1);
-  double ri     = gsl_vector_get (v, 2);
-  double rj     = gsl_vector_get (v, 3);
-  double ci     = gsl_vector_get (v, 4);
-  double cj     = gsl_vector_get (v, 5);
-  double B      = gsl_vector_get (v, 6); 
+  double ri = gsl_vector_get (v, 2);
+  double rj = gsl_vector_get (v, 3);
+  double ci = gsl_vector_get (v, 4);
+  double cj = gsl_vector_get (v, 5);
+  double B = gsl_vector_get (v, 6);
 
-  return  n0/ f1(BetaMu) * f1( BetaMu - fq(BetaMu) * ( pow ( (j -cj)/rj ,2) + pow( ( i-ci)/ri ,2))) + B; 
+  return n0 / f1 (BetaMu) * f1 (BetaMu -
+				fq (BetaMu) * (pow ((j - cj) / rj, 2) +
+					       pow ((i - ci) / ri, 2))) + B;
 }
 
 /* Matrix data for 2D Fermi evaluation
  *
  */
-gsl_matrix *fermi2d_eval( const gsl_matrix *d, const double fermi_fit[7]) {
-  gsl_matrix *eval = gsl_matrix_alloc( d->size1, d->size2 ); 
+gsl_matrix *
+fermi2d_eval (const gsl_matrix * d, const double fermi_fit[7])
+{
+  gsl_matrix *eval = gsl_matrix_alloc (d->size1, d->size2);
   int nparams = 7;
-  gsl_vector *v = gsl_vector_alloc( nparams );
-  for ( int e=0; e < nparams; e++)  gsl_vector_set ( v, e, fermi_fit[e] ); 
-  
-  for ( unsigned int i=0; i<d->size1; i++)
-  { 
-    for ( unsigned int j=0; j<d->size2; j++)
+  gsl_vector *v = gsl_vector_alloc (nparams);
+  for (int e = 0; e < nparams; e++)
+    gsl_vector_set (v, e, fermi_fit[e]);
+
+  for (unsigned int i = 0; i < d->size1; i++)
     {
-      gsl_matrix_set( eval, i, j, fermi2d_model( i, j, v));
-  } 
-  }
-  return eval; 
+      for (unsigned int j = 0; j < d->size2; j++)
+	{
+	  gsl_matrix_set (eval, i, j, fermi2d_model (i, j, v));
+	}
+    }
+  return eval;
 }
 
-void make_fermi2d_inspect( gsl_matrix *c, const double fermi2d_fit[6], const char *prefix){
+void
+make_fermi2d_inspect (gsl_matrix * c, const double fermi2d_fit[6],
+		      const char *prefix)
+{
   string datfile (prefix);
-  datfile += "_fermi2ddat.ascii"; 
-  string fitfile (prefix); 
+  datfile += "_fermi2ddat.ascii";
+  string fitfile (prefix);
   fitfile += "_fermi2dfit.ascii";
- 
-  save_gsl_matrix_ASCII ( c , datfile);  
+
+  save_gsl_matrix_ASCII (c, datfile);
   gsl_matrix *fit2d = fermi2d_eval (c, fermi2d_fit);
   save_gsl_matrix_ASCII (fit2d, fitfile);
- 
+
   stringstream inspectstr;
   inspectstr << "inspect2d_ascii.py ";
   inspectstr << datfile;
@@ -83,25 +83,28 @@ void make_fermi2d_inspect( gsl_matrix *c, const double fermi2d_fit[6], const cha
   //cerr << endl << inspectstr.str () << endl;
   system (inspectstr.str ().c_str ());
 
-  remove ( datfile.c_str());
-  remove ( fitfile.c_str());
-  return; 
-} 
+  remove (datfile.c_str ());
+  remove (fitfile.c_str ());
+  return;
+}
 
-void make_fermi2d_gaus2d_inspect( gsl_matrix *c, const double fermi2d_fit[7], const double gaus2d_fit[6], const char *prefix){
+void
+make_fermi2d_gaus2d_inspect (gsl_matrix * c, const double fermi2d_fit[7],
+			     const double gaus2d_fit[6], const char *prefix)
+{
   string datfile (prefix);
-  datfile += "_fermi2ddat.ascii"; 
-  string fitfileFermi (prefix); 
+  datfile += "_fermi2ddat.ascii";
+  string fitfileFermi (prefix);
   fitfileFermi += "_fermi2dfit.ascii";
   string fitfileGaus (prefix);
   fitfileGaus += "_gaus2dfit.ascii";
- 
-  save_gsl_matrix_ASCII ( c , datfile);  
+
+  save_gsl_matrix_ASCII (c, datfile);
   gsl_matrix *fit2dFermi = fermi2d_eval (c, fermi2d_fit);
   save_gsl_matrix_ASCII (fit2dFermi, fitfileFermi);
   gsl_matrix *fit2dGaus = gaus2d_eval (c, gaus2d_fit);
   save_gsl_matrix_ASCII (fit2dGaus, fitfileGaus);
- 
+
   stringstream inspectstr;
   inspectstr << "inspect2d_ascii_multi.py ";
   inspectstr << datfile;
@@ -119,22 +122,22 @@ void make_fermi2d_gaus2d_inspect( gsl_matrix *c, const double fermi2d_fit[7], co
   //cerr << endl << inspectstr.str () << endl;
   system (inspectstr.str ().c_str ());
 
-  remove ( datfile.c_str());
-  remove ( fitfileFermi.c_str());
-  remove ( fitfileGaus.c_str());
-  return; 
-} 
+  remove (datfile.c_str ());
+  remove (fitfileFermi.c_str ());
+  remove (fitfileGaus.c_str ());
+  return;
+}
 
 /* Error function for 2D Nelder-Mead
  *
- */ 
+ */
 double
 fermi2d_simplex_f (const gsl_vector * v, void *params)
 {
 
   //benchmark start
 //  double start = omp_get_wtime(); 
-  
+
   unsigned int s1 = ((gsl_matrix *) params)->size1;
   unsigned int s2 = ((gsl_matrix *) params)->size2;
 
@@ -147,7 +150,7 @@ fermi2d_simplex_f (const gsl_vector * v, void *params)
     {
       for (unsigned int j = 0; j < s2; j++)
 	{
-          double model = fermi2d_model(i,j,v);
+	  double model = fermi2d_model (i, j, v);
 	  double dat = gsl_matrix_get ((gsl_matrix *) params, i, j);
 	  sumsq += pow (model - dat, 2);
 	}
@@ -159,9 +162,10 @@ fermi2d_simplex_f (const gsl_vector * v, void *params)
 
   return sumsq;
 }
+
 /* Nelder-Mead algorithm 2D Fermi fit
  *
- */ 
+ */
 void
 fit2dfermi_neldermead (gsl_matrix * m, double *fit)
 {
@@ -259,36 +263,39 @@ fit2dfermi_neldermead (gsl_matrix * m, double *fit)
 
 
 double
-fermi1d_azimuthal_simplex_f (const gsl_vector * v,  void *params)
+fermi1d_azimuthal_simplex_f (const gsl_vector * v, void *params)
 {
 
 
   //benchmark start
 //  double start = omp_get_wtime(); 
-  
-  unsigned int s = (((gsl_vector **) params)[0])->size; 
-  
 
-  double n0     = gsl_vector_get (v, 0);
+  unsigned int s = (((gsl_vector **) params)[0])->size;
+
+
+  double n0 = gsl_vector_get (v, 0);
   double BetaMu = gsl_vector_get (v, 1);
-  double r     = gsl_vector_get (v, 2);
-  double B      = gsl_vector_get (v, 3);
-  double mx    = gsl_vector_get(v, 4); 
+  double r = gsl_vector_get (v, 2);
+  double B = gsl_vector_get (v, 3);
+  double mx = gsl_vector_get (v, 4);
 
   double sumsq = 0.;
-  
-  gsl_vector *d  = ((gsl_vector **)params)[0]; 
-  gsl_vector *az = ((gsl_vector **)params)[1]; 
+
+  gsl_vector *d = ((gsl_vector **) params)[0];
+  gsl_vector *az = ((gsl_vector **) params)[1];
 
   //i is radial === y
   //j is axial  === g
 
-  for (unsigned int i = 0; i < s; i++){
-  //printf("Inisde simplex_f loop\n"); 
-          double dist = gsl_vector_get(d,i); 
-	  double dat = gsl_vector_get (az, i);
-	  double model = n0/ f1(BetaMu) * f1( BetaMu - fq(BetaMu) * ( pow ( dist/r ,2) )) + B + mx*dist; 
-	  sumsq += pow (model - dat, 2);
+  for (unsigned int i = 0; i < s; i++)
+    {
+      //printf("Inisde simplex_f loop\n"); 
+      double dist = gsl_vector_get (d, i);
+      double dat = gsl_vector_get (az, i);
+      double model =
+	n0 / f1 (BetaMu) * f1 (BetaMu - fq (BetaMu) * (pow (dist / r, 2))) +
+	B + mx * dist;
+      sumsq += pow (model - dat, 2);
     }
 
 //  end benchmark
@@ -299,33 +306,35 @@ fermi1d_azimuthal_simplex_f (const gsl_vector * v,  void *params)
 }
 
 double
-fermi1d_azimuthal_zero_simplex_f (const gsl_vector * v,  void *params)
+fermi1d_azimuthal_zero_simplex_f (const gsl_vector * v, void *params)
 {
   //benchmark start
 //  double start = omp_get_wtime(); 
-  
-  unsigned int s = (((gsl_vector **) params)[0])->size; 
-  
 
-  double n0     = gsl_vector_get (v, 0);
-  double r     = gsl_vector_get (v, 1);
-  double B      = gsl_vector_get (v, 2);
-  double mx    = gsl_vector_get(v, 3); 
+  unsigned int s = (((gsl_vector **) params)[0])->size;
+
+
+  double n0 = gsl_vector_get (v, 0);
+  double r = gsl_vector_get (v, 1);
+  double B = gsl_vector_get (v, 2);
+  double mx = gsl_vector_get (v, 3);
 
   double sumsq = 0.;
-  
-  gsl_vector *d  = ((gsl_vector **)params)[0]; 
-  gsl_vector *az = ((gsl_vector **)params)[1]; 
+
+  gsl_vector *d = ((gsl_vector **) params)[0];
+  gsl_vector *az = ((gsl_vector **) params)[1];
 
   //i is radial === y
   //j is axial  === g
 
-  for (unsigned int i = 0; i < s; i++){
-  //printf("Inisde simplex_f loop\n"); 
-          double dist = gsl_vector_get(d,i); 
-	  double dat = gsl_vector_get (az, i);
-          double model = n0 * pow( std::max ( 1. - pow( dist/r,2.) , 0.), 2.) + B + mx*dist;    
-	  sumsq += pow (model - dat, 2);
+  for (unsigned int i = 0; i < s; i++)
+    {
+      //printf("Inisde simplex_f loop\n"); 
+      double dist = gsl_vector_get (d, i);
+      double dat = gsl_vector_get (az, i);
+      double model =
+	n0 * pow (std::max (1. - pow (dist / r, 2.), 0.), 2.) + B + mx * dist;
+      sumsq += pow (model - dat, 2);
     }
 
 //  end benchmark
@@ -336,15 +345,15 @@ fermi1d_azimuthal_zero_simplex_f (const gsl_vector * v,  void *params)
 }
 
 double
-fermi1d_simplex_f (const gsl_vector *v, void *params)
+fermi1d_simplex_f (const gsl_vector * v, void *params)
 {
   unsigned int s1 = ((gsl_vector *) params)->size;
 
-  double n0     = gsl_vector_get (v, 0);
+  double n0 = gsl_vector_get (v, 0);
   double BetaMu = gsl_vector_get (v, 1);
-  double r      = gsl_vector_get (v, 2);
-  double c      = gsl_vector_get (v, 3);
-  double B      = gsl_vector_get (v, 4); 
+  double r = gsl_vector_get (v, 2);
+  double c = gsl_vector_get (v, 3);
+  double B = gsl_vector_get (v, 4);
 
   double sumsq = 0.;
 
@@ -353,9 +362,11 @@ fermi1d_simplex_f (const gsl_vector *v, void *params)
 
   for (unsigned int i = 0; i < s1; i++)
     {
-	  double model = n0/ f32(BetaMu) * f32( BetaMu - fq(BetaMu) *  pow ( (i -c)/r ,2) ) + B ; 
-	  double dat = gsl_vector_get ((gsl_vector *) params, i);
-	  sumsq += pow (model - dat, 2);
+      double model =
+	n0 / f32 (BetaMu) * f32 (BetaMu -
+				 fq (BetaMu) * pow ((i - c) / r, 2)) + B;
+      double dat = gsl_vector_get ((gsl_vector *) params, i);
+      sumsq += pow (model - dat, 2);
     }
 
   return sumsq;

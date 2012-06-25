@@ -14,10 +14,19 @@ RUN_TIME_PATHS = -R/lab/software/apparatus3/cpptools/gsl-1.15/.libs/:/lab/softwa
 CFLAGS = -Wall ${INC} -fopenmp 
 LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS}
 
-objs =   ../qini/qini_utils.o ../funcs/funcs.o 
+objs =  /lab/software/apparatus3/cpp/qini/qini_utils.o /lab/software/apparatus3/cpp/funcs/funcs.o /lab/software/apparatus3/cpp/utils/utils.a 
 
-testfits: testfits.o 
+testfits: testfits.o fits.a 
 	g++  $^ ${objs} ${LFLAGS} -o testfits
+
+fits.a: fits.h gaus1d.cpp gaus2d.cpp fermi2d.cpp
+	indent fits.h
+	indent gaus1d.cpp
+	indent gaus2d.cpp
+	indent fermi2d.cpp
+	g++ ${CFLAGS} gaus1d.cpp gaus2d.cpp fermi2d.cpp -c 
+	ar rcs fits.a gaus1d.o gaus2d.o fermi2d.o 
+	rm gaus1d.o gaus2d.o fermi2d.o
 
 clean:
 	rm -f *.o
