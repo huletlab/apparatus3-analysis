@@ -19,6 +19,8 @@
 #include "Fermions.h"
 
 bool VERBOSE;
+bool DEBUG_FUNCS;
+bool DEBUG_FITS;
 
 
 int processArgsAnalyze (int argc, char **argv, struct params &p);
@@ -78,6 +80,20 @@ main (int argc, char **argv)
   setINI_num (p.reportfile, "CPP", "photons_in_pulse", f->Tp0);
   setINI_num (p.reportfile, "CPP", "alphastar", p.alphastar);
 
+  f->GetAzimuthalAverageEllipse ();
+
+  if (p.fermiazimuth)
+    {
+      //f->GetAzimuthalAverage ();
+      f->FitAzimuthalFermi ();
+      setINI_num (p.reportfile, "CPP", "n0_az", f->n0_az);
+      setINI_num (p.reportfile, "CPP", "BetaMu_az", f->BetaMu_az);
+      setINI_num (p.reportfile, "CPP", "r_az", f->r_az);
+      setINI_num (p.reportfile, "CPP", "B_az", f->B_az);
+      setINI_num (p.reportfile, "CPP", "mx_az", f->mx_az);
+      setINI_num (p.reportfile, "CPP", "TF_az", f->TF_az);
+      setINI_num (p.reportfile, "CPP", "T_az", f->T_az);
+    }
 
   if (p.fermi2d)
     {
@@ -94,20 +110,6 @@ main (int argc, char **argv)
       setINI_num (p.reportfile, "CPP", "T_2d_ax", f->T_2d_ax);
     }
 
-  f->GetAzimuthalAverageEllipse ();
-
-  if (p.fermiazimuth)
-    {
-      //f->GetAzimuthalAverage ();
-      f->FitAzimuthalFermi ();
-      setINI_num (p.reportfile, "CPP", "n0_az", f->n0_az);
-      setINI_num (p.reportfile, "CPP", "BetaMu_az", f->BetaMu_az);
-      setINI_num (p.reportfile, "CPP", "r_az", f->r_az);
-      setINI_num (p.reportfile, "CPP", "B_az", f->B_az);
-      setINI_num (p.reportfile, "CPP", "mx_az", f->mx_az);
-      setINI_num (p.reportfile, "CPP", "TF_az", f->TF_az);
-      setINI_num (p.reportfile, "CPP", "T_az", f->T_az);
-    }
 
   if (p.fitfermi1D || p.fermiazimuth || p.fermi2d || true)
     {
@@ -300,6 +302,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 
       printf (BOLDWHITE "\t-v, --verbose\n" RESET);
       printf ("\t\tshow messages to explain what is being done\n\n");
+
+//      printf (BOLDWHITE "\t--debug-fits\n" RESET);
+//      printf ("\t\tshow details about fit evaluations for debugging\n\n");
 
       exit (2);
     }

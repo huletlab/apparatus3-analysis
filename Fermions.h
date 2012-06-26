@@ -1096,10 +1096,14 @@ Fermions::Fit2DFermi ()
 
   if (VERBOSE)
     {
+      const char *const pnames[] =
+	{ "peakd", "BetaMu", "radius_i", "radius_j", "center_i", "center_j",
+	"offset"
+      };
       printf ("Starting fit values:\n");
       for (int e = 0; e < 7; e++)
 	{
-	  printf (" fermi2dfit[%d] = %f\n", e, fermi2dfit[e]);
+	  printf (" fermi2dfit[%d] = %f\t%s\n", e, fermi2dfit[e], pnames[e]);
 	}
     }
 
@@ -1488,6 +1492,19 @@ Fermions::FitAzimuthalFermi ()
   fermi_azimuth_fit[2] = gaus2dfit[3];
   fermi_azimuth_fit[3] = gaus2dfit[5];
   fermi_azimuth_fit[4] = 0.1;
+
+
+  if (VERBOSE)
+    {
+      const char *const pnames[] =
+	{ "peakd", "BetaMu", "radius", "offset", "slope" };
+      printf ("Starting fit values:\n");
+      for (int e = 0; e < 5; e++)
+	{
+	  printf (" fermi_azimuth_fit[%d] = %f\t%s\n", e,
+		  fermi_azimuth_fit[e], pnames[e]);
+	}
+    }
 
   gsl_vector *azimuthal_[2] = { azimuthal_r, azimuthal_dat };
   if (!p->blanks)

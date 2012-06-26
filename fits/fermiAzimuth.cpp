@@ -9,6 +9,9 @@
 #include "fits/fits.h"
 
 extern bool VERBOSE;
+extern bool DEBUG_FUNCS;
+extern bool DEBUG_FITS;
+
 using namespace std;
 
 /* Model to evaluate the Fermi azimuthal average.
@@ -23,9 +26,16 @@ fermiAzimuth_model (double dist, const gsl_vector * v)
   double B = gsl_vector_get (v, 3);
   double mx = gsl_vector_get (v, 4);
 
-  return
-    n0 / f1 (BetaMu) * f1 (BetaMu - fq (BetaMu) * (pow (dist / r, 2))) +
-    B + mx * dist;
+  if (DEBUG_FITS)
+    printf (" dist = %e\n", dist);
+
+  double f1arg = BetaMu - fq (BetaMu) * (pow (dist / r, 2));
+
+  if (f1arg < -160.0)
+    return 0.00;
+  else
+
+    return n0 / f1 (BetaMu) * f1 (f1arg) + B + mx * dist;
 }
 
 /* Azimuthal-type data after model evaluation
@@ -214,7 +224,13 @@ fit1dfermi_azimuthal_neldermead (gsl_vector ** a, double *fit)
 	  printf (" converged to minimum at \n");
 	}
 
-      if ((VERBOSE) && iter % 20 == 0)
+//      if (iter > 564)
+//      {
+//        DEBUG_FUNCS = true;
+//        DEBUG_FITS = true;
+//      }
+
+      if ((VERBOSE) && (iter % 20 == 0) || DEBUG_FUNCS)
 	{
 	  printf
 	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.5f\n",

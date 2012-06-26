@@ -14,6 +14,8 @@
 using namespace std;
 
 bool VERBOSE;
+bool DEBUG_FUNCS;
+bool DEBUG_FITS;
 
 int
 main (int argc, char **argv)

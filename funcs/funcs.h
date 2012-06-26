@@ -1,6 +1,7 @@
 #include <iostream>
 #include <math.h>
 #include <gsl/gsl_errno.h>
+#include <gsl/gsl_sf_result.h>
 #include <gsl/gsl_sf_fermi_dirac.h>
 
 

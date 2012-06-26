@@ -28,9 +28,13 @@ fermi2d_model (double i, double j, const gsl_vector * v)
   double cj = gsl_vector_get (v, 5);
   double B = gsl_vector_get (v, 6);
 
-  return n0 / f1 (BetaMu) * f1 (BetaMu -
-				fq (BetaMu) * (pow ((j - cj) / rj, 2) +
-					       pow ((i - ci) / ri, 2))) + B;
+  double f1arg = BetaMu - fq (BetaMu) * (pow ((j - cj) / rj, 2) +
+					 pow ((i - ci) / ri, 2));
+
+  if (f1arg < -160.0)
+    return 0.00;
+  else
+    return n0 / f1 (BetaMu) * f1 (f1arg) + B;
 }
 
 
