@@ -34,7 +34,6 @@ fermiAzimuth_model (double dist, const gsl_vector * v)
   if (f1arg < -160.0)
     return 0.00;
   else
-
     return n0 / f1 (BetaMu) * f1 (f1arg) + B + mx * dist;
 }
 
@@ -114,14 +113,31 @@ fermi1d_azimuthal_simplex_f (const gsl_vector * v, void *params)
   //i is radial === y
   //j is axial  === g
 
+  if (DEBUG_FITS == true)
+    {
+      printf (" eval fit1dfermi_azimuthal_neldermead\n");
+    }
+
   for (unsigned int i = 0; i < s; i++)
     {
       //printf("Inisde simplex_f loop\n"); 
       double dist = gsl_vector_get (d, i);
       double dat = gsl_vector_get (az, i);
-      sumsq += pow (fermiAzimuth_model (dist, v) - dat, 2);
+      if (!isnan (dat))
+	{
+	  sumsq += pow (fermiAzimuth_model (dist, v) - dat, 2);
+	}
+      /*if (isnan (sumsq))
+         {
+         printf (" dist= %f , dat= %f\n", dist, dat);
+         printf (" model= %f\n", fermiAzimuth_model (dist, v));
+         } */
     }
 
+  if (DEBUG_FITS == true)
+    {
+      printf (" eval fit1dfermi_azimuthal_neldermead = %f\n", sumsq);
+    }
 //  end benchmark
 //  double end = omp_get_wtime();
 //  printf( "time elapsed in fermi errfunc %.5f\n", end-start); 
@@ -152,7 +168,10 @@ fermi1d_azimuthal_zero_simplex_f (const gsl_vector * v, void *params)
       //printf("Inisde simplex_f loop\n"); 
       double dist = gsl_vector_get (d, i);
       double dat = gsl_vector_get (az, i);
-      sumsq += pow (fermiAzimuthZeroT_model (dist, v) - dat, 2);
+      if (!isnan (dat))
+	{
+	  sumsq += pow (fermiAzimuthZeroT_model (dist, v) - dat, 2);
+	}
     }
 
 //  end benchmark
@@ -198,11 +217,8 @@ fit1dfermi_azimuthal_neldermead (gsl_vector ** a, double *fit)
   f.f = &fermi1d_azimuthal_simplex_f;
   f.params = a;
 
-
   s = gsl_multimin_fminimizer_alloc (T, 5);
-
   gsl_multimin_fminimizer_set (s, &f, x, ss);
-
 
   size_t iter = 0;
   int status;
@@ -224,7 +240,7 @@ fit1dfermi_azimuthal_neldermead (gsl_vector ** a, double *fit)
 	  printf (" converged to minimum at \n");
 	}
 
-//      if (iter > 564)
+//      if (iter > 560)
 //      {
 //        DEBUG_FUNCS = true;
 //        DEBUG_FITS = true;
