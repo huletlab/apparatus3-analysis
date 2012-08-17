@@ -105,6 +105,7 @@ init_params (struct params *p)
 
   p->U0 = 280.;
 
+  // Obtain trap depth from report
   // Calculate trap depth 
   if (VERBOSE)
     {
@@ -451,6 +452,24 @@ Fermions::LoadFITS ()
   gsl_matrix_free (norm);
 
   ComputeColumnDensity ();
+  FindMoments ();
+
+  // ROI pos
+  double EIGEN_ROI_FACTOR = 3.0;
+  double pos0 = max (gaus2dfit[0] - EIGEN_ROI_FACTOR * gaus2dfit[1], 0.);
+  double pos1 = max (gaus2dfit[2] - EIGEN_ROI_FACTOR * gaus2dfit[3], 0.);
+  double siz0 = min (columndensity->size1 - pos0,
+		     gaus2dfit[0] + EIGEN_ROI_FACTOR * gaus2dfit[1] - pos0);
+  double siz1 = min (columndensity->size2 - pos1,
+		     gaus2dfit[2] + EIGEN_ROI_FACTOR * gaus2dfit[3] - pos1);
+
+  stringstream eigenfacestr;
+  eigenfacestr << "eigenface.py ";
+  eigenfacestr << p->shotnum << " ";
+  eigenfacestr << pos0 << "," << pos1 << "," << siz0 << "," << siz1;
+  //printf ("%s\n", eigenfacestr.str ().c_str ());
+  //system (eigenfacestr.str ().c_str ());
+
 
   return;
 }
@@ -536,8 +555,8 @@ Fermions::ComputeColumnDensity ()
       isat = 5.1;		// This is the standard saturation intensity
       det = p->det * 1.e6 / p->gamma;	//detuning in units of gamma
       cout << endl;
-      cout << "   Andor magnification     = " << p->
-	magnif << " um/pixel" << endl;
+      cout << "   Andor magnification     = " << p->magnif << " um/pixel" <<
+	endl;
       cout << "   Phase-contrast detuning = " << det << " Gamma  = " << det *
 	p->gamma / 1.e6 << " MHz" << endl;
     }

@@ -44,7 +44,7 @@ main (int argc, char **argv)
   setINI_num (p.reportfile, "CPP", "maxCD", f->maxCD);
   setINI_num (p.reportfile, "CPP", "maxI", f->maxI);
 
-  f->FindMoments ();
+//  f->FindMoments ();
   if (!p.keeproi)
     {
       f->MinimalCrop (5.0);

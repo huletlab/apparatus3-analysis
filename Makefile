@@ -2,8 +2,10 @@ all: analyze
 
 GSL_INC = /lab/software/apparatus3/cpptools/gsl-1.15/
 APP3_CPP_INC = /lab/software/apparatus3/cpp/
-CPP_TOOLS_INC = /lab/software/apparatus3/cpptools/
-INC = -I${APP3_CPP_INC} -I${CPP_TOOLS_INC} -I${GSL_INC}
+CPP_TOOLS_INC = -I/lab/software/apparatus3/cpptools -I/lab/software/apparatus3/cpptools/CCfits -I/lab/software/apparatus3/cpptools/cfitsio
+PYTHON_INC = /lab/software/epd-7.3-2-rh5-x86-64/include/python2.7/
+#INC = -I${APP3_CPP_INC} -I${CPP_TOOLS_INC} -I${GSL_INC} -I${PYTHON_INC}
+INC = -I${APP3_CPP_INC} ${CPP_TOOLS_INC} -I${GSL_INC} 
 
 GSL_LIB = -L/lab/software/apparatus3/cpptools/gsl-1.15/.libs/ -L/lab/software/apparatus3/cpptools/gsl-1.15/cblas/.libs/
 CCFITS_LIB = /lab/software/apparatus3/cpptools/CCfits/.libs/libCCfits.so

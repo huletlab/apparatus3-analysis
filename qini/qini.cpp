@@ -142,8 +142,8 @@ main (int argc, char **argv)
 	    }
 	  else
 	    {
-	      cout << "#" << section.c_str () << ":" << key.
-		c_str () << " does not exist!" << endl;
+	      cout << "#" << section.
+		c_str () << ":" << key.c_str () << " does not exist!" << endl;
 	      exit (1);
 	    }
 	  int w = max (key.length (), value.length ());

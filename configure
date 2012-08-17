@@ -11,6 +11,11 @@ parent=`pwd`
 cd -
 
 
+epddir=/lab/software/epd-7.3-2-rh5-x86-64/include/python2.7
+
+
+echo $epddir
+
 sed 's!APP3-CPP!'$PWD'!g' qini/Makefile.0 > qini/Makefile
 sed -i 's!CPPTOOLS!'$parent/cpptools'!g' qini/Makefile 
 
@@ -28,4 +33,5 @@ sed -i 's!CPPTOOLS!'$parent/cpptools'!g' fits/Makefile
 
 sed 's!APP3-CPP!'$PWD'!g' Makefile.0 > Makefile
 sed -i 's!CPPTOOLS!'$parent/cpptools'!g' Makefile
+sed -i 's!PYTHONINC!'$epddir'!g' Makefile
 

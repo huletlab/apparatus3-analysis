@@ -1,3 +1,5 @@
+cdLet's see now.
+
 APP3-ANALYSIS
 
 The base path where all this code is stored will be referred to as $(APP3-CPP)
@@ -6,14 +8,32 @@ The base path where all this code is stored will be referred to as $(APP3-CPP)
 %%%%%%%%%%%%%%%%%%%%% THIRD PARTY OPEN-SOURCE LIBRARIES %%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-The APP3-ANALYSIS code package uses the open source libraries described below. 
-These libraries must be installed in the following path:
+The collection of open source librarires used by APP3-ANALYSIS are referred to 
+as 'cpptools'.  Below is the list of such libraries:
+
+	- simpleini
+	- tiff-4.0.0
+	- gsl-1.15
+	- cfitsio
+	- CCFits
+	
+These two we want to try out but have not gotten to it yet:
+
+	- levmar-2.6
+	- CLAPACK-3.2.1
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%% COMPILING INSTRUCTIONS FOR THIRD PARTY OPEN-SOURCE LIBRARIES %%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%	
+	
+The open source libraries must be installed in the following path:
 
 	$(APP3-CPP)/../cpptools
 
 The git repository for APP3-ANALYSIS provides the compressed source code for
 all the cpptools.  When building the code for the first time, the user should
-first build the cpptools. To do so create the directory called 
+first compile the cpptools. To do so create the directory called 
 
 	$(APP3-CPP)/../cpptools
 
@@ -26,11 +46,11 @@ here, namely run the following commands inside the cpptools directory:
 	% tar -zxvf CCfits-2.4.tar.gz
 	% tar -zxvf gsl-1.15.tar.gz
 
-Proceed to go inside the directory for each of the third party tools and do the
-following:  	
+Follow the instructions below to compile each of the cpptools:
 
 --- simpleini
 
+There is nothing to compile for this one. 
 This contains the main functions required to read/write .INI files. To use them
 all one needs to do is include the file called "SimpleIni.h",  all the function
 declarations and definitions are inside this file. 
@@ -40,12 +60,12 @@ declarations and definitions are inside this file.
 
 This is the libtiff library version 4.0.0 downloaded from www.libtiff.org.
 You need to compile it before you can use it.  To do so go inside the
-$(APP3-CPP)/../cpptools/tiff-3.9.4  directory and type
+$(APP3-CPP)/../cpptools/tiff-4.0.0  directory and type
 
 	% ./configure
 	% make
 
-Do NOT type
+WARNING: DO NOT type
 
 	% make install
 
@@ -65,7 +85,7 @@ before you can use it.  To do so go inside $(APP3-CPP)/gsl-1.15 and type
 	% ./configure
 	% make
 
-In this case also do NOT type 
+WARNING: do NOT type 
  
 	% make install
 
@@ -84,7 +104,7 @@ compile it go inside $(APP3-CPP)/../cpptools/cfitsio and type
 	% ./configure 
 	% make
 
-Again, no need to do 'make install'.   
+Again, WARNING: do NOT type 'make install'.   
 
 --- CCFits
 
@@ -104,6 +124,8 @@ case I used
 After CCFits is configured, then proceed to type
 
 	% make
+
+Again, WARNING: do NOT type 'make install'!!
 
 The header files will be located in $(APP3-CPP)/../cpptools/CCfits/ and the
 shared library wiLl be in $(APP3-CPP)/../cpptools/CCfits/.libs/libCCfits.so
@@ -125,11 +147,28 @@ shared libraries do
 
 to find out. 
 
+If you are setting up APP3-ANALYSIS continue with the steps below.  If you
+are havingp problems using any of the cpp tools in your executable then make
+sure you explore its library dependencies by using ldd.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%% ENTHOUGHT PYTHON DISTRIBUTION %%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+APP3-ANALYSIS uses some features from the enthough python distribution.  I
+have tried getting them to work from within C++ but I haven't had any success
+yet.  At the time any use of the EPD is trough system calls. For this to work
+make sure that you have an alias to the EPD.  For instance in my case my 
+.bashrc file defines this alias as 
+
+	alias epd='/lab/software/epd-7.3-2-rh5-x86-6/bin/python'
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%% APP3-ANALYSIS HELPER OBJECTS %%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-The sections below describe the utilities or objects that APP3-ANALYSIS usess
+The sections below describe the utilities or objects that APP3-ANALYSIS uses
 to carry out a great part of it's functionality.  The instructions to compile
 any of these utilities/objects are as follows:
 
@@ -141,6 +180,23 @@ any of these utilities/objects are as follows:
 The configure script is used to modify the Makefiles and set the appropriate
 paths for the run time loading of any shared libraries.
 
+If this sounds confusing here is step by step what you have to do to compile
+the helper objetcs.  
+
+	% cd $(APP3-CPP)
+	% ./configure
+	% cd qini
+	% make
+	% cd ..
+	% cd utils
+	% make
+	% cd ..
+	% cd funcs
+	% make
+	% cd ..
+	% cd fits
+	% cd ..
+	
 
 --- qini
 
@@ -170,6 +226,10 @@ provided to the linker.
 This provides wrappers for the Fermi-Dirac integrals.  To use it the header
 file funcs.h must be included and the object funcs.o must be provided to the
 linker.
+
+--- fits
+
+****NEED TO ADD DESCRIPTION HERE****
 
 --- fourier
 
