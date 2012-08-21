@@ -24,7 +24,7 @@ void
 Fit2DGaus_High_Level (gsl_matrix * m, double *fit, double *fit_err,
 		      string prefix)
 {
-  Gaus2DGuess (m, fit, prefix, true);
+  Gaus2DGuess (m, fit, prefix, false);
 
   if (VERBOSE)
     cout << endl << "------------ Fitting with 2D Gaussian ------------" <<
@@ -359,7 +359,7 @@ fit2dgaus_no_offset (gsl_matrix * m, double *fit)
 	{
 	  printf
 	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.3f\n",
-	     iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
+	     (int) iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
 	     gsl_vector_get (s->x, 2), gsl_vector_get (s->x, 3),
 	     gsl_vector_get (s->x, 4), s->fval, size);
 	}
@@ -442,7 +442,7 @@ fit2dgaus_neldermead (gsl_matrix * m, double *fit)
 	{
 	  printf
 	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.3f\n",
-	     iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
+	     (int) iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
 	     gsl_vector_get (s->x, 2), gsl_vector_get (s->x, 3),
 	     gsl_vector_get (s->x, 4), gsl_vector_get (s->x, 5), s->fval,
 	     size);
@@ -566,7 +566,7 @@ print_state (size_t iter, gsl_multifit_fdfsolver * s)
     {
       printf ("iter: %3u x = % 15.8f % 15.8f % 15.8f % 15.8f % 15.8f %15.8f "
 	      "|f(x)| = %g\n",
-	      iter,
+	      (unsigned int) iter,
 	      gsl_vector_get (s->x, 0),
 	      gsl_vector_get (s->x, 1),
 	      gsl_vector_get (s->x, 2),

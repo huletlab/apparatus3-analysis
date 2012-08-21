@@ -18,7 +18,7 @@
 
 using namespace std;
 
-double getINI_num( string & inifile, char *SECTION, char *KEY);
-int setINI_num (string & inifile, char *SECTION, char *KEY, double val);
+double getINI_num( string & inifile, const char *SECTION, const char *KEY);
+int setINI_num (string & inifile, const char *SECTION, const char *KEY, double val);
 int setINI (string & inifile, const char *SECTION, const char *KEY, const char *val);
-bool sectionExists( string & inifile, char *SECTION);
+bool sectionExists( string & inifile, const char *SECTION);

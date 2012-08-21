@@ -3,7 +3,7 @@
 
 
 double
-getINI_num (string & inifile, char *SECTION, char *KEY)
+getINI_num (string & inifile, const char *SECTION, const char *KEY)
 {
 
   //Loads INI file
@@ -38,7 +38,8 @@ getINI_num (string & inifile, char *SECTION, char *KEY)
 }
 
 int
-setINI_num (string & inifile, char *SECTION, char *KEY, double val)
+setINI_num (string & inifile, const char *SECTION, const char *KEY,
+	    double val)
 {
   //Loads INI file
   CSimpleIni reportINI (false, false, false);
@@ -87,7 +88,7 @@ setINI (string & inifile, const char *SECTION, const char *KEY,
 }
 
 bool
-sectionExists (string & inifile, char *SECTION)
+sectionExists (string & inifile, const char *SECTION)
 {
   //Loads INI file
   CSimpleIni reportINI (false, false, false);

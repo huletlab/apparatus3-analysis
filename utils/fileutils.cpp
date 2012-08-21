@@ -11,7 +11,7 @@
 #include "utils/utils.h"
 
 string
-makepath (char *base, string prefix, char *identifier)
+makepath (const char *base, string prefix, const char *identifier)
 {
   string out ("");
   out += base;

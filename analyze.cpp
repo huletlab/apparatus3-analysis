@@ -41,6 +41,7 @@ main (int argc, char **argv)
   setINI_num (p.reportfile, "CPP", "nsp", f->Nsp);
   setINI_num (p.reportfile, "CPP", "maxOD", f->maxOD);
   setINI_num (p.reportfile, "CPP", "maxPHI", f->maxPHI);
+  setINI_num (p.reportfile, "CPP", "maxPHCSIG", f->maxPHCSIG);
   setINI_num (p.reportfile, "CPP", "maxCD", f->maxCD);
   setINI_num (p.reportfile, "CPP", "maxI", f->maxI);
 
@@ -182,6 +183,9 @@ main (int argc, char **argv)
       //Print max phase shift
       printf (", PHImax = %.3f", f->maxPHI);
 
+      //Print max phase-contrast signal
+      printf (", SIGmax = %.3f", f->maxPHCSIG);
+
       //Print max column density
       printf (", CDmax = %.1f", f->maxCD);
 
@@ -300,6 +304,14 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
       printf
 	("\t\tuse this option when taking empty pictures (for diagnosing probe, etc.)\n\n");
 
+      printf (BOLDWHITE "\t--saveascii\n" RESET);
+      printf
+	("\t\tuse this option to enable saving of the ascii files with image processing data.\n\n");
+
+      printf (BOLDWHITE "\t--savetiff\n" RESET);
+      printf
+	("\t\tuse this option to enable saving of the TIFF files with image processing data.\n\n");
+
       printf (BOLDWHITE "\t-v, --verbose\n" RESET);
       printf ("\t\tshow messages to explain what is being done\n\n");
 
@@ -337,6 +349,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
   //      G. Reinaudi et al.   Optics Letters, Vol. 32, No. 21 pg 3143  
   p.phc = false;
 
+  p.saveascii = false;
+  p.savetiff = false;
+
   int c;
   string temp;
   stringstream ss (stringstream::in | stringstream::out);
@@ -361,6 +376,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	{"ref", required_argument, 0, 'r'},
 	{"roi", required_argument, 0, 'R'},
 	{"blanks", no_argument, 0, 'b'},
+	{"saveascii", no_argument, 0, 'A'},
+	{"savetiff", no_argument, 0, 'T'},
 	{"verbose", no_argument, 0, 'v'},
 	{"trapfreq", required_argument, 0, 'w'},
 	{0, 0, 0, 0}
@@ -459,6 +476,14 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  p.blanks = true;
 	  break;
 
+	case 'A':
+	  p.saveascii = true;
+	  break;
+
+	case 'T':
+	  p.savetiff = true;
+	  break;
+
 	case 'v':
 	  p.verbose = 1;
 	  break;
@@ -489,37 +514,6 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 //  atomsfile << endl << p.noatomsfile << endl;
 
 
-  /************* PARAMETERS OBTAINED FROM REPORT *******/
-  p.texp = (double) getINI_num (p.reportfile, "ANDOR", "exp") * 1e-3;	// Exposure in seconds
-  p.odttof = (double) getINI_num (p.reportfile, "ODT", "odttof");	// odttof in ms 
-  p.det = (double) getINI_num (p.reportfile, "ANDOR", "phcdet");	// phase contrast detuning in MHz
-  p.phc = (bool) getINI_num (p.reportfile, "ANDOR", "phc");	// phase contrast 
-  p.phcsign = (double) getINI_num (p.reportfile, "ANDOR", "phcsign");	// prefactor in the calculation of the phase contrast signal
-
-  bool auxblanks = (bool) getINI_num (p.reportfile, "ANDOR", "blanks");	// taking blanks ?
-  p.blanks = p.blanks || auxblanks;	// if either the command line or the report says it, these are blanks
-
-//  p.det = -240.;
-//  p.phc = 0.;
-//  p.phcsign = 1.;
-  double magnif_INI = (double) getINI_num (p.reportfile, "ANDOR", "magnif");
-  if (magnif_INI == INI_ERROR)
-    printf
-      ("\n   Did not find ANDOR:magnif in the report file.\n   Using hard-coded value %.2f um/pixel\n\n",
-       p.magnif);
-  else
-    p.magnif = magnif_INI;
-
-  p.free = (double) getINI_num (p.reportfile, "EVAP", "free");	// 
-  p.p1 = (double) getINI_num (p.reportfile, "EVAP", "p1");	// 
-  p.t1 = (double) getINI_num (p.reportfile, "EVAP", "t1");	// 
-  p.tau = (double) getINI_num (p.reportfile, "EVAP", "tau");	// 
-  p.beta = (double) getINI_num (p.reportfile, "EVAP", "beta");	// 
-  p.p0 = (double) getINI_num (p.reportfile, "ODT", "odtpow0");	// 
-  p.offset = (double) getINI_num (p.reportfile, "EVAP", "offset");	// 
-  p.t2 = (double) getINI_num (p.reportfile, "EVAP", "t2");	// 
-  p.tau2 = (double) getINI_num (p.reportfile, "EVAP", "tau2");	// 
-  p.image = (double) getINI_num (p.reportfile, "EVAP", "image");	// 
 
 
   return EXIT_SUCCESS;

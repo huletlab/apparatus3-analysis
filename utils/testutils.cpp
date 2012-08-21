@@ -27,8 +27,8 @@ main (int argc, char **argv)
   //Testing the crop image routine
   string reportcrop ("../examples/testutils/reportCROP.INI");
   gsl_matrix *c = cropImage (reportcrop, m);
-  cout << "cropped gsl_matrix   rows: " << c->
-    size1 << ", cols: " << c->size2 << endl;
+  cout << "cropped gsl_matrix   rows: " << c->size1 << ", cols: " << c->
+    size2 << endl;
   string outputfile ("../examples/testutils/cropped.ASCII");
   save_gsl_matrix_ASCII (c, outputfile);
   cout << "First few elements of cropped image: " << endl;

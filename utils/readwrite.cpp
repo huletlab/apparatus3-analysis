@@ -49,7 +49,7 @@ ReadFluorImg_gsl_matrix (string & datafile)
     {
       for (int j = 0; j < 779; j++)
 	{
-	  if (!in.good ())
+	  if (!in.good () && errflg == false)
 	    errflg = true;
 	  else
 	    in >> elem;

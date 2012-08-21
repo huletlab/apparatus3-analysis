@@ -46,23 +46,28 @@ getmaxRowCol (gsl_matrix * m, gsl_vector * max_row, gsl_vector * max_col)
 
 void
 findpeak (gsl_matrix * m, unsigned int *i_max_ptr, unsigned int *j_max_ptr,
-	  double *max_ptr)
+	  double *max_ptr, bool is_pos)
 {
   unsigned int ravg = 0;
-  findpeak_running_avg (m, i_max_ptr, j_max_ptr, max_ptr, ravg);
+  findpeak_running_avg (m, i_max_ptr, j_max_ptr, max_ptr, ravg, is_pos);
   return;
 }
 
 void
 findpeak_running_avg (gsl_matrix * m, unsigned int *i_max_ptr,
 		      unsigned int *j_max_ptr, double *max_ptr,
-		      unsigned int ravg)
+		      unsigned int ravg, bool is_pos)
 {
 
   unsigned int s1 = m->size1;
   unsigned int s2 = m->size2;
 
-  double max = -1.e4;
+  double max;
+  if (is_pos)
+    max = -1.e6;
+  else
+    max = 1e6;
+
   unsigned int i_max = 0;
   unsigned int j_max = 0;
   double elem;
@@ -88,17 +93,28 @@ findpeak_running_avg (gsl_matrix * m, unsigned int *i_max_ptr,
 			gsl_matrix_get (m, ii, jj) / pow (2. * ravg + 1., 2.);
 		}}
 	    }
-	  if (elem > max)
+	  if (is_pos)
 	    {
-	      max = elem;
-	      i_max = i;
-	      j_max = j;
-
+	      if (elem > max)
+		{
+		  max = elem;
+		  i_max = i;
+		  j_max = j;
+		}
+	    }
+	  else
+	    {
+	      if (elem < max)
+		{
+		  max = elem;
+		  i_max = i;
+		  j_max = j;
+		}
 	    }
 	}
     }
 
-  if (max == 0. || i_max == 0 || j_max == 0)
+  if (max == -1e6 || max == 1e6 || i_max == 0 || j_max == 0)
     {
       cout << "error finding peak: could not find peak" << endl;
       return;

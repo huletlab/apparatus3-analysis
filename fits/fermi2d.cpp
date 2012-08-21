@@ -269,15 +269,15 @@ fit2dfermi_neldermead (gsl_matrix * m, double *fit)
       size = gsl_multimin_fminimizer_size (s);
       status = gsl_multimin_test_size (size, tolerance);
 
-      if (status == GSL_SUCCESS && VERBOSE)
+      if ((VERBOSE) && (iter % 20 == 0 || status == GSL_SUCCESS))
 	{
-	  printf (" converged to minimum at \n");
-	}
-      if ((VERBOSE) && iter % 20 == 0)
-	{
+	  if (status == GSL_SUCCESS)
+	    {
+	      printf (" converged to minimum at \n");
+	    }
 	  printf
 	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.3f\n",
-	     iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
+	     (int) iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
 	     gsl_vector_get (s->x, 2), gsl_vector_get (s->x, 3),
 	     gsl_vector_get (s->x, 4), gsl_vector_get (s->x, 5),
 	     gsl_vector_get (s->x, 6), s->fval, size);
@@ -385,16 +385,16 @@ fit1dfermi_neldermead (gsl_vector * m, double *fit)
       size = gsl_multimin_fminimizer_size (s);
       status = gsl_multimin_test_size (size, 1e-2);
 
-      if (status == GSL_SUCCESS && VERBOSE)
-	{
-	  printf (" converged to minimum at \n");
-	}
 
-      if (VERBOSE && iter % 4 == 0)
+      if (VERBOSE && (iter % 4 == 0 || status == GSL_SUCCESS))
 	{
+	  if (status == GSL_SUCCESS)
+	    {
+	      printf (" converged to minimum at \n");
+	    }
 	  printf
 	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.3f\n",
-	     iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
+	     (int) iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
 	     gsl_vector_get (s->x, 2), gsl_vector_get (s->x, 3),
 	     gsl_vector_get (s->x, 4), s->fval, size);
 	}

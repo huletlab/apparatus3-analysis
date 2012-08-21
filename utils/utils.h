@@ -27,7 +27,7 @@ using namespace std;
  * Functions in fileutils.cpp that will be exported:
  *
  */
-string makepath (char *base, string prefix, char *identifier);
+string makepath (const char *base, string prefix, const char *identifier);
 int makeShotPaths_Basler (char *shot, string & shotnum, string & report,
 			  string & atoms);
 int makeShotPaths (char *shot, string & shotnum, string & report,
@@ -69,10 +69,10 @@ to_dat_file_2 (gsl_vector * one, gsl_vector * two, string prefix,
 void getmaxRowCol (gsl_matrix * m, gsl_vector * max_row,
 		   gsl_vector * max_col);
 void findpeak (gsl_matrix * m, unsigned int *i_max_ptr,
-	       unsigned int *j_max_ptr, double *max_ptr);
+	       unsigned int *j_max_ptr, double *max_ptr, bool is_pos = true);
 void findpeak_running_avg (gsl_matrix * m, unsigned int *i_max_ptr,
 			   unsigned int *j_max_ptr, double *max_ptr,
-			   unsigned int ravg);
+			   unsigned int ravg, bool is_pos = true);
 void findmoments (gsl_matrix * m, unsigned int *ci, unsigned int *cj,
 		  double *peak, unsigned int *wi1e, unsigned int *wj1e);
 void findcenter (gsl_matrix * m, unsigned int *i_max_ptr,
@@ -83,8 +83,8 @@ gsl_matrix *mask (gsl_matrix * m, double factor = 5);
 gsl_matrix *smooth (gsl_matrix * raw, unsigned int bins);
 gsl_matrix *subtract (gsl_matrix * m1, gsl_matrix * m2);
 
-void Gaus2DGuess (gsl_matrix * m, double *guess, string prefix,
-		  bool save_matrices);
+/*void Gaus2DGuess (gsl_matrix * m, double *guess, string prefix,
+		  bool save_matrices);*/
 
 unsigned int coerce_matrix_index (unsigned int i, unsigned int size);
 

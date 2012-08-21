@@ -235,10 +235,6 @@ fit1dfermi_azimuthal_neldermead (gsl_vector ** a, double *fit)
       size = gsl_multimin_fminimizer_size (s);
       status = gsl_multimin_test_size (size, 1e-6);
 
-      if (status == GSL_SUCCESS && VERBOSE)
-	{
-	  printf (" converged to minimum at \n");
-	}
 
 //      if (iter > 560)
 //      {
@@ -246,26 +242,35 @@ fit1dfermi_azimuthal_neldermead (gsl_vector ** a, double *fit)
 //        DEBUG_FITS = true;
 //      }
 
-      if ((VERBOSE) && (iter % 20 == 0) || DEBUG_FUNCS)
+      if (((VERBOSE) && (iter % 20 == 0 || status == GSL_SUCCESS))
+	  || DEBUG_FUNCS)
 	{
+	  if (status == GSL_SUCCESS)
+	    {
+	      printf (" converged to minimum at \n");
+	    }
 	  printf
 	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.5f\n",
-	     iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
+	     (int) iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
 	     gsl_vector_get (s->x, 2), gsl_vector_get (s->x, 3),
 	     gsl_vector_get (s->x, 4), s->fval, size);
 	}
     }
   while (status == GSL_CONTINUE && iter < 1000);
 
-  gsl_vector_free (x);
-  gsl_vector_free (ss);
-  gsl_multimin_fminimizer_free (s);
-
   fit[0] = FIT (0);
   fit[1] = FIT (1);
   fit[2] = FIT (2);
   fit[3] = FIT (3);
   fit[4] = FIT (4);
+
+  gsl_vector_free (x);
+  gsl_vector_free (ss);
+  gsl_multimin_fminimizer_free (s);
+
+  /*printf ("\n\n FIT (0) = %.6e\n gsl_vector_get(s->x,0) = %.6e\n\n", FIT (0),
+     gsl_vector_get (s->x, 0)); */
+
   return;
 }
 
@@ -321,29 +326,30 @@ fit1dfermi_azimuthal_zero_neldermead (gsl_vector ** a, double *fit)
       size = gsl_multimin_fminimizer_size (s);
       status = gsl_multimin_test_size (size, 1e-6);
 
-      if (status == GSL_SUCCESS && VERBOSE)
-	{
-	  printf (" converged to minimum at \n");
-	}
 
-      if ((VERBOSE) && iter % 20 == 0)
+      if ((VERBOSE) && (iter % 20 == 0 || status == GSL_SUCCESS))
 	{
+	  if (status == GSL_SUCCESS)
+	    {
+	      printf (" converged to minimum at \n");
+	    }
 	  printf
 	    ("%5d %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.5f\n",
-	     iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
+	     (int) iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
 	     gsl_vector_get (s->x, 2), gsl_vector_get (s->x, 3),
 	     s->fval, size);
 	}
     }
   while (status == GSL_CONTINUE && iter < 1000);
 
-  gsl_vector_free (x);
-  gsl_vector_free (ss);
-  gsl_multimin_fminimizer_free (s);
-
   fit[0] = FIT (0);
   fit[1] = FIT (1);
   fit[2] = FIT (2);
   fit[3] = FIT (3);
+
+  gsl_vector_free (x);
+  gsl_vector_free (ss);
+  gsl_multimin_fminimizer_free (s);
+
   return;
 }
