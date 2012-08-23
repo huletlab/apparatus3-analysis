@@ -17,6 +17,9 @@
 
 #include <math.h>
 #include <sstream>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_roots.h>
 
 extern bool VERBOSE;
 
@@ -47,7 +50,7 @@ struct params
   double h;
 
   // Image parameters
-  double texp, odttof, det;
+  double texp, odttof, det, imgbfield;
 
   // Evap parameters
   double free, p1, t1, tau, beta, p0, offset, t2, tau2, image;
@@ -89,7 +92,10 @@ init_params (struct params *p)
 {
   /************* PARAMETERS OBTAINED FROM REPORT *******/
   p->texp = (double) getINI_num (p->reportfile, "ANDOR", "exp") * 1e-3;	// Exposure in seconds
-  p->odttof = (double) getINI_num (p->reportfile, "ODT", "odttof");	// odttof in ms 
+  p->odttof = (double) getINI_num (p->reportfile, "ODT", "odttof");	// odttof in ms
+
+  p->imgbfield = 527;		// imaging bfield in gauss 
+
   p->det = (double) getINI_num (p->reportfile, "ANDOR", "phcdet");	// phase contrast detuning in MHz
   p->phc = (bool) getINI_num (p->reportfile, "ANDOR", "phc");	// phase contrast 
   p->phcsign = (double) getINI_num (p->reportfile, "ANDOR", "phcsign");	// prefactor in the calculation of the phase contrast signal
@@ -226,6 +232,10 @@ public:
   }
 
   void LoadFITS ();
+  double ncol_phcimg (double cd, double sig, double det, double i0,
+		      double imgbfield, bool twostates, bool SHOW);
+  double signal_phcimg (double ncol, double det, double i0, double imgbfield,
+			bool twostates, bool SHOW);
   void ComputeColumnDensity ();
   void SaveColumnDensity ();
   void FindMoments ();
@@ -525,6 +535,244 @@ Fermions::LoadFITS ()
   return;
 }
 
+  /********************************************
+  PHASE-CONTRAST IMAGING CALCULATION
+  ********************************************/
+
+struct phc_params
+{
+  double sig;
+  double det;
+  double i0;
+  double imgbfield;
+  bool twostates;
+  bool SHOW;
+  double lambda;
+  double gamma;
+  double magnif;
+};
+
+
+double
+sig_phcimg (double ncol, struct phc_params *phc)
+{
+
+  //This is the maximal cross section ( units of pixel )
+  double sigma0 =
+    6 * M_PI * pow (phc->lambda / 2. / M_PI, 2) / pow (phc->magnif * 1e-4, 2);
+
+  //This is the cross section for light polarized perp
+  //to the magnetic field drving sigma minus transitions
+  //( units of pixel )
+  double sig_minus =
+    3 * M_PI * pow (phc->lambda / 2. / M_PI, 2) / pow (phc->magnif * 1e-4, 2);
+
+  //This is the cross section for light polarized along
+  //to the magnetic field drving deltaM=0 transitions
+  //( units of pixel )
+  double sig_pi =
+    4 * M_PI * pow (phc->lambda / 2. / M_PI, 2) / pow (phc->magnif * 1e-4, 2);
+
+  //The I/Isat parameter is obtained for each transition:
+  //i0 is I/Isat with Isat = 5.1, i.e. maximal cross section.
+  double i0_minus = phc->i0 * sig_minus / sigma0;
+  double i0_pi = phc->i0 * sig_pi / sigma0;
+
+  //The detunings are calculated:
+  // det is detuning from state |1> for the sigma minus transition
+  double det = phc->det;
+
+  // splitting between states |1> and |2>:
+  // This formula is OK between 520-700 Gauss
+  double delta12 = (74.35 + 0.00241351 * phc->imgbfield) / (phc->gamma / 1e6);
+  double det2 = det + delta12;
+
+  // detuning for pi transition, state |1>
+  double det_pi = det - 1.87 * phc->imgbfield / (phc->gamma / 1.e6);
+
+  // detuning for pi transition, state |2>
+  double det2_pi = det_pi + delta12;
+
+
+  //Here, the parameters for the phase contrast imaging setup are set
+  //First the polarization of the probe light
+  double a = 1. / sqrt (2.);
+  double b = 1. / sqrt (2.);
+  double g = M_PI / 2.;
+  //Then the angle of the polarizer wrt the magnetic field
+  double th = -M_PI / 4.;
+
+  //One atom cannot scatter a photon twice, so it is necessary to 
+  //include in the absorption (alpha) and phase-shift (phi) terms
+  //a term corresponding to the probability of the atom to undergo
+  //each transition
+
+  double p_minus = sig_minus / (sig_minus + sig_pi);
+  double p_pi = sig_pi / (sig_minus + sig_pi);
+
+  //Then the absorption and phase shifts are calculated 
+  //The unsubscripted one is for the sigma minus transition
+  //The pi subscript one is for the pi transition
+  double alpha, alpha_pi, phi, phi_pi;
+  if (phc->twostates)
+    {
+      double alpha1 =
+	(ncol / 2.) * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
+      double alpha2 =
+	(ncol / 2.) * sig_minus / (1 + 4 * det2 * det2 + 2 * i0_minus);
+
+      double alpha1_pi =
+	(ncol / 2.) * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
+      double alpha2_pi =
+	(ncol / 2.) * sig_pi / (1 + 4 * det2_pi * det2_pi + 2 * i0_pi);
+
+      alpha = alpha1 + alpha2;
+      alpha_pi = alpha1_pi + alpha2_pi;
+
+      phi = -alpha1 * det - alpha2 * det2;
+      phi_pi = -alpha1_pi * det_pi - alpha2_pi * det2_pi;
+
+    }
+
+  else
+    {
+      alpha = ncol * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
+      alpha_pi = ncol * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
+
+      phi = -alpha * det;
+      phi_pi = -alpha_pi * det_pi;
+    }
+
+  double atoms = b * b * exp (-alpha_pi) * cos (th) * cos (th)
+    + a * a * exp (-alpha) * sin (th) * sin (th)
+    + a * b * exp (-alpha / 2. - alpha_pi / 2.) * cos (g - phi +
+						       phi_pi) * sin (2. *
+								      th);
+
+  double noatoms = b * b * cos (th) * cos (th)
+    + a * a * sin (th) * sin (th) + a * b * cos (g) * sin (2 * th);
+
+  return -1. * (atoms / noatoms - 1);
+};
+
+double
+sig_phcimg_err (double ncol, void *params)
+{
+  struct phc_params *phc = (struct phc_params *) params;
+  return sig_phcimg (ncol, phc) - phc->sig;
+};
+
+double
+Fermions::signal_phcimg (double ncol, double det, double i0, double imgbfield,
+			 bool twostates, bool SHOW)
+{
+
+  struct phc_params phc =
+    { 0.0, det, i0, p->imgbfield, true, false, p->lambda, p->gamma,
+    p->magnif
+  };
+  return sig_phcimg (ncol, &phc);
+
+}
+
+double
+Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
+		       double imgbfield, bool twostates, bool SHOW)
+{
+
+
+  //This is the maximal cross section ( units of pixel )
+  double sigma0 =
+    6 * M_PI * pow (p->lambda / 2. / M_PI, 2) / pow (p->magnif * 1e-4, 2);
+
+  //First use column density from the linearized algortihm to 
+  //make a first estimate of the column density 
+  /*
+     double ncol = 1.5 * pow (fabs (det / 25),
+     1. / 3.) * sig / (0.5 - det) * (1 + 4 * det * det +
+     2 * i0) / sigma0; */
+  double ncol = 2 * cd * (det < -25 ? pow (fabs (det / 25), 1. / 3.) : 1.);
+
+  if (SHOW)
+    {
+      cout << endl <<
+	"-------- CALCULATING PHASE-CONTRAST COLUMN DENSITY -----" << endl;
+      printf (" First naive estimate = %.3f\n", ncol);
+    }
+
+  int status;
+  int iter = 0, max_iter = 100;
+
+  const gsl_root_fsolver_type *T;
+  gsl_root_fsolver *s;
+
+  double r = 0;
+
+  double x_lo, x_hi;
+
+  if (fabs (ncol) < 100.)
+    {
+      x_lo = -1000.;
+      x_hi = 1000.;
+    }
+  else
+    {
+      double span = 1.0;
+      x_lo = ncol - span * fabs (ncol);
+      x_hi = ncol + span * fabs (ncol);
+    }
+
+  gsl_function F;
+
+  F.function = &sig_phcimg_err;
+  struct phc_params params =
+    { sig, det, i0, imgbfield, twostates, false, p->lambda, p->gamma,
+    p->magnif
+  };
+  F.params = &params;
+
+  T = gsl_root_fsolver_brent;
+  s = gsl_root_fsolver_alloc (T);
+  gsl_root_fsolver_set (s, &F, x_lo, x_hi);
+
+  if (SHOW)
+    {
+      printf ("using %s method\n", gsl_root_fsolver_name (s));
+
+      printf ("%5s [%9s, %9s] %9s %9s\n",
+	      "iter", "lower", "upper", "root", "err(est)");
+    }
+  do
+    {
+      iter++;
+      status = gsl_root_fsolver_iterate (s);
+      r = gsl_root_fsolver_root (s);
+      x_lo = gsl_root_fsolver_x_lower (s);
+      x_hi = gsl_root_fsolver_x_upper (s);
+      status = gsl_root_test_interval (x_lo, x_hi, 0, 0.001);
+
+      if (status == GSL_SUCCESS && SHOW)
+	printf ("Converged:\n");
+
+      if (SHOW)
+	{
+	  printf ("%5d [%.7f, %.7f] %.7f %.7f\n",
+		  iter, x_lo, x_hi, r, x_hi - x_lo);
+	}
+    }
+  while (status == GSL_CONTINUE && iter < max_iter);
+
+  gsl_root_fsolver_free (s);
+
+  double ratio = r / ncol;
+  if (fabs (ncol) > 100. && (ratio > 1.7 || ratio < 0.3))
+    {
+      printf (" Result / FirstEstimate = %.3f\n", ratio);
+    }
+
+  return r;
+
+}
 
 void
 Fermions::ComputeColumnDensity ()
@@ -599,19 +847,31 @@ Fermions::ComputeColumnDensity ()
 
 
   /************ PHASE-CONTRAST IMAGING VARIABLES ************/
-  double signal, phase_shift, sig1, sig2;
+  double signal, phase_shift, sig1, sig2, state2det, state1det, delta12;
   gsl_matrix *phc_signal;
   if (p->phc)
     {
       phc_signal = gsl_matrix_alloc (s1, s2);	// A matrix of the phase-contrast Signal at each pixel.
       sigma0 = 6 * M_PI * pow (p->lambda / 2. / M_PI, 2);	//This is the maximal cross section
       isat = 5.1;		// This is the standard saturation intensity
+
       det = p->det * 1.e6 / p->gamma;	//detuning in units of gamma
+      state1det = det;
+
+
+      delta12 = (74.35 + 0.00241351 * p->imgbfield) * 1.e6 / p->gamma;	// Splitting between states |1> and |2> at 540 Gauss
+      // This formula is OK between 520-700 Gauss
+
+      state2det = state1det + delta12;
+
       cout << endl;
-      cout << "   Andor magnification     = " << p->magnif << " um/pixel" <<
+      cout << "   Andor magnification      = " << p->magnif << " um/pixel" <<
 	endl;
-      cout << "   Phase-contrast detuning = " << det << " Gamma  = " << det *
-	p->gamma / 1.e6 << " MHz" << endl;
+      cout << "   Phase-contrast detuning  = " << det << " Gamma  = " << det
+	* p->gamma / 1.e6 << " MHz" << endl;
+      cout << "   States 1 and 2 splitting = " << delta12 << " Gamma  = " <<
+	delta12 * p->gamma / 1.e6 << " MHz" << endl;
+      cout << "   Imaging bfield  = " << p->imgbfield << " Gauss" << endl;
     }
 
 
@@ -728,16 +988,38 @@ Fermions::ComputeColumnDensity ()
 	      i0 = 2. * i0;	// The polarizer cuts it down by a factor of 2.  
 
 	      sig1 =
-		(0.5 - det) * sigma0 / pow (p->magnif * 1e-4,
-					    2) / (1 + 4 * det * det + 2 * i0);
+		(0.5 - state1det) * sigma0 / pow (p->magnif * 1e-4,
+						  2) / (1 +
+							4 * state1det *
+							state1det + 2 * i0);
 	      sig2 =
-		(0.5 - (det + 13.3)) * sigma0 / pow (p->magnif * 1e-4,
-						     2) / (1 + 4 * (det +
-								    13.3) *
-							   (det + 13.3) +
-							   2 * i0);
+		(0.5 - state2det) * sigma0 / pow (p->magnif * 1e-4,
+						  2) / (1 +
+							4 * state2det *
+							state2det + 2 * i0);
 
-	      cd = 2 * signal / (sig1 + sig2);	//columdensity 
+	      cd = 2 * signal / (sig1 + sig2);	//columdensity
+
+	      if (i == 302 && j == 200 && false)
+		{
+		  printf
+		    ("\nDEBUG PHASE-CONTRAST COLUMN DENSITY CALCULTION\n");
+		  printf (" i = %u, j = %u\n", i, j);
+		  printf ("    signal = %.6f\n", signal);
+		  printf ("        cd = %.3f\n", cd);
+		  printf ("signal(cd) = %.6f\n",
+			  signal_phcimg (cd, det, i0, p->imgbfield, true,
+					 true));
+
+
+		}
+	      cd =
+		ncol_phcimg (cd, signal, det, i0, p->imgbfield, true, false);
+
+
+
+	      //cd = 2 * signal / (sig1 + sig2) * pow (fabs (det) / 25., 1. / 3.);      //columdensity -> ATTEMPT AT CORRECTION 
+	      //cd = 2 * signal / (sig1);       //columdensity -> IF USING ONLY STATE 1 
 	      nsp = 0.;		//this is not relevant for phase contrast so just make it zero.
 
 	      // sanity check
@@ -1267,8 +1549,8 @@ Fermions::GetAzimuthalAverageEllipse ()
 {
   if (VERBOSE)
     cout << endl <<
-      "------------ GET AZIMUTHAL AVERAGE OF CLOUD (ELLIPSE) ------------" <<
-      endl;
+      "------------ GET AZIMUTHAL AVERAGE OF CLOUD (ELLIPSE) ------------"
+      << endl;
 
   //Aspect ratio from trap geometry and self similar expansion
   double trap_aspect = sqrt (p->B2 / p->B1);
