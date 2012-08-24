@@ -573,10 +573,18 @@ sig_phcimg (double ncol, struct phc_params *phc)
   double sig_pi =
     4 * M_PI * pow (phc->lambda / 2. / M_PI, 2) / pow (phc->magnif * 1e-4, 2);
 
+  //This is the cross section for light polarized perp
+  //to the magnetic field drving sigma plus transitions
+  //( units of pixel )
+  double sig_plus =
+    1 * M_PI * pow (phc->lambda / 2. / M_PI, 2) / pow (phc->magnif * 1e-4, 2);
+
+
   //The I/Isat parameter is obtained for each transition:
   //i0 is I/Isat with Isat = 5.1, i.e. maximal cross section.
   double i0_minus = phc->i0 * sig_minus / sigma0;
   double i0_pi = phc->i0 * sig_pi / sigma0;
+  double i0_plus = phc->i0 * sig_plus / sigma0;
 
   //The detunings are calculated:
   // det is detuning from state |1> for the sigma minus transition
@@ -593,6 +601,12 @@ sig_phcimg (double ncol, struct phc_params *phc)
   // detuning for pi transition, state |2>
   double det2_pi = det_pi + delta12;
 
+  // detuning for plus transition, state |1>
+  double det_plus = det - 2 * 1.87 * phc->imgbfield / (phc->gamma / 1.e6);
+
+  // detuning for plus transition, state |2>
+  double det2_plus = det_plus + delta12;
+
 
   //Here, the parameters for the phase contrast imaging setup are set
   //First the polarization of the probe light
@@ -607,40 +621,89 @@ sig_phcimg (double ncol, struct phc_params *phc)
   //a term corresponding to the probability of the atom to undergo
   //each transition
 
-  double p_minus = sig_minus / (sig_minus + sig_pi);
-  double p_pi = sig_pi / (sig_minus + sig_pi);
-
   //Then the absorption and phase shifts are calculated 
   //The unsubscripted one is for the sigma minus transition
   //The pi subscript one is for the pi transition
   double alpha, alpha_pi, phi, phi_pi;
   if (phc->twostates)
     {
-      double alpha1 =
-	(ncol / 2.) * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
-      double alpha2 =
-	(ncol / 2.) * sig_minus / (1 + 4 * det2 * det2 + 2 * i0_minus);
+      //Calculate the cross section to scatter on each transition from each state:
+      double minus1 = sig_minus / (1 + 4 * det * det + 2 * i0_minus);
+      double minus2 = sig_minus / (1 + 4 * det2 * det2 + 2 * i0_minus);
 
-      double alpha1_pi =
-	(ncol / 2.) * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
-      double alpha2_pi =
-	(ncol / 2.) * sig_pi / (1 + 4 * det2_pi * det2_pi + 2 * i0_pi);
+      double pi1 = sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
+      double pi2 = sig_pi / (1 + 4 * det2_pi * det2_pi + 2 * i0_pi);
 
-      alpha = alpha1 + alpha2;
+      double plus1 = sig_plus / (1 + 4 * det_plus * det_plus + 2 * i0_plus);
+      double plus2 = sig_plus / (1 + 4 * det2_plus * det2_plus + 2 * i0_plus);
+
+      //One atom cannot scatter a photon twice, so it is necessary to 
+      //include in the absorption (alpha) and phase-shift (phi) terms
+      //a term corresponding to the probability of the atom to undergo
+      //each transition
+
+      //Calculate the probabilities to scatter on each transition:
+      /*
+         // If atom is in state |1>:
+         double p_minus1 = minus1 / (minus1 + pi1);
+         double p_pi1 = pi1 / (minus1 + pi1);
+         // If atom is in state |2>:
+         double p_minus2 = minus2 / (minus2 + pi2);
+         double p_pi2 = pi2 / (minus2 + pi2);
+       */
+      // If atom is in state |1>:
+      /*
+         double p_minus1 = sig_minus / (sig_minus + sig_pi);
+         double p_pi1 = sig_pi / (sig_minus + sig_pi);
+         // If atom is in state |2>:
+         double p_minus2 = sig_minus / (sig_minus + sig_pi);
+         double p_pi2 = sig_pi / (sig_minus + sig_pi);
+       */
+
+      // Calculate the absorption due to atoms in state 1 
+      double alpha1 = (ncol / 2.) * minus1;
+      double alpha1_pi = (ncol / 2.) * pi1;
+      double alpha1_plus = (ncol / 2.) * plus1;
+      // and in state 2
+      double alpha2 = (ncol / 2.) * minus2;
+      double alpha2_pi = (ncol / 2.) * pi2;
+      double alpha2_plus = (ncol / 2.) * plus2;
+
+      /* 
+         double alpha1 = 
+         (ncol / 2.) * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
+         double alpha2 =
+         (ncol / 2.) * sig_minus / (1 + 4 * det2 * det2 + 2 * i0_minus);
+
+         double alpha1_pi =
+         (ncol / 2.) * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
+         double alpha2_pi =
+         (ncol / 2.) * sig_pi / (1 + 4 * det2_pi * det2_pi + 2 * i0_pi);
+       */
+
+      alpha = alpha1 + alpha2 + alpha1_plus + alpha2_plus;
       alpha_pi = alpha1_pi + alpha2_pi;
 
-      phi = -alpha1 * det - alpha2 * det2;
+      phi =
+	-alpha1 * det - alpha2 * det2 - alpha1_plus * det_plus -
+	alpha2_plus * det2_plus;
       phi_pi = -alpha1_pi * det_pi - alpha2_pi * det2_pi;
 
     }
 
   else
     {
-      alpha = ncol * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
+      double alpha_plus =
+	ncol * sig_plus / (1 + 4 * det_plus * det_plus + 2 * i0_plus);
+      double alpha_minus =
+	ncol * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
+
+      alpha = alpha_plus + alpha_minus;
       alpha_pi = ncol * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
 
-      phi = -alpha * det;
+      phi = -alpha_minus * det - alpha_plus * det_plus;
       phi_pi = -alpha_pi * det_pi;
+
     }
 
   double atoms = b * b * exp (-alpha_pi) * cos (th) * cos (th)
@@ -682,8 +745,8 @@ Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
 
 
   //This is the maximal cross section ( units of pixel )
-  double sigma0 =
-    6 * M_PI * pow (p->lambda / 2. / M_PI, 2) / pow (p->magnif * 1e-4, 2);
+  //double sigma0 =
+  //  6 * M_PI * pow (p->lambda / 2. / M_PI, 2) / pow (p->magnif * 1e-4, 2);
 
   //First use column density from the linearized algortihm to 
   //make a first estimate of the column density 
@@ -999,6 +1062,7 @@ Fermions::ComputeColumnDensity ()
 							state2det + 2 * i0);
 
 	      cd = 2 * signal / (sig1 + sig2);	//columdensity
+	      cd = 2 * signal / (sig1);	//columdensity -> IF USING ONLY STATE 1 
 
 	      if (i == 302 && j == 200 && false)
 		{
@@ -1013,13 +1077,11 @@ Fermions::ComputeColumnDensity ()
 
 
 		}
+	      bool twostates = false, SHOW = false;
 	      cd =
-		ncol_phcimg (cd, signal, det, i0, p->imgbfield, true, false);
+		ncol_phcimg (cd, signal, det, i0, p->imgbfield, twostates,
+			     SHOW);
 
-
-
-	      //cd = 2 * signal / (sig1 + sig2) * pow (fabs (det) / 25., 1. / 3.);      //columdensity -> ATTEMPT AT CORRECTION 
-	      //cd = 2 * signal / (sig1);       //columdensity -> IF USING ONLY STATE 1 
 	      nsp = 0.;		//this is not relevant for phase contrast so just make it zero.
 
 	      // sanity check
@@ -1054,10 +1116,10 @@ Fermions::ComputeColumnDensity ()
       gsl_matrix *phc_signal_smoothed = smooth (phc_signal, smooth_bins);
       unsigned int phcsig_i, phcsig_j;
       double phcsig_max_pos, phcsig_max_neg;
-      findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j, &phcsig_max_pos,
-		true);
-      findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j, &phcsig_max_neg,
-		false);
+      /*findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j, &phcsig_max_pos,
+         true); */
+      /*findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j, &phcsig_max_neg,
+         false); */
       maxPHCSIG =
 	fabs (phcsig_max_pos) >
 	fabs (phcsig_max_neg) ? phcsig_max_pos : phcsig_max_neg;
