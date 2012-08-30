@@ -58,8 +58,8 @@ main (int argc, char **argv)
       f->Fit2DGauss ();
       f->SaveColumnDensity ();
     }
-  f->FitScatt2DGauss ();
-  //f->FitProbe2DGauss ();
+//  f->FitScatt2DGauss ();
+//  f->FitProbe2DGauss ();
 
   //Get center of cloud with respect to the Andor full frame
   f->abs_ci += f->gaus2dfit[0];
@@ -315,6 +315,18 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
       printf (BOLDWHITE "\t-v, --verbose\n" RESET);
       printf ("\t\tshow messages to explain what is being done\n\n");
 
+      printf (BOLDWHITE "\t-i, --imgverbose\n" RESET);
+      printf
+	("\t\tshow messages to explain the results of the column density calculation\n\n");
+
+      printf (BOLDWHITE "\t-i, --onestate\n" RESET);
+      printf
+	("\t\tuse this flag if taking pictures of only state |1> atoms\n\n");
+
+      printf (BOLDWHITE "\t-e, --eigenface\n" RESET);
+      printf
+	("\t\tuse this flag if you want to clean up the image with eigenface\n\n");
+
 //      printf (BOLDWHITE "\t--debug-fits\n" RESET);
 //      printf ("\t\tshow details about fit evaluations for debugging\n\n");
 
@@ -326,6 +338,7 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 
   p.shot = atoi (p.shotnum.c_str ());
   p.verbose = false;
+  p.imgverbose = false;
   p.reanalyze = false;
   p.center = false;
   p.crop = false;
@@ -348,6 +361,10 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
   // See "Strong saturation of absorption imaging of dense clouds of ultracold atoms" 
   //      G. Reinaudi et al.   Optics Letters, Vol. 32, No. 21 pg 3143  
   p.phc = false;
+
+  p.twostates = true;		// By default pictures are of a spin mixture
+
+  p.eigenface = false;		// By default do not use eigenface
 
   p.saveascii = false;
   p.savetiff = false;
@@ -379,6 +396,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	{"saveascii", no_argument, 0, 'A'},
 	{"savetiff", no_argument, 0, 'T'},
 	{"verbose", no_argument, 0, 'v'},
+	{"imgverbose", no_argument, 0, 'i'},
+	{"onestate", no_argument, 0, '1'},
+	{"eigenface", no_argument, 0, 'e'},
 	{"trapfreq", required_argument, 0, 'w'},
 	{0, 0, 0, 0}
       };
@@ -386,7 +406,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 
       int option_index = 0;
       c =
-	getopt_long (argc, argv, "Ccfpr:R:S:v", long_options, &option_index);
+	getopt_long (argc, argv, "Ccfpr:R:S:vie", long_options,
+		     &option_index);
       if (c == -1)
 	break;
 
@@ -486,6 +507,18 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 
 	case 'v':
 	  p.verbose = 1;
+	  break;
+
+	case 'i':
+	  p.imgverbose = true;
+	  break;
+
+	case 'e':
+	  p.eigenface = true;
+	  break;
+
+	case '1':
+	  p.twostates = false;
 	  break;
 
 	case 'w':

@@ -21,7 +21,7 @@ objs =   /lab/software/apparatus3/cpp/funcs/funcs.o /lab/software/apparatus3/cpp
 analyze: analyze.o ${objs}
 	g++ analyze.o ${objs} ${LFLAGS} -o analyze
 	chmod a+w analyze 
-	cp -v analyze /lab/software/apparatus3/cpp/bin/analyze-phctest2
+	cp -v analyze /lab/software/apparatus3/cpp/bin/analyze
 	rm analyze.o
 
 analyze.o: Fermions.h

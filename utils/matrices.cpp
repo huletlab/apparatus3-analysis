@@ -64,9 +64,9 @@ findpeak_running_avg (gsl_matrix * m, unsigned int *i_max_ptr,
 
   double max;
   if (is_pos)
-    max = -1.e6;
+    max = -1.e9;
   else
-    max = 1e6;
+    max = 1e9;
 
   unsigned int i_max = 0;
   unsigned int j_max = 0;
@@ -114,9 +114,10 @@ findpeak_running_avg (gsl_matrix * m, unsigned int *i_max_ptr,
 	}
     }
 
-  if (max == -1e6 || max == 1e6 || i_max == 0 || j_max == 0)
+  if ((max == -1e9 || max == 1e9) && i_max == 0 && j_max == 0)
     {
       cout << "error finding peak: could not find peak" << endl;
+      printf (" peak = %.3f at %u,%u\n", max, i_max, j_max);
       return;
     }
   *i_max_ptr = i_max;

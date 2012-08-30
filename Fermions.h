@@ -38,6 +38,16 @@ struct params
   bool verbose, center, crop, plots, reanalyze, roi_user,
     fitfermi1D, fermi2d, fermiazimuth, showfermi, show_B, blanks;
 
+  // One state or two states?
+  bool twostates;
+
+  // Be verbose about imaging
+  bool imgverbose;
+
+  // Do eigenface cleanup?
+  bool eigenface;
+  bool eigenface_done;
+
   // Whether or not to save ASCII or TIFF files
   // Useful for debugging the algorithms
   bool saveascii, savetiff;
@@ -135,6 +145,7 @@ init_params (struct params *p)
 
   /************* HARD-CODED PARAMETER VALUES ***********/
 
+  p->eigenface_done = false;
 
   p->lambda = 670.977e-7;	// cm
   p->hc = 1.98644521e-25;	// J*m 
@@ -157,7 +168,8 @@ init_params (struct params *p)
     p->mJ_per_photon * (12.9 / 0.95 / emp);
 
   //p->eff = p->andoreff_10MHz_14bit_x1_Electron_Mult;
-  p->eff = p->andoreff_10MHz_14bit_x5_Electron_Mult_300_BaselineOffset;
+  //p->eff = p->andoreff_10MHz_14bit_x5_Electron_Mult_300_BaselineOffset;
+  p->eff = 25.15 * 2.96e-16;	// mJ/count
 
   p->magnif = 16. / 5.;		// 16um/pixel for the Andor, using the 5x obj with the telephoto at f=200
 
@@ -215,6 +227,19 @@ init_params (struct params *p)
 };
 
 
+  /********************************************
+  PHASE-CONTRAST IMAGING CALCULATION
+  ********************************************/
+
+struct phc_calc
+{
+  double alpha;
+  double alpha_pi;
+  double phi;
+  double phi_pi;
+  double atoms;
+  double noatoms;
+};
 
 
 
@@ -233,9 +258,10 @@ public:
 
   void LoadFITS ();
   double ncol_phcimg (double cd, double sig, double det, double i0,
-		      double imgbfield, bool twostates, bool SHOW);
+		      double imgbfield, bool twostates, bool SHOW,
+		      struct phc_calc *c);
   double signal_phcimg (double ncol, double det, double i0, double imgbfield,
-			bool twostates, bool SHOW);
+			bool twostates, bool SHOW, struct phc_calc *c);
   void ComputeColumnDensity ();
   void SaveColumnDensity ();
   void FindMoments ();
@@ -491,9 +517,6 @@ Fermions::LoadFITS ()
 
 	  a_ += c1;
 	  n_ += c0;
-
-
-
 	}
     }
 
@@ -527,17 +550,93 @@ Fermions::LoadFITS ()
   stringstream eigenfacestr;
   eigenfacestr << "eigenface.py ";
   eigenfacestr << p->shotnum << " ";
-  eigenfacestr << pos0 << "," << pos1 << "," << siz0 << "," << siz1;
-  //printf ("%s\n", eigenfacestr.str ().c_str ());
-  //system (eigenfacestr.str ().c_str ());
+  eigenfacestr << pos0 << "," << pos1 << "," << siz0 << "," << siz1 << " ";
+  eigenfacestr << "100";
+  stringstream eigen_background;
+  eigen_background << p->shotnum << "_eigenclean.ascii";
+  string eigen_filename = eigen_background.str ();
 
+  if (p->eigenface && !p->crop)
+    {
+      if (VERBOSE)
+	{
+	  cout << "First few elements of noatoms matrix BEFORE eigenface: " <<
+	    endl;
+	  for (int i = 0; i < 5; i++)
+	    {
+	      for (int j = 0; j < 5; j++)
+		{
+		  printf ("%.5f\t ", gsl_matrix_get (noatoms, i, j));
+		}
+	      cout << "... " << endl;
+	    }
+	}
+      if (VERBOSE)
+	{
+	  cout << "First few elements of noatomsref matrix BEFORE eigenface: "
+	    << endl;
+	  for (int i = 0; i < 5; i++)
+	    {
+	      for (int j = 0; j < 5; j++)
+		{
+		  printf ("%.5f\t ", gsl_matrix_get (noatomsref, i, j));
+		}
+	      cout << "... " << endl;
+	    }
+	}
+
+
+      printf ("%s\n", eigenfacestr.str ().c_str ());
+      system (eigenfacestr.str ().c_str ());
+
+      for (unsigned int i = 0; i < s1; i++)
+	{
+	  for (unsigned int j = 0; j < s2; j++)
+	    {
+	      gsl_matrix_set (noatomsref, i, j, 0.);
+	    }
+	}
+      noatoms = read_gsl_matrix_ASCII (eigen_filename);
+      p->eigenface_done = true;
+      ComputeColumnDensity ();
+      FindMoments ();
+
+      if (VERBOSE)
+	{
+	  cout << "First few elements of noatoms matrix AFTER eigenface: " <<
+	    endl;
+	  for (int i = 0; i < 5; i++)
+	    {
+	      for (int j = 0; j < 5; j++)
+		{
+		  printf ("%.5f\t ", gsl_matrix_get (noatoms, i, j));
+		}
+	      cout << "... " << endl;
+	    }
+	}
+      if (VERBOSE)
+	{
+	  cout << "First few elements of noatomsref matrix AFTER eigenface: "
+	    << endl;
+	  for (int i = 0; i < 5; i++)
+	    {
+	      for (int j = 0; j < 5; j++)
+		{
+		  printf ("%.5f\t ", gsl_matrix_get (noatomsref, i, j));
+		}
+	      cout << "... " << endl;
+	    }
+	}
+    }
 
   return;
 }
 
+
   /********************************************
   PHASE-CONTRAST IMAGING CALCULATION
   ********************************************/
+
 
 struct phc_params
 {
@@ -550,7 +649,10 @@ struct phc_params
   double lambda;
   double gamma;
   double magnif;
+  struct phc_calc *c;
 };
+
+
 
 
 double
@@ -624,7 +726,7 @@ sig_phcimg (double ncol, struct phc_params *phc)
   //Then the absorption and phase shifts are calculated 
   //The unsubscripted one is for the sigma minus transition
   //The pi subscript one is for the pi transition
-  double alpha, alpha_pi, phi, phi_pi;
+  //double alpha, alpha_pi, phi, phi_pi;
   if (phc->twostates)
     {
       //Calculate the cross section to scatter on each transition from each state:
@@ -681,13 +783,13 @@ sig_phcimg (double ncol, struct phc_params *phc)
          (ncol / 2.) * sig_pi / (1 + 4 * det2_pi * det2_pi + 2 * i0_pi);
        */
 
-      alpha = alpha1 + alpha2 + alpha1_plus + alpha2_plus;
-      alpha_pi = alpha1_pi + alpha2_pi;
+      phc->c->alpha = alpha1 + alpha2 + alpha1_plus + alpha2_plus;
+      phc->c->alpha_pi = alpha1_pi + alpha2_pi;
 
-      phi =
+      phc->c->phi =
 	-alpha1 * det - alpha2 * det2 - alpha1_plus * det_plus -
 	alpha2_plus * det2_plus;
-      phi_pi = -alpha1_pi * det_pi - alpha2_pi * det2_pi;
+      phc->c->phi_pi = -alpha1_pi * det_pi - alpha2_pi * det2_pi;
 
     }
 
@@ -698,24 +800,30 @@ sig_phcimg (double ncol, struct phc_params *phc)
       double alpha_minus =
 	ncol * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
 
-      alpha = alpha_plus + alpha_minus;
-      alpha_pi = ncol * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
+      phc->c->alpha = alpha_plus + alpha_minus;
+      phc->c->alpha_pi =
+	ncol * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
 
-      phi = -alpha_minus * det - alpha_plus * det_plus;
-      phi_pi = -alpha_pi * det_pi;
+      phc->c->phi = -alpha_minus * det - alpha_plus * det_plus;
+      phc->c->phi_pi = -phc->c->alpha_pi * det_pi;
 
     }
 
-  double atoms = b * b * exp (-alpha_pi) * cos (th) * cos (th)
-    + a * a * exp (-alpha) * sin (th) * sin (th)
-    + a * b * exp (-alpha / 2. - alpha_pi / 2.) * cos (g - phi +
-						       phi_pi) * sin (2. *
-								      th);
+  phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
+    + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
+    + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
+								       phc->
+								       c->
+								       phi +
+								       phc->
+								       c->
+								       phi_pi)
+    * sin (2. * th);
 
-  double noatoms = b * b * cos (th) * cos (th)
+  phc->c->noatoms = b * b * cos (th) * cos (th)
     + a * a * sin (th) * sin (th) + a * b * cos (g) * sin (2 * th);
 
-  return -1. * (atoms / noatoms - 1);
+  return -1. * (phc->c->atoms / phc->c->noatoms - 1);
 };
 
 double
@@ -727,12 +835,12 @@ sig_phcimg_err (double ncol, void *params)
 
 double
 Fermions::signal_phcimg (double ncol, double det, double i0, double imgbfield,
-			 bool twostates, bool SHOW)
+			 bool twostates, bool SHOW, struct phc_calc *c)
 {
 
   struct phc_params phc =
     { 0.0, det, i0, p->imgbfield, true, false, p->lambda, p->gamma,
-    p->magnif
+    p->magnif, c
   };
   return sig_phcimg (ncol, &phc);
 
@@ -740,7 +848,8 @@ Fermions::signal_phcimg (double ncol, double det, double i0, double imgbfield,
 
 double
 Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
-		       double imgbfield, bool twostates, bool SHOW)
+		       double imgbfield, bool twostates, bool SHOW,
+		       struct phc_calc *c)
 {
 
 
@@ -754,7 +863,7 @@ Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
      double ncol = 1.5 * pow (fabs (det / 25),
      1. / 3.) * sig / (0.5 - det) * (1 + 4 * det * det +
      2 * i0) / sigma0; */
-  double ncol = 2 * cd * (det < -25 ? pow (fabs (det / 25), 1. / 3.) : 1.);
+  double ncol = 1. * cd * (det < -25 ? pow (fabs (det / 25), 1. / 3.) : 1.);
 
   if (SHOW)
     {
@@ -790,7 +899,7 @@ Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
   F.function = &sig_phcimg_err;
   struct phc_params params =
     { sig, det, i0, imgbfield, twostates, false, p->lambda, p->gamma,
-    p->magnif
+    p->magnif, c
   };
   F.params = &params;
 
@@ -869,6 +978,7 @@ Fermions::ComputeColumnDensity ()
   double at, noat, atref, noatref, c0, c1, cd, OD, i0, i0eff, p0, term1,
     term2;
   double maxT1, maxT2;		//maxima for term1 and term2 in the column density
+  double maxCDterm1 = 0., maxCDterm2 = 0.;
   maxT1 = -1e6;
   maxT2 = -1e6;
 
@@ -877,8 +987,6 @@ Fermions::ComputeColumnDensity ()
 
   //should be equal to  gamma h v / sigma0 .... test this.  
 
-
-  double eff = p->eff;
 
   double det = 0.;		//for now all  absorption imaging is on resonance 
   maxI = 0.;
@@ -894,6 +1002,8 @@ Fermions::ComputeColumnDensity ()
   Nsp = 0.;			//total number from scattered photons
   double pee = 0.;
   maxPEE = 0.;
+  double avg_pee = 0.;		//average rho_ee
+
 
   maxOD = 0.;
   double OD_err = 5;		//any higher OD will be cutoff and trigger a warning
@@ -907,6 +1017,16 @@ Fermions::ComputeColumnDensity ()
   maxCA = 0.;			// maximum counts in atoms frame
   maxCN = 0.;			// maximum counts in noatoms frame
 
+  //Structure to store intermediate results of phc calc
+  struct phc_calc calc = { 0., 0., 0., 0., 0., 0. };
+  struct phc_calc calcMAX = { 0., 0., 0., 0., 0., 0. };
+  //For max column densit, counts in atoms and noatoms frame
+  double c0CDMAX = 0.0;
+  double c1CDMAX = 0.0;
+
+  //Matrix for OD
+  gsl_matrix *od_matrix;
+  od_matrix = gsl_matrix_alloc (s1, s2);
 
 
   /************ PHASE-CONTRAST IMAGING VARIABLES ************/
@@ -915,8 +1035,10 @@ Fermions::ComputeColumnDensity ()
   if (p->phc)
     {
       phc_signal = gsl_matrix_alloc (s1, s2);	// A matrix of the phase-contrast Signal at each pixel.
-      sigma0 = 6 * M_PI * pow (p->lambda / 2. / M_PI, 2);	//This is the maximal cross section
-      isat = 5.1;		// This is the standard saturation intensity
+
+
+      sigma0 = 3 * M_PI * pow (p->lambda / 2. / M_PI, 2);
+      isat = 10.2;
 
       det = p->det * 1.e6 / p->gamma;	//detuning in units of gamma
       state1det = det;
@@ -938,6 +1060,9 @@ Fermions::ComputeColumnDensity ()
     }
 
 
+  printf ("      eff = %.3e\n", p->eff);
+  printf ("    ph/mJ = %.3e\n", p->photon_per_mJ);
+  printf (" ph/count = %.3e\n", p->eff * p->photon_per_mJ);
   /********************************************
   *
   *  Iterate over the image matrices to calculate the column
@@ -953,6 +1078,13 @@ Fermions::ComputeColumnDensity ()
 	  noat = gsl_matrix_get (noatoms, i, j);
 	  atref = gsl_matrix_get (atomsref, i, j);
 	  noatref = gsl_matrix_get (noatomsref, i, j);
+
+	  if (p->eigenface && noatref != 0. && p->eigenface_done)
+	    {
+	      printf ("eigenface error: noatref != 0, noatref = %.3f\n",
+		      noatref);
+	    }
+
 
 	  c0 = norm_noat * (noat - noatref);	// counts in no atoms frame
 	  c1 = at - atref;	// counts in atoms frame
@@ -970,12 +1102,13 @@ Fermions::ComputeColumnDensity ()
 	  // eff is in mJ/count
 	  p0 = c0 * p->eff * p->photon_per_mJ;	// number of photons in pixel in noatoms frame
 	  Tp0 += p0;		// total number of photons in noatoms frame 
-	  i0 = (c0 * eff / (pow (p->magnif * 1e-4, 2)) / p->texp / (isat));	// intensity in noatoms frame in units of isat
-	  i0eff = (c0 * eff / (pow (p->magnif * 1e-4, 2)) / p->texp / (isat * p->alphastar));	// effective intensity in noatoms frame
+	  i0 = (c0 * p->eff / (pow (p->magnif * 1e-4, 2)) / p->texp / (isat));	// intensity in noatoms frame in units of isat
+	  i0eff = (c0 * p->eff / (pow (p->magnif * 1e-4, 2)) / p->texp / (isat * p->alphastar));	// effective intensity in noatoms frame
 	  if (i0 > maxI)
 	    maxI = i0;
 
 	  OD = log (fabs (c0 / c1));
+	  gsl_matrix_set (od_matrix, i, j, OD);
 
 	  if (OD > OD_err)
 	    {
@@ -997,14 +1130,19 @@ Fermions::ComputeColumnDensity ()
 	  if (!p->phc)
 	    {
 
-	      term1 = p->alphastar * (1. + 4. * det * det) * OD;
+	      term1 =
+		p->alphastar * (1. +
+				4. * det * det) * OD / sigma0 *
+		pow (p->magnif * 1e-4, 2);
 
 
 	      pee = i0eff / (1 + 2 * i0eff);
+	      avg_pee += pee / (s1 * s2);
 	      if (pee > maxPEE)
 		maxPEE = pee;
 	      //sp = scattered photons in pixel
-	      sp = (c0 - c1) * eff * p->photon_per_mJ;
+	      sp = (c0 - c1) * p->eff * p->photon_per_mJ;
+	      //sp = (c0 - c1) * 24.2;
 	      if (sp > maxSP)
 		maxSP = sp;
 	      //nsp = number of atoms in pixel, calculated from number of scattered photons
@@ -1015,15 +1153,15 @@ Fermions::ComputeColumnDensity ()
 	      Tsp += sp;	// total number of scattered photons
 	      Nsp += nsp;	// total number of atoms from scattered photons 
 
-	      term2 = 2 * i0 * (1. - c1 / c0);
+	      term2 =
+		2 * i0 * (1. - c1 / c0) / sigma0 * pow (p->magnif * 1e-4, 2);
 
 	      if (term1 > maxT1)
 		maxT1 = term1;
 	      if (term2 > maxT2)
 		maxT2 = term2;
 
-	      cd = (term1 + term2) / sigma0 * pow (p->magnif * 1e-4, 2);
-
+	      cd = (term1 + term2);
 	    }
 
 	  /*********** PHASE - CONTRAST IMAGING ***************/
@@ -1032,7 +1170,8 @@ Fermions::ComputeColumnDensity ()
 	    {
 	      signal = p->phcsign * (c1 / c0 - 1);
 	      gsl_matrix_set (phc_signal, i, j, signal);
-	      phase_shift = -1.0 * det * signal / (0.5 - det);
+	      phase_shift = asin (signal);
+	      //phase_shift = -1.0 * det * signal / (0.5 - det);
 
 	      //cout << "signal = " << signal << " phi = " << phase_shift << endl; 
 
@@ -1060,9 +1199,10 @@ Fermions::ComputeColumnDensity ()
 						  2) / (1 +
 							4 * state2det *
 							state2det + 2 * i0);
-
-	      cd = 2 * signal / (sig1 + sig2);	//columdensity
-	      cd = 2 * signal / (sig1);	//columdensity -> IF USING ONLY STATE 1 
+	      if (p->twostates)
+		cd = 2 * signal / (sig1 + sig2);	//columdensity
+	      else
+		cd = 2 * signal / (sig1);	//columdensity -> IF USING ONLY STATE 1 
 
 	      if (i == 302 && j == 200 && false)
 		{
@@ -1073,14 +1213,16 @@ Fermions::ComputeColumnDensity ()
 		  printf ("        cd = %.3f\n", cd);
 		  printf ("signal(cd) = %.6f\n",
 			  signal_phcimg (cd, det, i0, p->imgbfield, true,
-					 true));
+					 true, &calc));
 
 
 		}
-	      bool twostates = false, SHOW = false;
+	      bool SHOW = false;
+
 	      cd =
-		ncol_phcimg (cd, signal, det, i0, p->imgbfield, twostates,
-			     SHOW);
+		ncol_phcimg (cd, signal, det, i0, p->imgbfield, p->twostates,
+			     SHOW, &calc);
+
 
 	      nsp = 0.;		//this is not relevant for phase contrast so just make it zero.
 
@@ -1098,7 +1240,20 @@ Fermions::ComputeColumnDensity ()
 
 	    }
 	  if (cd > maxCD)
-	    maxCD = cd;
+	    {
+	      maxCD = cd;
+	      c0CDMAX = c0;
+	      c1CDMAX = c1;
+	      if (p->phc)
+		calcMAX = calc;
+	      if (!p->phc)
+		{
+		  maxCDterm1 = term1;
+		  maxCDterm2 = term2;
+		}
+	    }
+
+
 
 	  gsl_matrix_set (columndensity_scattered_ph, i, j, nsp);
 	  gsl_matrix_set (columndensity, i, j, cd);
@@ -1107,8 +1262,13 @@ Fermions::ComputeColumnDensity ()
 	}
     }
 
-  maxT1 = maxT1 / sigma0 * pow (p->magnif * 1e-4, 2);
-  maxT2 = maxT2 / sigma0 * pow (p->magnif * 1e-4, 2);
+
+  unsigned int smooth_bins = 4;
+  gsl_matrix *od_matrix_smoothed = smooth (od_matrix, smooth_bins);
+  unsigned int odmax_i, odmax_j;
+  double od_max_pos;
+  findpeak (od_matrix_smoothed, &odmax_i, &odmax_j, &od_max_pos, true);
+  maxOD = od_max_pos;
 
   if (p->phc)
     {
@@ -1116,10 +1276,10 @@ Fermions::ComputeColumnDensity ()
       gsl_matrix *phc_signal_smoothed = smooth (phc_signal, smooth_bins);
       unsigned int phcsig_i, phcsig_j;
       double phcsig_max_pos, phcsig_max_neg;
-      /*findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j, &phcsig_max_pos,
-         true); */
-      /*findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j, &phcsig_max_neg,
-         false); */
+      findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j,
+		&phcsig_max_pos, true);
+      findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j,
+		&phcsig_max_neg, false);
       maxPHCSIG =
 	fabs (phcsig_max_pos) >
 	fabs (phcsig_max_neg) ? phcsig_max_pos : phcsig_max_neg;
@@ -1127,65 +1287,92 @@ Fermions::ComputeColumnDensity ()
 
 
 
-  if (VERBOSE)
+  if (VERBOSE || p->imgverbose)
     {
       cout << endl << "------------ Column Density Stats ------------" <<
 	endl;
       if (!p->phc)
 	{
 	  cout << endl << "----> Method used : absorption" << endl;
+	  printf ("\tSample contains: %s\n",
+		  p->twostates ? "spin mixture of |1> and |2>" :
+		  "only atoms in state |1>");
 	  cout << "\ts1=" << s1 << ", s2=" << s2 << endl;
 	  cout << "\talphastar = " << p->alphastar << endl;
-	  cout << "\tmax term1 = " << maxT1 << endl;
-	  cout << "\tmax term2 = " << maxT2 << endl;
+	  cout << "\tmax term1 (OD) = " << maxT1 << endl;
+	  cout << "\tmax term2 (sp) = " << maxT2 << endl;
 	  cout << "\tmax OD = " << maxOD << endl;
 	  cout << "\tmax probe intensity = " << maxI << " Isat " << endl;
-	  cout << "\tmax CD = " << maxCD << endl;
+	  printf ("\tmax probe intensity = %.3f mW/cm^2\n", maxI * isat);
+	  printf ("\tmax CD = %.5f ( = %.3f + %.3f)\n", maxCD, maxCDterm1,
+		  maxCDterm2);
+	  printf ("\tmax CD, cNOATOMS = %.3f\n", c0CDMAX);
+	  printf ("\tmax CD, cATOMS = %.3f\n", c1CDMAX);
 	  cout << "\tmax scattered photons = " << maxSP << endl;
 	  cout << "\tmax number from scattered photons = " << maxNSP << endl;
 	  cout << "\tmax rho_{ee} = " << maxPEE << endl;
-	  printf ("\tcounts in atoms picture:     ( %f to %f )\n", minCA,
-		  maxCA);
-	  printf ("\tcounts in no atoms picture:  ( %f to %f )\n", minCN,
-		  maxCN);
+	  cout << "\tavg rho_{ee} = " << avg_pee << endl;
+	  printf ("\tcounts in atoms picture:     ( %f to %f )\n",
+		  minCA, maxCA);
+	  printf ("\tcounts in no atoms picture:  ( %f to %f )\n",
+		  minCN, maxCN);
 	  cout << "\ttotal scattered photons = " << Tsp << endl;
 	  cout << "\ttotal number from scattered photons = " << Nsp << endl;
-	  cout << "\ntotal number of photons in probe pulse = " << Tp0 <<
-	    endl;
-	  cout << "First few elements of column density matrix: " << endl;
-	  for (int i = 0; i < 5; i++)
+	  cout << "\ttotal number of photons in probe pulse = " << Tp0
+	    << endl;
+	  if (VERBOSE)
 	    {
-	      for (int j = 0; j < 5; j++)
+	      cout << "First few elements of column density matrix: " << endl;
+	      for (int i = 0; i < 5; i++)
 		{
-		  printf ("%.5f\t ", gsl_matrix_get (columndensity, i, j));
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ",
+			      gsl_matrix_get (columndensity, i, j));
+		    }
+		  cout << "... " << endl;
 		}
-	      cout << "... " << endl;
 	    }
 
 	}
       else
 	{
 	  cout << endl << "----> Method used : phase contrast" << endl;
+	  printf ("\tSample contains: %s\n",
+		  p->twostates ? "spin mixture of |1> and |2>" :
+		  "only atoms in state |1>");
 	  cout << "\ts1=" << s1 << ", s2=" << s2 << endl;
 	  cout << "\tmax probe intensity = " << maxI << " Isat " << endl;
+	  printf ("\tmax probe intensity = %.3f mW/cm^2\n", maxI * isat);
 	  cout << "\tmax PHI = " << maxPHI << endl;
 	  cout << "\tmax CD = " << maxCD << endl;
-	  printf ("\tcounts in atoms picture:     ( %f to %f )\n", minCA,
-		  maxCA);
-	  printf ("\tcounts in no atoms picture:  ( %f to %f )\n", minCN,
-		  maxCN);
-	  cout << "\ntotal number of photons in probe pulse = " << Tp0 <<
-	    endl;
-	  cout << "First few elements of column density matrix: " << endl;
-	  for (int i = 0; i < 5; i++)
+	  printf ("\tmax CD, cATOMS = %.3f\n", c1CDMAX);
+	  printf ("\tmax CD, cNOATOMS = %.3f\n", c0CDMAX);
+	  printf ("\tmax CD, alpha    = %.6f\n", calcMAX.alpha);
+	  printf ("\tmax CD, alpha_pi = %.6f\n", calcMAX.alpha_pi);
+	  printf ("\tmax CD, phi      = %.6f\n", calcMAX.phi);
+	  printf ("\tmax CD, phi_pi   = %.6f\n", calcMAX.phi_pi);
+	  printf ("\tmax CD, atoms    = %.6f\n", calcMAX.atoms);
+	  printf ("\tmax CD, noatoms  = %.6f\n", calcMAX.noatoms);
+	  printf ("\tcounts in atoms picture:     ( %f to %f )\n",
+		  minCA, maxCA);
+	  printf ("\tcounts in no atoms picture:  ( %f to %f )\n",
+		  minCN, maxCN);
+	  cout << "\ttotal number of photons in probe pulse = " << Tp0
+	    << endl;
+	  if (VERBOSE)
 	    {
-	      for (int j = 0; j < 5; j++)
+	      cout << "First few elements of column density matrix: " << endl;
+	      for (int i = 0; i < 5; i++)
 		{
-		  printf ("%.5f\t ", gsl_matrix_get (columndensity, i, j));
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ",
+			      gsl_matrix_get (columndensity, i, j));
+		    }
+		  cout << "... " << endl;
 		}
-	      cout << "... " << endl;
 	    }
-
 
 	}
 
@@ -1204,19 +1391,16 @@ Fermions::SaveColumnDensity ()
   ********************************************/
   char base[MAXPATHLEN];
   getcwd (base, MAXPATHLEN);
-
   string column_path = makepath (base, p->shotnum, "_column.TIFF");
   string scatt_path = makepath (base, p->shotnum, "_column_scatt.TIFF");
   string missing_path = makepath (base, p->shotnum, "_missing_counts.TIFF");
   string probe_path = makepath (base, p->shotnum, "_probe.TIFF");
-
   string column_ascii_path = makepath (base, p->shotnum, "_column.ascii");
   string scatt_ascii_path =
     makepath (base, p->shotnum, "_column_scatt.ascii");
   string missing_ascii_path =
     makepath (base, p->shotnum, "_missing_counts.ascii");
   string probe_ascii_path = makepath (base, p->shotnum, "_probe.ascii");
-
   if (p->savetiff)
     {
       toTiffImage (columndensity, column_path);
@@ -1245,17 +1429,14 @@ Fermions::CropAll (unsigned int roi[4])
     cropImage_ROI (roi, columndensity_scattered_ph);
   gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
   gsl_matrix *cropped_missing_counts = cropImage_ROI (roi, missing_counts);
-
   gsl_matrix_free (columndensity);
   gsl_matrix_free (columndensity_scattered_ph);
   gsl_matrix_free (probe);
   gsl_matrix_free (missing_counts);
-
   columndensity = cropped_columndensity;
   columndensity_scattered_ph = cropped_columndensity_scattered_ph;
   probe = cropped_probe;
   missing_counts = cropped_missing_counts;
-
   return;
 }
 
@@ -1278,18 +1459,13 @@ Fermions::MinimalCrop (double CROP_FACTOR)
   ********************************************/
   if (VERBOSE)
     cout << endl <<
-      "------------ CROPPING COLUMN DENSITY TO MINIMAL AREA------------" <<
-      endl;
-
+      "------------ CROPPING COLUMN DENSITY TO MINIMAL AREA------------"
+      << endl;
   // Results from 2DGaus Fit are used to crop the column density
   // center is (ci_,cj_)  
   // sizes are (wi_1e, wj_1e)
-
-
   // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
   unsigned int roi[4];
-
-
   // ROI pos
   double pos0 = max (gaus2dfit[0] - CROP_FACTOR * gaus2dfit[1], 0.);
   double pos1 = max (gaus2dfit[2] - CROP_FACTOR * gaus2dfit[3], 0.);
@@ -1297,27 +1473,22 @@ Fermions::MinimalCrop (double CROP_FACTOR)
 		     gaus2dfit[0] + CROP_FACTOR * gaus2dfit[1] - pos0);
   double siz1 = min (columndensity->size2 - pos1,
 		     gaus2dfit[2] + CROP_FACTOR * gaus2dfit[3] - pos1);
-
-
   roi[0] = (unsigned int) floor (pos0);
   roi[1] = (unsigned int) floor (pos1);
   roi[2] = (unsigned int) floor (siz0);
   roi[3] = (unsigned int) floor (siz1);
-
   if (VERBOSE)
     {
-      printf ("    Determined ROI for minimal crop [%d,%d,%d,%d]\n", roi[0],
-	      roi[1], roi[2], roi[3]);
+      printf
+	("    Determined ROI for minimal crop [%d,%d,%d,%d]\n",
+	 roi[0], roi[1], roi[2], roi[3]);
     }
 
   abs_ci += roi[0];
   abs_cj += roi[1];
-
   gaus2dfit[0] = gaus2dfit[0] - double (roi[0]);
   gaus2dfit[2] = gaus2dfit[2] - double (roi[1]);
-
   CropAll (roi);
-
   if (VERBOSE)
     {
       printf ("\n    New matrix dimensions = %d, %d\n\n",
@@ -1335,10 +1506,8 @@ Fermions::Fit2DGauss ()
   if (VERBOSE)
     cout << endl <<
       "------------ FIT COLUMN DENSITY WITH 2D GAUSSIAN ------------" << endl;
-
   if (VERBOSE)
     cout << endl;
-
 /* Here is the definition of the Gaus2D fit parameters 
  8
  * The array gaus2dfit should be initialized by some other means 
@@ -1351,19 +1520,15 @@ Fermions::Fit2DGauss ()
   gaus2dfit[3] = wj_1e;
   gaus2dfit[4] = peak;
   gaus2dfit[5] = 0.1; */
-
   gaus2dfit_err[0] = 1e15;
   gaus2dfit_err[1] = 1e15;
   gaus2dfit_err[2] = 1e15;
   gaus2dfit_err[3] = 1e15;
   gaus2dfit_err[4] = 1e15;
   gaus2dfit_err[5] = 1e15;
-
-
   if (VERBOSE)
-    cout << endl << "------------ Fitting with 2D Gaussian ------------" <<
-      endl;
-
+    cout << endl <<
+      "------------ Fitting with 2D Gaussian ------------" << endl;
   if (!p->blanks)
     {
       fit2dgaus_err (columndensity, gaus2dfit, gaus2dfit_err);
@@ -1373,19 +1538,23 @@ Fermions::Fit2DGauss ()
 
   if (VERBOSE)
     cout << endl;
-
   nfit = gaus2dfit[4] * M_PI * gaus2dfit[1] * gaus2dfit[3];
+  if (VERBOSE || p->imgverbose)
+    {
 
+      printf ("\tnfit  = %.3f\n", nfit);
+      printf ("\tpeakd = %.3f\n", gaus2dfit[4]);
+      printf ("\tsize1 = %.3f\n", gaus2dfit[1]);
+      printf ("\tsize2 = %.3f\n", gaus2dfit[3]);
+
+
+    }
   TF = p->hvbar * pow (6 * nfit, 1. / 3.);
-
   nfit_err =
     pow (pow (gaus2dfit_err[4] * nfit / gaus2dfit[4], 2) +
 	 pow (gaus2dfit_err[1] * nfit / gaus2dfit[1],
 	      2) + pow (gaus2dfit_err[3] * nfit / gaus2dfit[3], 2), 0.5);
-
   peakd = gaus2dfit[4] / (pow (M_PI, 0.5) * gaus2dfit[1]) / pow (p->magnif * 1e-4, 3);	// cm^-3
-
-
   if (VERBOSE)
     {
       printf ("..............  GAUSSIAN 2D FIT RESULTS ..............\n");
@@ -1399,12 +1568,10 @@ Fermions::Fit2DGauss ()
     }
 
   residuals = gaus2d_residual (columndensity, gaus2dfit);
-
   unsigned int ci = coerce_matrix_index ((unsigned int) floor (gaus2dfit[0]),
 					 columndensity->size1);
   unsigned int cj = coerce_matrix_index ((unsigned int) floor (gaus2dfit[2]),
 					 columndensity->size2);
-
   if (VERBOSE)
     {
       cout << "ci = " << ci << " ; cj = " << cj << endl;
@@ -1414,14 +1581,12 @@ Fermions::Fit2DGauss ()
   gsl_vector *gaus2d_v = gsl_vector_alloc (6);
   for (int e = 0; e < 6; e++)
     gsl_vector_set (gaus2d_v, e, gaus2dfit[e]);
-
   for (unsigned int i = 0; i < columndensity->size1; i++)
     {
       for (unsigned int j = 0; j < columndensity->size2; j++)
 	{
 	  //Integrate the gaus2d fit, subtracting the offset
 	  number_fit += gaus2d_model (i, j, gaus2d_v) - gaus2dfit[5];
-
 	}
     }
   return;
@@ -1432,31 +1597,26 @@ Fermions::FitScatt2DGauss ()
 {
   if (VERBOSE)
     cout << endl <<
-      "------------ FIT SCATTERED PHOTONS WITH 2D GAUSISAN ------------" <<
-      endl;
+      "------------ FIT SCATTERED PHOTONS WITH 2D GAUSISAN ------------"
+      << endl;
   if (VERBOSE)
     cout << endl;
-
   scatt2dfit[0] = gaus2dfit[0];
   scatt2dfit[1] = gaus2dfit[1];
   scatt2dfit[2] = gaus2dfit[2];
   scatt2dfit[3] = gaus2dfit[3];
   scatt2dfit[4] = maxNSP;
   scatt2dfit[5] = 0.1;
-
   if (VERBOSE)
-    cout << endl << "------------ Fitting with 2D Gaussian ------------" <<
-      endl;
+    cout << endl <<
+      "------------ Fitting with 2D Gaussian ------------" << endl;
   if (!p->blanks)
     fit2dgaus (columndensity_scattered_ph, scatt2dfit);
   if (VERBOSE)
     cout << endl;
-
   scatt2dfit[1] = fabs (scatt2dfit[1]);
   scatt2dfit[3] = fabs (scatt2dfit[3]);
-
   double nscattph = scatt2dfit[4] * M_PI * scatt2dfit[1] * scatt2dfit[3];
-
   if (VERBOSE)
     {
       printf
@@ -1481,25 +1641,27 @@ Fermions::FitProbe2DGauss ()
       "------------ FIT PROBE WITH 2D GAUSISAN ------------" << endl;
   if (VERBOSE)
     cout << endl;
-
-  probe2dfit[0] = gaus2dfit[0];
-  probe2dfit[1] = gaus2dfit[1];
-  probe2dfit[2] = gaus2dfit[2];
-  probe2dfit[3] = gaus2dfit[3];
-  probe2dfit[4] = maxCN;
-
+  probe2dfit[0] = 250.;
+  probe2dfit[1] = 400.;
+  probe2dfit[2] = 250.;
+  probe2dfit[3] = 400.;
+  probe2dfit[4] = 0.75 * maxCN;
   if (VERBOSE)
-    cout << endl << "------------ Fitting with 2D Gaussian ------------" <<
-      endl;
+    cout << endl <<
+      "------------ Fitting with 2D Gaussian ------------" << endl;
   if (!p->blanks)
     fit2dgaus_no_offset (probe, probe2dfit);
+  string probeinspect = p->shotnum;
+  probeinspect += "_probe";
+  double probefit[6] =
+    { probe2dfit[0], probe2dfit[1], probe2dfit[2], probe2dfit[3],
+    probe2dfit[4], 0.0
+  };
+  make_gaus2d_inspect (probe, probefit, probeinspect.c_str ());
   if (VERBOSE)
     cout << endl;
-
   probe2dfit[1] = fabs (probe2dfit[1]);
   probe2dfit[3] = fabs (probe2dfit[3]);
-
-
   if (VERBOSE)
     {
       printf ("..............  PROBE 2D FIT RESULTS ..............\n");
@@ -1507,9 +1669,20 @@ Fermions::FitProbe2DGauss ()
       printf ("wi     = %.1f pixels\n", probe2dfit[1]);
       printf ("cj     = %.1f pixels\n", probe2dfit[2]);
       printf ("wj     = %.1f pixels\n", probe2dfit[3]);
-      printf ("peak   = %.3e \n photons", probe2dfit[4]);
+      printf ("peak   = %.3e counts\n", probe2dfit[4]);
     }
 
+  printf (" 1/e^2 beam waist of the probe:\n");
+  printf ("  i (horizontal on camera) = %.3f um\n", probe2dfit[1] * sqrt (2) * 16.);	//sqrt(2) to go from 1/e to 1/e^2 and 16um/px for the Andor
+  printf ("  j (  vertical on camera) = %.3f um\n", probe2dfit[3] * sqrt (2) * 16.);	//sqrt(2) to go from 1/e to 1/e^2 and 16um/px for the Andor
+
+  unsigned int smooth_bins = 10;
+  gsl_matrix *probe_smoothed = smooth (probe, smooth_bins);
+  unsigned int probemax_i, probemax_j;
+  double probe_max_pos;
+  findpeak (probe_smoothed, &probemax_i, &probemax_j, &probe_max_pos, true);
+  printf ("        max probe smoothed = %.3f counts\n\n", probe_max_pos);
+  printf ("             max probe fit = %.3f counts\n", probe2dfit[4]);
   return;
 }
 
@@ -1519,9 +1692,8 @@ Fermions::Fit2DFermi ()
 {
   if (VERBOSE)
     cout << endl <<
-      "------------ FIT COLUMN DENSITY WITH 2D FERMI-DIRAC ------------" <<
-      endl;
-
+      "------------ FIT COLUMN DENSITY WITH 2D FERMI-DIRAC ------------"
+      << endl;
   fermi2dfit[0] = gaus2dfit[4];
   fermi2dfit[1] = -5.0;
   fermi2dfit[2] = gaus2dfit[1];
@@ -1529,12 +1701,11 @@ Fermions::Fit2DFermi ()
   fermi2dfit[4] = gaus2dfit[0];
   fermi2dfit[5] = gaus2dfit[2];
   fermi2dfit[6] = gaus2dfit[5];
-
   if (VERBOSE)
     {
-      const char *const pnames[] =
-	{ "peakd", "BetaMu", "radius_i", "radius_j", "center_i", "center_j",
-	"offset"
+      const char *const pnames[] = {
+	"peakd", "BetaMu", "radius_i", "radius_j", "center_i",
+	"center_j", "offset"
       };
       printf ("Starting fit values:\n");
       for (int e = 0; e < 7; e++)
@@ -1554,36 +1725,32 @@ Fermions::Fit2DFermi ()
   if (!p->blanks)
     {
       fit2dfermi_neldermead (columndensity, fermi2dfit);
-      make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit, gaus2dfit,
-				   p->shotnum.c_str ());
+      make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit,
+				   gaus2dfit, p->shotnum.c_str ());
       fermi2d_eval_Azimuth (fermi2dfit, p->shotnum);
     }
 
   if (VERBOSE)
     cout << endl;
-
   BetaMu = fermi2dfit[1];
-
   TF_2d = pow (6 * f2 (BetaMu), -0.333);
   Fugacity_Fermi = exp (BetaMu);
   f_Fermi = fq (BetaMu);
-
   ri_Fermi = fermi2dfit[2];
   rj_Fermi = fermi2dfit[3];
-
   T_2d_rd =
-    p->B1 / (2 * p->kbm) * ri_Fermi * ri_Fermi * p->magnif * p->magnif /
-    f_Fermi;
+    p->B1 / (2 * p->kbm) * ri_Fermi * ri_Fermi * p->magnif *
+    p->magnif / f_Fermi;
   T_2d_ax =
-    p->B2 / (2 * p->kbm) * rj_Fermi * rj_Fermi * p->magnif * p->magnif /
-    f_Fermi;
-
+    p->B2 / (2 * p->kbm) * rj_Fermi * rj_Fermi * p->magnif *
+    p->magnif / f_Fermi;
   if (VERBOSE || p->showfermi)
     {
       printf ("..............  FERMI 2D FIT RESULTS ..............\n");
       printf ("n0     = %.2e\n", fermi2dfit[0]);
-      printf ("BetaMu = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
-	      fermi2dfit[1], f2 (fermi2dfit[1]), TF_2d);
+      printf
+	("BetaMu = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
+	 fermi2dfit[1], f2 (fermi2dfit[1]), TF_2d);
       printf ("ri     = %.1f pixels\n", fermi2dfit[2]);
       printf ("rj     = %.1f pixels\n", fermi2dfit[3]);
       printf ("ci     = %.1f pixels\n", fermi2dfit[4]);
@@ -1600,7 +1767,6 @@ Fermions::Fit2DFermi ()
   ci_Fermi = fermi2dfit[4];
   cj_Fermi = fermi2dfit[5];
   B_Fermi = fermi2dfit[6];
-
   return;
 }
 
@@ -1613,13 +1779,10 @@ Fermions::GetAzimuthalAverageEllipse ()
     cout << endl <<
       "------------ GET AZIMUTHAL AVERAGE OF CLOUD (ELLIPSE) ------------"
       << endl;
-
   //Aspect ratio from trap geometry and self similar expansion
   double trap_aspect = sqrt (p->B2 / p->B1);
-
   //Aspect ratio obtained from 2D Gaussian fit
   double gaus2d_aspect = gaus2dfit[3] / gaus2dfit[1];
-
   // Aspect ratio determined from trap geometry and self similar expansion
   // should not be different by more than 2%
   // If they are it means that we do not know the trap frequencies
@@ -1635,7 +1798,6 @@ Fermions::GetAzimuthalAverageEllipse ()
 
   // Define aspect ratio to be used in calculating the azimuthal average
   p->AR = gaus2d_aspect;
-
   if (VERBOSE)
     {
       cout << "\tAspect ratio from trap geometry = " << trap_aspect << endl;
@@ -1646,7 +1808,6 @@ Fermions::GetAzimuthalAverageEllipse ()
   // Define the number of bins to be used in the radial profile  and the bin size 
   nbins = 1024;
   binsize = 1.2;		//in pixels
-
   // Declare the auxiliary arrays to calculate the average 
   //    _0 is sum of values for the data
   //    _1 is number of values 
@@ -1654,11 +1815,9 @@ Fermions::GetAzimuthalAverageEllipse ()
   //
   gsl_vector *azim_histo_0 = gsl_vector_alloc (nbins);
   gsl_vector *azim_histo_1 = gsl_vector_alloc (nbins);
-
   // Define a matrix that stores the reduced radius rho for each pixel
-  gsl_matrix *rho =
-    gsl_matrix_alloc (columndensity->size1, columndensity->size2);
-
+  gsl_matrix *rho = gsl_matrix_alloc (columndensity->size1,
+				      columndensity->size2);
   // Initialize arrays
   for (unsigned int j = 0; j < nbins; j++)
     {
@@ -1669,10 +1828,8 @@ Fermions::GetAzimuthalAverageEllipse ()
   // initialize cut arrays
   icut_r = gsl_vector_alloc (columndensity->size1);
   icut_dat = gsl_vector_alloc (columndensity->size1);
-
   jcut_r = gsl_vector_alloc (columndensity->size2);
   jcut_dat = gsl_vector_alloc (columndensity->size2);
-
   // populate auxiliary arrays for average
   // at the same time populate arrays for cuts along principal axis 
   for (unsigned int i = 0; i < columndensity->size1; i++)
@@ -1681,28 +1838,21 @@ Fermions::GetAzimuthalAverageEllipse ()
 	{
 	  double xi = (double) i;	// this is y  radial
 	  double xj = (double) j;	// this is g  axial
-
 	  double data = gsl_matrix_get (columndensity, i, j);
-
 	  // Find the radial distance, aspect ratio is taken into account
 	  unsigned int dist =
 	    (unsigned int)
 	    floor (pow
 		   (pow (p->AR * (xi - gaus2dfit[0]), 2) +
 		    pow (xj - gaus2dfit[2], 2), 0.5) / binsize);
-
-
 	  gsl_matrix_set (rho, i, j, dist);
 	  //DEBUG: printf( " dist(%d,%d) = %d\n", i, j, dist); 
-
 	  //increment sum of data
 	  gsl_vector_set (azim_histo_0, dist,
 			  gsl_vector_get (azim_histo_0, dist) + data);
-
 	  //increment N
 	  gsl_vector_set (azim_histo_1, dist,
 			  gsl_vector_get (azim_histo_1, dist) + 1);
-
 	  //set icut
 	  if (j == (unsigned int) floor (gaus2dfit[2]))
 	    {
@@ -1723,18 +1873,13 @@ Fermions::GetAzimuthalAverageEllipse ()
 
   char base[MAXPATHLEN];
   getcwd (base, MAXPATHLEN);
-
   string rho_path = makepath (base, p->shotnum, "_rho.TIFF");
   string rho_ascii_path = makepath (base, p->shotnum, "_rho.ascii");
-
-
   if (p->savetiff)
     toTiffImage (rho, rho_path, true);
   if (p->saveascii)
     save_gsl_matrix_ASCII (rho, rho_ascii_path);
-
-
-  if (VERBOSE)
+  if (VERBOSE && false)
     {
       printf ("\n AZIMUTHAL AVERAGE HISTOGRAMS:\n");
       for (unsigned int ii = 0; ii < nbins; ii++)
@@ -1751,7 +1896,6 @@ Fermions::GetAzimuthalAverageEllipse ()
   usedbins = nbins - 1;
   while (gsl_vector_get (azim_histo_1, usedbins) == 0)
     usedbins--;
-
   // Fill out arrays that contain all the data
   azimuthal_all_r = gsl_vector_alloc (usedbins);
   azimuthal_all_dat = gsl_vector_alloc (usedbins);
@@ -1771,7 +1915,11 @@ Fermions::GetAzimuthalAverageEllipse ()
 		("ERROR: no entries in azimuthal histogram at radius r = %.6f\n",
 		 r);
 	    }
-	  printf (" r = %.3f,  az_avg(r) = %.3f\n", r, hsum / hnum);
+	  if (false)
+	    {
+	      printf (" r = %.3f,  az_avg(r) = %.3f\n", r, hsum / hnum);
+	    }
+
 	}
       gsl_vector_set (azimuthal_all_r, index, r);
       gsl_vector_set (azimuthal_all_dat, index, hsum / hnum);
@@ -1806,7 +1954,6 @@ Fermions::GetAzimuthalAverageEllipse ()
 
   azimuthal_r = gsl_vector_alloc (fitbins - start);
   azimuthal_dat = gsl_vector_alloc (fitbins - start);
-
   for (unsigned int index = start; index < fitbins; index++)
     {
       gsl_vector_set (azimuthal_r, index - start,
@@ -1818,16 +1965,11 @@ Fermions::GetAzimuthalAverageEllipse ()
 
   to_dat_file_2 (azimuthal_r, azimuthal_dat, p->shotnum,
 		 "datAzimuth.AZASCII");
-  to_dat_file_2 (azimuthal_all_r, azimuthal_all_dat, p->shotnum,
-		 "datAllAzimuth.AZASCII");
+  to_dat_file_2 (azimuthal_all_r, azimuthal_all_dat,
+		 p->shotnum, "datAllAzimuth.AZASCII");
   to_dat_file_2 (icut_r, icut_dat, p->shotnum, "datIcut.AZASCII");
   to_dat_file_2 (jcut_r, jcut_dat, p->shotnum, "datJcut.AZASCII");
-
-
-
   return;
-
-
   /* Azimuthal-type data consists of two vector with an equan number of 
    * elements.  Each element in the vectors represents a bin. 
    * One vector contains the distances from the center and the other
@@ -1842,9 +1984,8 @@ Fermions::FitAzimuthalFermi ()
 {
   if (VERBOSE)
     cout << endl <<
-      "------------ FIT AZIMUTHAL AVERAGE WITH FERMI-DIRAC ------------" <<
-      endl;
-
+      "------------ FIT AZIMUTHAL AVERAGE WITH FERMI-DIRAC ------------"
+      << endl;
   /********************************* Finite temperature azimuthal fit ***/
   fermi_azimuth_fit[0] = gaus2dfit[4];
   fermi_azimuth_fit[1] = -5.0;
@@ -1852,12 +1993,11 @@ Fermions::FitAzimuthalFermi ()
   fermi_azimuth_fit[2] = gaus2dfit[3];
   fermi_azimuth_fit[3] = gaus2dfit[5];
   fermi_azimuth_fit[4] = 0.1;
-
-
   if (VERBOSE)
     {
-      const char *const pnames[] =
-	{ "peakd", "BetaMu", "radius", "offset", "slope" };
+      const char *const pnames[] = {
+	"peakd", "BetaMu", "radius", "offset", "slope"
+      };
       printf ("Starting fit values:\n");
       for (int e = 0; e < 5; e++)
 	{
@@ -1866,7 +2006,9 @@ Fermions::FitAzimuthalFermi ()
 	}
     }
 
-  gsl_vector *azimuthal_[2] = { azimuthal_r, azimuthal_dat };
+  gsl_vector *azimuthal_[2] = {
+    azimuthal_r, azimuthal_dat
+  };
   if (!p->blanks)
     {
       fit1dfermi_azimuthal_neldermead (azimuthal_, fermi_azimuth_fit);
@@ -1888,29 +2030,23 @@ Fermions::FitAzimuthalFermi ()
 
   fermi_azimuth_fit[2] = fabs (fermi_azimuth_fit[2]);
   r_az = fermi_azimuth_fit[2];
-
   TF_az = pow (6 * f2 (fermi_azimuth_fit[1]), -0.333);
   BetaMu_az = fermi_azimuth_fit[1];
-
   Fugacity_az = exp (BetaMu_az);
   f_az = fq (BetaMu_az);
-
   T_az = p->B1 / (2 * p->kbm) * r_az * r_az * p->magnif * p->magnif / f_az;
-
   n0_az = fermi_azimuth_fit[0];
   B_az = fermi_azimuth_fit[3];
   mx_az = fermi_azimuth_fit[4];
-
   if (VERBOSE)
     cout << endl <<
-      "---------- FIT AZIMUTHAL AVERAGE WITH T=0 FERMI-DIRAC -----------" <<
-      endl;
+      "---------- FIT AZIMUTHAL AVERAGE WITH T=0 FERMI-DIRAC -----------"
+      << endl;
   /********************************* Zero temperature azimuthal fit *****/
   fermi_azimuth_fit_zero[0] = n0_az;
   fermi_azimuth_fit_zero[1] = r_az;
   fermi_azimuth_fit_zero[2] = B_az;
   fermi_azimuth_fit_zero[3] = mx_az;
-
   if (!p->blanks)
     {
       fit1dfermi_azimuthal_zero_neldermead (azimuthal_,
@@ -1925,29 +2061,26 @@ Fermions::FitAzimuthalFermi ()
 	  printf ("offset     = %.1f pixels\n", fermi_azimuth_fit_zero[3]);
 	  printf ("mx         = %.1f pixels\n", fermi_azimuth_fit_zero[4]);
 	}
-      gsl_vector *fitAzimuthZeroT =
-	fermiAzimuthZeroT_eval (azimuthal_r, fermi_azimuth_fit_zero);
+      gsl_vector *fitAzimuthZeroT = fermiAzimuthZeroT_eval (azimuthal_r,
+							    fermi_azimuth_fit_zero);
       to_dat_file_2 (azimuthal_r, fitAzimuthZeroT, p->shotnum,
 		     "fitAzimuthZeroT.AZASCII");
     }
 
   fermi_azimuth_fit[1] = fabs (fermi_azimuth_fit[1]);
-
   n0_az_zeroT = fermi_azimuth_fit_zero[0];
   r_az_zeroT = fermi_azimuth_fit_zero[1];
   B_az_zeroT = fermi_azimuth_fit_zero[2];
   mx_az_zeroT = fermi_azimuth_fit_zero[3];
-
-
   if (VERBOSE)
     cout << endl;
-
   if (VERBOSE || p->showfermi)
     {
       printf ("..............  FERMI AZIMUTHAL FIT RESULTS ..............\n");
       printf ("n0         = %.2e\n", fermi_azimuth_fit[0]);
-      printf ("BetaMu     = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
-	      fermi_azimuth_fit[1], f2 (fermi_azimuth_fit[1]), TF_az);
+      printf
+	("BetaMu     = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
+	 fermi_azimuth_fit[1], f2 (fermi_azimuth_fit[1]), TF_az);
       printf ("r          = %.1f pixels\n", fermi_azimuth_fit[2]);
       printf ("r (zero T) = %.1f pixels\n", fermi_azimuth_fit_zero[1]);
       printf ("offset     = %.1f pixels\n", fermi_azimuth_fit[3]);
@@ -1969,12 +2102,10 @@ Fermions::MakePlots ()
 {
   if (VERBOSE)
     cout << endl << "----------------- MAKE PLOTS ----------------" << endl;
-
   stringstream inspectstr;
   inspectstr << "inspectAz_ascii.py ";
   inspectstr << p->shotnum;
   system (inspectstr.str ().c_str ());
-
   return;
 }
 
@@ -1984,37 +2115,29 @@ Fermions::ComputeIntegrated1DDensity ()
 {
 
   if (VERBOSE)
-    cout << endl << "----------- COMPUTE INTEGRATED 1D DENSITY ------------"
-      << endl;
-
+    cout << endl <<
+      "----------- COMPUTE INTEGRATED 1D DENSITY ------------" << endl;
   unsigned int s1 = columndensity->size1;
   unsigned int s2 = columndensity->size2;
-
   sum_density_0 = gsl_vector_alloc (s1);
   sum_density_1 = gsl_vector_alloc (s2);
-
   sum_missing_0 = gsl_vector_alloc (s1);
   sum_missing_1 = gsl_vector_alloc (s2);
-
   gsl_vector_set_all (sum_density_0, 0.0);
   gsl_vector_set_all (sum_density_1, 0.0);
   gsl_vector_set_all (sum_missing_0, 0.0);
   gsl_vector_set_all (sum_missing_1, 0.0);
-
   double cd_ij = 0.0, mi_ij;
-
   for (unsigned int i = 0; i < s1; i++)
     {
       for (unsigned int j = 0; j < s2; j++)
 	{
 	  cd_ij = gsl_matrix_get (columndensity, i, j);
 	  mi_ij = gsl_matrix_get (missing_counts, i, j);
-
 	  gsl_vector_set (sum_density_0, i,
 			  gsl_vector_get (sum_density_0, i) + cd_ij);
 	  gsl_vector_set (sum_density_1, j,
 			  gsl_vector_get (sum_density_1, j) + cd_ij);
-
 	  gsl_vector_set (sum_missing_0, i,
 			  gsl_vector_get (sum_missing_0, i) + mi_ij);
 	  gsl_vector_set (sum_missing_1, j,
@@ -2024,37 +2147,30 @@ Fermions::ComputeIntegrated1DDensity ()
 
   if (VERBOSE)
     cout << endl;
-
-
   if (VERBOSE)
     cout << endl <<
       "------------- FIT INTEGRATED 1D WITH GAUSSIAN  --------------" << endl;
-
   fit1d_gaus_0[0] = gaus2dfit[0];
   fit1d_gaus_0[1] = gaus2dfit[1];
   fit1d_gaus_0[2] = gsl_vector_max (sum_density_0);
   fit1d_gaus_0[3] = 0.1;
   if (!p->blanks)
     fit1dgaus (sum_density_0, fit1d_gaus_0);
-
   fit1d_gaus_1[0] = gaus2dfit[2];
   fit1d_gaus_1[1] = gaus2dfit[3];
   fit1d_gaus_1[2] = gsl_vector_max (sum_density_1);
   fit1d_gaus_1[3] = 0.1;
   if (!p->blanks)
     fit1dgaus (sum_density_1, fit1d_gaus_1);
-
   if (VERBOSE)
     cout << endl <<
       "----------- FIT INTEGRATED 1D WITH FERMI-DIRAC  ------------" << endl;
 // 02/07/2012 Commented out fermi fits on axial and radial profiles
-
   fit1d_fermi_0[0] = gsl_vector_max (sum_density_0);
   fit1d_fermi_0[1] = -5.0;
   fit1d_fermi_0[2] = gaus2dfit[1];
   fit1d_fermi_0[3] = gaus2dfit[0];
   fit1d_fermi_0[4] = fit1d_gaus_0[3];
-
   if (p->fitfermi1D && !p->blanks)
     {
       fit1dfermi_neldermead (sum_density_0, fit1d_fermi_0);
@@ -2062,24 +2178,17 @@ Fermions::ComputeIntegrated1DDensity ()
 
   if (VERBOSE)
     printf ("\n---> Finished _0 axis\n\n");
-
-
   fit1d_fermi_1[0] = gsl_vector_max (sum_density_1);
   fit1d_fermi_1[1] = -5.0;
   fit1d_fermi_1[2] = gaus2dfit[3];
   fit1d_fermi_1[3] = gaus2dfit[2];
   fit1d_fermi_1[4] = fit1d_gaus_1[3];
-
   if (p->fitfermi1D && !p->blanks)
     fit1dfermi_neldermead (sum_density_1, fit1d_fermi_1);
-
   if (VERBOSE && p->fitfermi1D)
     cout << endl << "---> Calculating T/TF from fit results" << endl;
-
   TF_rd = pow (6 * f2 (fit1d_fermi_0[1]), -0.333);
   TF_ax = pow (6 * f2 (fit1d_fermi_1[1]), -0.333);
-
-
   if (VERBOSE)
     {
       cout << endl <<
@@ -2090,7 +2199,6 @@ Fermions::ComputeIntegrated1DDensity ()
       printf ("\tw_rd = %.2f\n", fit1d_gaus_0[1]);
       printf ("\tA_rd = %.3e\n", fit1d_gaus_0[2]);
       printf ("\tB_rd = %.3e\n", fit1d_gaus_0[3]);
-
       printf ("\n_1 Profile:\n");
       printf ("\tc_ax = %.1f\n", fit1d_gaus_1[0]);
       printf ("\tw_ax = %.2f\n", fit1d_gaus_1[1]);
@@ -2106,16 +2214,17 @@ Fermions::ComputeIntegrated1DDensity ()
 	<< endl;
       printf ("\n_0 Profile:\n");
       printf ("\tn0_rd     = %.1f\n", fit1d_fermi_0[0]);
-      printf ("\tBetaMu = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
-	      fit1d_fermi_0[1], f2 (fit1d_fermi_0[1]), TF_rd);
+      printf
+	("\tBetaMu = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
+	 fit1d_fermi_0[1], f2 (fit1d_fermi_0[1]), TF_rd);
       printf ("\tr_rd      = %.3e\n", fit1d_fermi_0[2]);
       printf ("\tc_rd      = %.3e\n", fit1d_fermi_0[3]);
       printf ("\tB_rd      = %.3e\n", fit1d_fermi_0[4]);
-
       printf ("\n_1 Profile:\n");
       printf ("\tn0_ax     = %.1f\n", fit1d_fermi_1[0]);
-      printf ("\tBetaMu = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
-	      fit1d_fermi_1[1], f2 (fit1d_fermi_1[1]), TF_ax);
+      printf
+	("\tBetaMu = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
+	 fit1d_fermi_1[1], f2 (fit1d_fermi_1[1]), TF_ax);
       printf ("\tr_ax      = %.3e\n", fit1d_fermi_1[2]);
       printf ("\tc_ax      = %.3e\n", fit1d_fermi_1[3]);
       printf ("\tB_ax      = %.3e\n", fit1d_fermi_1[4]);
