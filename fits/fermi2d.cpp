@@ -113,9 +113,9 @@ make_fermi2d_inspect (gsl_matrix * c, const double fermi2d_fit[6],
   inspectstr << " ";
   inspectstr << fitfile;
   inspectstr << " ";
-  inspectstr << floor (fermi2d_fit[5]);
+  inspectstr << fermi2d_fit[5];
   inspectstr << " ";
-  inspectstr << floor (fermi2d_fit[4]);
+  inspectstr << fermi2d_fit[4];
   inspectstr << " ";
   inspectstr << prefix;
   inspectstr << "_fermi";
@@ -152,9 +152,9 @@ make_fermi2d_gaus2d_inspect (gsl_matrix * c, const double fermi2d_fit[7],
   inspectstr << ",";
   inspectstr << fitfileGaus;
   inspectstr << " ";
-  inspectstr << floor (fermi2d_fit[5]);
+  inspectstr << fermi2d_fit[5];
   inspectstr << " ";
-  inspectstr << floor (fermi2d_fit[4]);
+  inspectstr << fermi2d_fit[4];
   inspectstr << " ";
   inspectstr << prefix;
   inspectstr << "_fermi";

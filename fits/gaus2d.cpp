@@ -233,9 +233,9 @@ make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
   inspectstr << " ";
   inspectstr << fitfile;
   inspectstr << " ";
-  inspectstr << floor (gaus2d_fit[2]);
+  inspectstr << gaus2d_fit[2];
   inspectstr << " ";
-  inspectstr << floor (gaus2d_fit[0]);
+  inspectstr << gaus2d_fit[0];
   inspectstr << " ";
   inspectstr << prefix;
   inspectstr << "_gaus";

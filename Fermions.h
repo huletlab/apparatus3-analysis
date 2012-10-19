@@ -38,11 +38,30 @@ struct params
   bool verbose, center, crop, plots, reanalyze, roi_user,
     fitfermi1D, fermi2d, fermiazimuth, showfermi, show_B, blanks;
 
+  // Use high intensity number from scattered photons in absorption imaging
+  bool highintabs;
+  double probepower;		//power of probe beam is required for this calculation
+  double probewaist;		//
+
+  // Use column density from scattered photons in absorption imaging
+  bool cdsp;
+
+  // Override the magnification 
+  bool magnif_override;
+  double magnif_user;
+
+  // Override the probe beam waist
+  bool probewaist_override;
+  double probewaist_user;
+
   // One state or two states?
   bool twostates;
 
   // Be verbose about imaging
   bool imgverbose;
+
+  // Be verbose about calculating azimuthal averages
+  bool azimverbose;
 
   // Do eigenface cleanup?
   bool eigenface;
@@ -60,7 +79,7 @@ struct params
   double h;
 
   // Image parameters
-  double texp, odttof, det, imgbfield;
+  double texp, odttof, det, hfimg, imgbfield;
 
   // Evap parameters
   double free, p1, t1, tau, beta, p0, offset, t2, tau2, image;
@@ -104,7 +123,7 @@ init_params (struct params *p)
   p->texp = (double) getINI_num (p->reportfile, "ANDOR", "exp") * 1e-3;	// Exposure in seconds
   p->odttof = (double) getINI_num (p->reportfile, "ODT", "odttof");	// odttof in ms
 
-  p->imgbfield = 527;		// imaging bfield in gauss 
+  p->hfimg = (double) getINI_num (p->reportfile, "ANDOR", "hfimg");	// hfimg in MHz
 
   p->det = (double) getINI_num (p->reportfile, "ANDOR", "phcdet");	// phase contrast detuning in MHz
   p->phc = (bool) getINI_num (p->reportfile, "ANDOR", "phc");	// phase contrast 
@@ -123,6 +142,11 @@ init_params (struct params *p)
        p->magnif);
   else
     p->magnif = magnif_INI;
+
+  if (p->magnif_override)
+    {
+      p->magnif = p->magnif_user;
+    }
 
   p->free = (double) getINI_num (p->reportfile, "EVAP", "free");	// 
   p->p1 = (double) getINI_num (p->reportfile, "EVAP", "p1");	// 
@@ -145,6 +169,7 @@ init_params (struct params *p)
 
   /************* HARD-CODED PARAMETER VALUES ***********/
 
+
   p->eigenface_done = false;
 
   p->lambda = 670.977e-7;	// cm
@@ -158,29 +183,78 @@ init_params (struct params *p)
 
   p->kbm = 1385.;		// um^2/ms^2/uK This is kb/m
 
-  double emp = 0.88;
+  p->probewaist = 0.275;	// cm
+  if (p->probewaist_override)
+    {
+      printf ("override probe waist \n");
+      p->probewaist = p->probewaist_user;
+    }
+
+
+  /*** OLD METHOD FOR DETERMINING ANDOR EFFICIENCY - BEFORE SEPTEMBER 2012 ***/
+  /***double emp = 0.88;
   p->andoreff_10MHz_14bit_x1_Electron_Mult =
     p->mJ_per_photon * (67.9 / 0.95 / emp);
-
   // mJ/count = (mJ per photon) * (electrons per A/D count  / QuantumEff / EmpiricalCorrectionFactor) 
   emp = 0.95;
   p->andoreff_10MHz_14bit_x5_Electron_Mult_300_BaselineOffset =
-    p->mJ_per_photon * (12.9 / 0.95 / emp);
-
+    p->mJ_per_photon * (12.9 / 0.95 / emp);***/
   //p->eff = p->andoreff_10MHz_14bit_x1_Electron_Mult;
   //p->eff = p->andoreff_10MHz_14bit_x5_Electron_Mult_300_BaselineOffset;
-  p->eff = 25.15 * 2.96e-16;	// mJ/count
+  /*** ANDOR EFFICIENCY CALIBRACTION - SEPTEMBER 2012 ***/
+  //  measured probe beam waist =  2750 um 
+  //  *Russ Book #4, Page 99. 
+  //  *Also in /home/russhart/Probe beam and Camera/ProbeSize 09 06 11.nb)
+  //  On 120827 we took pictures at different powers for the probe beam
+  //  using a magnification M = 5.  From those pictures (see Pedro Book #5,
+  //  Page 232)  we obtained a calibration of the photons/count for the
+  //  Andor 
+  //  Peak photons incident on camera per pixel per us:
+  //  2*P/(pi*(M*w_probe)^2) * (1e-6 sec/usec) * (16 um/pixel)^2 / ( 2.96e-16 mJ/count)  
+  //  = 2912.2 * ( P in mW ) 
+  //  The peak counts per pixel per us were measured as a function of power
+  //  and  were fitted to a line (see excel file in 
+  //  /home/russhart/Probe beam and Camera/)
+  //  = 111.14 * ( P in mW )  using peak counts
+  //  = 142.48 * ( P in mW )  using 10 pixel smoothed data
+  //  Putting together the last two above we get
+  //  2912.2 / 111.14 = 26.2 photons/count
+  //  2912.2 / 142.48 = 20.4 photons/count
+  //  From this we obtain the efficiency of the camera:
+  //p->eff = pow (0.275 / p->probewaist, 2) * 26.2 * 2.96e-16;  // mJ/count
+  p->eff = 26.2 * 2.96e-16;	// mJ/count
 
-  p->magnif = 16. / 5.;		// 16um/pixel for the Andor, using the 5x obj with the telephoto at f=200
+  //*** THE MAGNIFICATION SHOULD NOW BE IN ANDOR:magnif ***//
+  // 16um/pixel for the Andor, using the 5x obj with the telephoto at f=200
+  //p->magnif = 16. / 5.;
 
 
   p->h = 48.;			// uK/MHz  this is Planck's constant divided by Boltzmann's constant 
   // Obtain trap depth from report
   p->trapdepth = p->finalcpow / 10. * p->odtmaxdepth;
+
+
   // Calculate the geometric mean of trap frequencies
   // Useful to obtain the Fermi temperature
   // EF = h vbar (6N)^(1/3)
   p->hvbar = p->h * pow (p->odtv0radial * p->odtv0radial * p->odtv0axial, 1. / 3.) * sqrt (p->finalcpow / 10.) * 1e-6;	// 1e-6 is to give the trap freqs in MHz
+  if (VERBOSE)
+    {
+      printf
+	("..........  DETERMINE GEOMETRIC MEAN OF TRAPPING FREQUENCIES ..........\n");
+      printf (" Initial trap depth = %.3f uK\n", p->odtmaxdepth);
+      printf ("   Final trap depth = %.3f uK\n", p->trapdepth);
+      printf ("   Final trap depth = %.3f %%\n", p->finalcpow / 10. * 100.);
+      printf ("  Start radial freq = %.3f Hz\n", p->odtv0radial);
+      printf ("   Start axial freq = %.3f Hz\n", p->odtv0axial);
+      printf ("  Final radial freq = %.3f Hz\n",
+	      p->odtv0radial * sqrt (p->finalcpow / 10.));
+      printf ("   Final axial freq = %.3f Hz\n",
+	      p->odtv0axial * sqrt (p->finalcpow / 10.));
+      printf (" h * ( v_r * v_r * va )^1/3 = %.3f uK\n", p->hvbar);
+    }
+
+
   //DEBUG: 
   //printf("trap depth = %f\n", p->trapdepth); 
   //printf("hvbar      = %f\n", p->hvbar); 
@@ -285,6 +359,9 @@ public:
 
   // Quantities obtained in computation of column density 
   double maxI;
+  double maxIsmooth;
+  double aveI;
+  double aveIweighted;
   double maxOD;
   double maxCD;
   double maxPHI;
@@ -652,7 +729,12 @@ struct phc_params
   struct phc_calc *c;
 };
 
-
+//Formula to calculate splitting between states 1 and 2
+double
+split12 (double bfield)
+{
+  return 66.718 - 0.009 * bfield + 0.601 * sqrt (bfield);
+}
 
 
 double
@@ -693,23 +775,19 @@ sig_phcimg (double ncol, struct phc_params *phc)
   double det = phc->det;
 
   // splitting between states |1> and |2>:
-  // This formula is OK between 520-700 Gauss
-  double delta12 = (74.35 + 0.00241351 * phc->imgbfield) / (phc->gamma / 1e6);
+  double delta12 = split12 (phc->imgbfield) / (phc->gamma / 1.e6);
+
+  // detuning from state2
   double det2 = det + delta12;
 
   // detuning for pi transition, state |1>
   double det_pi = det - 1.87 * phc->imgbfield / (phc->gamma / 1.e6);
-
   // detuning for pi transition, state |2>
   double det2_pi = det_pi + delta12;
-
   // detuning for plus transition, state |1>
   double det_plus = det - 2 * 1.87 * phc->imgbfield / (phc->gamma / 1.e6);
-
   // detuning for plus transition, state |2>
   double det2_plus = det_plus + delta12;
-
-
   //Here, the parameters for the phase contrast imaging setup are set
   //First the polarization of the probe light
   double a = 1. / sqrt (2.);
@@ -717,12 +795,10 @@ sig_phcimg (double ncol, struct phc_params *phc)
   double g = M_PI / 2.;
   //Then the angle of the polarizer wrt the magnetic field
   double th = -M_PI / 4.;
-
   //One atom cannot scatter a photon twice, so it is necessary to 
   //include in the absorption (alpha) and phase-shift (phi) terms
   //a term corresponding to the probability of the atom to undergo
   //each transition
-
   //Then the absorption and phase shifts are calculated 
   //The unsubscripted one is for the sigma minus transition
   //The pi subscript one is for the pi transition
@@ -732,18 +808,14 @@ sig_phcimg (double ncol, struct phc_params *phc)
       //Calculate the cross section to scatter on each transition from each state:
       double minus1 = sig_minus / (1 + 4 * det * det + 2 * i0_minus);
       double minus2 = sig_minus / (1 + 4 * det2 * det2 + 2 * i0_minus);
-
       double pi1 = sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
       double pi2 = sig_pi / (1 + 4 * det2_pi * det2_pi + 2 * i0_pi);
-
       double plus1 = sig_plus / (1 + 4 * det_plus * det_plus + 2 * i0_plus);
       double plus2 = sig_plus / (1 + 4 * det2_plus * det2_plus + 2 * i0_plus);
-
       //One atom cannot scatter a photon twice, so it is necessary to 
       //include in the absorption (alpha) and phase-shift (phi) terms
       //a term corresponding to the probability of the atom to undergo
       //each transition
-
       //Calculate the probabilities to scatter on each transition:
       /*
          // If atom is in state |1>:
@@ -761,7 +833,6 @@ sig_phcimg (double ncol, struct phc_params *phc)
          double p_minus2 = sig_minus / (sig_minus + sig_pi);
          double p_pi2 = sig_pi / (sig_minus + sig_pi);
        */
-
       // Calculate the absorption due to atoms in state 1 
       double alpha1 = (ncol / 2.) * minus1;
       double alpha1_pi = (ncol / 2.) * pi1;
@@ -770,7 +841,6 @@ sig_phcimg (double ncol, struct phc_params *phc)
       double alpha2 = (ncol / 2.) * minus2;
       double alpha2_pi = (ncol / 2.) * pi2;
       double alpha2_plus = (ncol / 2.) * plus2;
-
       /* 
          double alpha1 = 
          (ncol / 2.) * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
@@ -782,15 +852,12 @@ sig_phcimg (double ncol, struct phc_params *phc)
          double alpha2_pi =
          (ncol / 2.) * sig_pi / (1 + 4 * det2_pi * det2_pi + 2 * i0_pi);
        */
-
       phc->c->alpha = alpha1 + alpha2 + alpha1_plus + alpha2_plus;
       phc->c->alpha_pi = alpha1_pi + alpha2_pi;
-
       phc->c->phi =
 	-alpha1 * det - alpha2 * det2 - alpha1_plus * det_plus -
 	alpha2_plus * det2_plus;
       phc->c->phi_pi = -alpha1_pi * det_pi - alpha2_pi * det2_pi;
-
     }
 
   else
@@ -799,30 +866,23 @@ sig_phcimg (double ncol, struct phc_params *phc)
 	ncol * sig_plus / (1 + 4 * det_plus * det_plus + 2 * i0_plus);
       double alpha_minus =
 	ncol * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
-
       phc->c->alpha = alpha_plus + alpha_minus;
       phc->c->alpha_pi =
 	ncol * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
-
       phc->c->phi = -alpha_minus * det - alpha_plus * det_plus;
       phc->c->phi_pi = -phc->c->alpha_pi * det_pi;
-
     }
 
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->
-								       c->
-								       phi +
-								       phc->
-								       c->
-								       phi_pi)
+								       phc->c->phi
+								       +
+								       phc->c->phi_pi)
     * sin (2. * th);
-
-  phc->c->noatoms = b * b * cos (th) * cos (th)
-    + a * a * sin (th) * sin (th) + a * b * cos (g) * sin (2 * th);
-
+  phc->c->noatoms =
+    b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
+    a * b * cos (g) * sin (2 * th);
   return -1. * (phc->c->atoms / phc->c->noatoms - 1);
 };
 
@@ -834,16 +894,16 @@ sig_phcimg_err (double ncol, void *params)
 };
 
 double
-Fermions::signal_phcimg (double ncol, double det, double i0, double imgbfield,
-			 bool twostates, bool SHOW, struct phc_calc *c)
+Fermions::signal_phcimg (double ncol, double det, double i0,
+			 double imgbfield, bool twostates, bool SHOW,
+			 struct phc_calc *c)
 {
 
-  struct phc_params phc =
-    { 0.0, det, i0, p->imgbfield, true, false, p->lambda, p->gamma,
+  struct phc_params phc = {
+    0.0, det, i0, p->imgbfield, true, false, p->lambda, p->gamma,
     p->magnif, c
   };
   return sig_phcimg (ncol, &phc);
-
 }
 
 double
@@ -864,7 +924,6 @@ Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
      1. / 3.) * sig / (0.5 - det) * (1 + 4 * det * det +
      2 * i0) / sigma0; */
   double ncol = 1. * cd * (det < -25 ? pow (fabs (det / 25), 1. / 3.) : 1.);
-
   if (SHOW)
     {
       cout << endl <<
@@ -874,14 +933,10 @@ Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
 
   int status;
   int iter = 0, max_iter = 100;
-
   const gsl_root_fsolver_type *T;
   gsl_root_fsolver *s;
-
   double r = 0;
-
   double x_lo, x_hi;
-
   if (fabs (ncol) < 100.)
     {
       x_lo = -1000.;
@@ -895,22 +950,18 @@ Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
     }
 
   gsl_function F;
-
   F.function = &sig_phcimg_err;
-  struct phc_params params =
-    { sig, det, i0, imgbfield, twostates, false, p->lambda, p->gamma,
+  struct phc_params params = {
+    sig, det, i0, imgbfield, twostates, false, p->lambda, p->gamma,
     p->magnif, c
   };
   F.params = &params;
-
   T = gsl_root_fsolver_brent;
   s = gsl_root_fsolver_alloc (T);
   gsl_root_fsolver_set (s, &F, x_lo, x_hi);
-
   if (SHOW)
     {
       printf ("using %s method\n", gsl_root_fsolver_name (s));
-
       printf ("%5s [%9s, %9s] %9s %9s\n",
 	      "iter", "lower", "upper", "root", "err(est)");
     }
@@ -922,10 +973,8 @@ Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
       x_lo = gsl_root_fsolver_x_lower (s);
       x_hi = gsl_root_fsolver_x_upper (s);
       status = gsl_root_test_interval (x_lo, x_hi, 0, 0.001);
-
       if (status == GSL_SUCCESS && SHOW)
 	printf ("Converged:\n");
-
       if (SHOW)
 	{
 	  printf ("%5d [%.7f, %.7f] %.7f %.7f\n",
@@ -933,9 +982,7 @@ Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
 	}
     }
   while (status == GSL_CONTINUE && iter < max_iter);
-
   gsl_root_fsolver_free (s);
-
   double ratio = r / ncol;
   if (fabs (ncol) > 100. && (ratio > 1.7 || ratio < 0.3))
     {
@@ -943,7 +990,6 @@ Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
     }
 
   return r;
-
 }
 
 void
@@ -966,31 +1012,26 @@ Fermions::ComputeColumnDensity ()
 
   unsigned int s1 = atoms->size1;
   unsigned int s2 = atoms->size2;
-
-
   columndensity = gsl_matrix_alloc (s1, s2);
   columndensity_scattered_ph = gsl_matrix_alloc (s1, s2);
   missing_counts = gsl_matrix_alloc (s1, s2);
   probe = gsl_matrix_alloc (s1, s2);
-
   /************ ABSORPTION IMAGING VARIABLES ************/
-
   double at, noat, atref, noatref, c0, c1, cd, OD, i0, i0eff, p0, term1,
     term2;
+  double cd_sp, cd_highintabs;
   double maxT1, maxT2;		//maxima for term1 and term2 in the column density
   double maxCDterm1 = 0., maxCDterm2 = 0.;
   maxT1 = -1e6;
   maxT2 = -1e6;
-
   double sigma0 = 3 * M_PI * pow (p->lambda / 2 / M_PI, 2);	//This corresponds to half the maximal cross-section, because of our polarization.  
   double isat = 10.2;		// This corresponds to twice the minimal Isat because of our polarization
-
   //should be equal to  gamma h v / sigma0 .... test this.  
-
-
   double det = 0.;		//for now all  absorption imaging is on resonance 
   maxI = 0.;
-
+  aveI = 0.;
+  aveIweighted = 0.;
+  double sumcd = 0.;
   maxCD = 0.;			//maximum column density
   maxPHI = 0.;			//maximum phase shift in phase constrast
   maxNSP = 0.;
@@ -1003,31 +1044,57 @@ Fermions::ComputeColumnDensity ()
   double pee = 0.;
   maxPEE = 0.;
   double avg_pee = 0.;		//average rho_ee
-
-
   maxOD = 0.;
   double OD_err = 5;		//any higher OD will be cutoff and trigger a warning
   bool OD_errmsg = false;
   bool high_phase_shift_flag = false;
   //bool sanity_check_flag = false;
   //sanity_check_flag = false;
-
   minCA = 1.e6;			// minimum counts in atoms frame
   minCN = 1.e6;			// minimum counts in noatoms frame
   maxCA = 0.;			// maximum counts in atoms frame
   maxCN = 0.;			// maximum counts in noatoms frame
-
   //Structure to store intermediate results of phc calc
-  struct phc_calc calc = { 0., 0., 0., 0., 0., 0. };
-  struct phc_calc calcMAX = { 0., 0., 0., 0., 0., 0. };
-  //For max column densit, counts in atoms and noatoms frame
+  struct phc_calc calc = {
+    0., 0., 0., 0., 0., 0.
+  };
+  struct phc_calc calcMAX = {
+    0., 0., 0., 0., 0., 0.
+  };
+  //For max column density, counts in atoms and noatoms frame
   double c0CDMAX = 0.0;
   double c1CDMAX = 0.0;
-
   //Matrix for OD
   gsl_matrix *od_matrix;
   od_matrix = gsl_matrix_alloc (s1, s2);
 
+  //Loss of intensity at the polarizer
+  double loss = 1.0;
+  if (p->phc)
+    loss = 0.11 / 0.26;		//Measured on 10/17/2012 Russ #8 Page98
+
+  if (p->cdsp && p->highintabs)
+    {
+      printf
+	("Cannot use --cdsp and --highintabs options at the same time\n");
+      printf ("Program will exit\n");
+      exit (EXIT_FAILURE);
+    }
+
+  printf ("---  CAMERA PARAMETERS: ---\n");
+  //printf ("  efficiency    = %.3e mJ/count\n", p->eff);
+  //printf ("  photons/mJ    = %.3e\n", p->photon_per_mJ);
+  printf ("  photons/count = %.3e\n", p->eff * p->photon_per_mJ);
+  printf ("  magnif        = %.2f um/pixel\n", p->magnif);
+
+  double probeintensity;
+  if (p->highintabs)
+    {
+      probeintensity = 2. * p->probepower / (M_PI * pow (p->probewaist, 2));
+      printf ("  probepower    = %.3f mW\n", p->probepower);
+      printf ("  probewaist    = %.3f cm\n", p->probewaist);
+      printf ("  probeintensity= %.3f isat\n", probeintensity / isat);
+    }
 
   /************ PHASE-CONTRAST IMAGING VARIABLES ************/
   double signal, phase_shift, sig1, sig2, state2det, state1det, delta12;
@@ -1035,34 +1102,28 @@ Fermions::ComputeColumnDensity ()
   if (p->phc)
     {
       phc_signal = gsl_matrix_alloc (s1, s2);	// A matrix of the phase-contrast Signal at each pixel.
-
-
       sigma0 = 3 * M_PI * pow (p->lambda / 2. / M_PI, 2);
       isat = 10.2;
-
       det = p->det * 1.e6 / p->gamma;	//detuning in units of gamma
       state1det = det;
-
-
-      delta12 = (74.35 + 0.00241351 * p->imgbfield) * 1.e6 / p->gamma;	// Splitting between states |1> and |2> at 540 Gauss
-      // This formula is OK between 520-700 Gauss
-
+      p->imgbfield = (-1. * (p->hfimg + p->det) - 100.0 - 163.7) / -1.414;
+      delta12 = split12 (p->imgbfield) * 1.e6 / p->gamma;	// Splitting between states |1> and |2> 
       state2det = state1det + delta12;
 
-      cout << endl;
-      cout << "   Andor magnification      = " << p->magnif << " um/pixel" <<
-	endl;
-      cout << "   Phase-contrast detuning  = " << det << " Gamma  = " << det
-	* p->gamma / 1.e6 << " MHz" << endl;
-      cout << "   States 1 and 2 splitting = " << delta12 << " Gamma  = " <<
-	delta12 * p->gamma / 1.e6 << " MHz" << endl;
-      cout << "   Imaging bfield  = " << p->imgbfield << " Gauss" << endl;
+      printf ("---  PHASE-CONTRAST PARAMETERS: ---\n");
+      if (p->twostates)
+	printf ("  two states = true\n");
+      else
+	printf ("  two states = false\n");
+      printf ("  img bfield = %.2f Gauss\n", p->imgbfield);
+      printf ("  hfimg      = %.2f MHz\n", p->hfimg);
+      printf ("  Phc det    = %+-3.2f Gamma  = %+-3.2f MHz\n",
+	      det, det * p->gamma / 1.e6);
+      printf ("  |1> to |2> = %+-3.2f Gamma  = %+-3.2f MHz\n",
+	      delta12, delta12 * p->gamma / 1.e6);
     }
 
 
-  printf ("      eff = %.3e\n", p->eff);
-  printf ("    ph/mJ = %.3e\n", p->photon_per_mJ);
-  printf (" ph/count = %.3e\n", p->eff * p->photon_per_mJ);
   /********************************************
   *
   *  Iterate over the image matrices to calculate the column
@@ -1078,7 +1139,6 @@ Fermions::ComputeColumnDensity ()
 	  noat = gsl_matrix_get (noatoms, i, j);
 	  atref = gsl_matrix_get (atomsref, i, j);
 	  noatref = gsl_matrix_get (noatomsref, i, j);
-
 	  if (p->eigenface && noatref != 0. && p->eigenface_done)
 	    {
 	      printf ("eigenface error: noatref != 0, noatref = %.3f\n",
@@ -1088,45 +1148,65 @@ Fermions::ComputeColumnDensity ()
 
 	  c0 = norm_noat * (noat - noatref);	// counts in no atoms frame
 	  c1 = at - atref;	// counts in atoms frame
-
 	  if (c0 < minCN)
 	    minCN = c0;
 	  if (c0 > maxCN)
 	    maxCN = c0;
-
 	  if (c1 < minCA)
 	    minCA = c1;
 	  if (c1 > maxCA)
 	    maxCA = c1;
-
 	  // eff is in mJ/count
 	  p0 = c0 * p->eff * p->photon_per_mJ;	// number of photons in pixel in noatoms frame
 	  Tp0 += p0;		// total number of photons in noatoms frame 
-	  i0 = (c0 * p->eff / (pow (p->magnif * 1e-4, 2)) / p->texp / (isat));	// intensity in noatoms frame in units of isat
-	  i0eff = (c0 * p->eff / (pow (p->magnif * 1e-4, 2)) / p->texp / (isat * p->alphastar));	// effective intensity in noatoms frame
+
+
+
+	  i0 = (1 / loss) * (c0 * p->eff / (pow (p->magnif * 1e-4, 2)) / p->texp / (isat));	// intensity in noatoms frame in units of isat
+	  i0eff = i0 / p->alphastar;	// effective intensity in noatoms frame
+
+	  aveI += i0 / s1 / s2;
 	  if (i0 > maxI)
-	    maxI = i0;
+	    {
+	      maxI = i0;
+	      double Ismooth = 0.;
+	      int nsmooth = 0;
+	      int dsmooth = 10;
+	      for (int ii = -dsmooth; ii <= dsmooth; ii++)
+		{
+		  for (int jj = -dsmooth; jj <= dsmooth; jj++)
+		    {
+		      if (i + ii >= 0 && i + ii < s1 && j + jj >= 0
+			  && j + jj < s2)
+			{
+			  double c0temp = gsl_matrix_get (noatoms, i + ii,
+							  j + jj) -
+			    gsl_matrix_get (noatomsref, i + ii, j + jj);
+			  Ismooth +=
+			    (c0temp * p->eff / (pow (p->magnif * 1e-4, 2)) /
+			     p->texp / (isat));
+			  nsmooth++;
+			}
+		    }
+		}
+	      maxIsmooth = Ismooth / nsmooth;
+	    }
+
 
 	  OD = log (fabs (c0 / c1));
 	  gsl_matrix_set (od_matrix, i, j, OD);
-
 	  if (OD > OD_err)
 	    {
 	      OD = OD_err;
-
 	      if (!OD_errmsg)
 		printf
 		  ("\n******   WARNING: Optical density too high !!! ******\n");
-
 	      OD_errmsg = true;
 	    }
 
 	  else if (OD > maxOD)
 	    maxOD = OD;
-
-
 	  /*********** ABSORPTION IMAGING ***************/
-
 	  if (!p->phc)
 	    {
 
@@ -1134,8 +1214,6 @@ Fermions::ComputeColumnDensity ()
 		p->alphastar * (1. +
 				4. * det * det) * OD / sigma0 *
 		pow (p->magnif * 1e-4, 2);
-
-
 	      pee = i0eff / (1 + 2 * i0eff);
 	      avg_pee += pee / (s1 * s2);
 	      if (pee > maxPEE)
@@ -1149,19 +1227,38 @@ Fermions::ComputeColumnDensity ()
 	      nsp = sp / (pee * p->texp / p->decay);
 	      if (nsp > maxNSP)
 		maxNSP = nsp;
-
 	      Tsp += sp;	// total number of scattered photons
 	      Nsp += nsp;	// total number of atoms from scattered photons 
-
 	      term2 =
 		2 * i0 * (1. - c1 / c0) / sigma0 * pow (p->magnif * 1e-4, 2);
-
 	      if (term1 > maxT1)
 		maxT1 = term1;
 	      if (term2 > maxT2)
 		maxT2 = term2;
-
 	      cd = (term1 + term2);
+
+	      //Calculate column density from scattered photons
+	      cd_sp =
+		(1 -
+		 c1 / c0) * ((1 +
+			      2 * i0) / i0) * (p->decay /
+					       p->mJ_per_photon) *
+		pow (p->magnif * 1e-4, 2) * i0 * isat;
+
+	      //Calculate column density from scattered photons in the high intensity approximation
+	      //with probe power and beam waist provided by user
+	      cd_highintabs =
+		(1 -
+		 c1 / c0) * (2. * p->decay / p->mJ_per_photon) *
+		pow (p->magnif * 1e-4, 2) * (probeintensity);
+	      if (p->cdsp)
+		{
+		  cd = cd_sp;
+		}
+	      if (p->highintabs)
+		{
+		  cd = cd_highintabs;
+		}
 	    }
 
 	  /*********** PHASE - CONTRAST IMAGING ***************/
@@ -1172,12 +1269,9 @@ Fermions::ComputeColumnDensity ()
 	      gsl_matrix_set (phc_signal, i, j, signal);
 	      phase_shift = asin (signal);
 	      //phase_shift = -1.0 * det * signal / (0.5 - det);
-
 	      //cout << "signal = " << signal << " phi = " << phase_shift << endl; 
-
 	      if (fabs (phase_shift) > maxPHI)
 		maxPHI = phase_shift;
-
 	      //if (signal / (0.5 - det) > 0.5 || signal > 0.6)
 	      if (phase_shift > M_PI / 5.)
 		{
@@ -1187,8 +1281,9 @@ Fermions::ComputeColumnDensity ()
 		  high_phase_shift_flag = true;
 		}
 
-	      i0 = 2. * i0;	// The polarizer cuts it down by a factor of 2.  
 
+
+	      /* THIS IS THE OLD PHASE-CONTRAST CALCULATION */
 	      sig1 =
 		(0.5 - state1det) * sigma0 / pow (p->magnif * 1e-4,
 						  2) / (1 +
@@ -1204,6 +1299,11 @@ Fermions::ComputeColumnDensity ()
 	      else
 		cd = 2 * signal / (sig1);	//columdensity -> IF USING ONLY STATE 1 
 
+	      /* THIS IS THE NEW PHASE-CONTRAST CALCULATION */
+	      bool SHOW = false;
+	      cd =
+		ncol_phcimg (cd, signal, det, i0, p->imgbfield, p->twostates,
+			     SHOW, &calc);
 	      if (i == 302 && j == 200 && false)
 		{
 		  printf
@@ -1214,18 +1314,10 @@ Fermions::ComputeColumnDensity ()
 		  printf ("signal(cd) = %.6f\n",
 			  signal_phcimg (cd, det, i0, p->imgbfield, true,
 					 true, &calc));
-
-
 		}
-	      bool SHOW = false;
-
-	      cd =
-		ncol_phcimg (cd, signal, det, i0, p->imgbfield, p->twostates,
-			     SHOW, &calc);
 
 
 	      nsp = 0.;		//this is not relevant for phase contrast so just make it zero.
-
 	      // sanity check
 	      /*if ( !sanity_check_flag){
 	         printf("det    = %.3e * Gamma\n", det );
@@ -1237,7 +1329,6 @@ Fermions::ComputeColumnDensity ()
 	         printf("cd     = %.3e\n", cd);
 	         printf("signal = %.3e\n",signal);
 	         } */
-
 	    }
 	  if (cd > maxCD)
 	    {
@@ -1253,7 +1344,11 @@ Fermions::ComputeColumnDensity ()
 		}
 	    }
 
-
+	  if (cd > 0.)
+	    {
+	      aveIweighted += i0 * cd;
+	      sumcd += cd;
+	    }
 
 	  gsl_matrix_set (columndensity_scattered_ph, i, j, nsp);
 	  gsl_matrix_set (columndensity, i, j, cd);
@@ -1262,6 +1357,7 @@ Fermions::ComputeColumnDensity ()
 	}
     }
 
+  aveIweighted = aveIweighted / sumcd;
 
   unsigned int smooth_bins = 4;
   gsl_matrix *od_matrix_smoothed = smooth (od_matrix, smooth_bins);
@@ -1269,7 +1365,6 @@ Fermions::ComputeColumnDensity ()
   double od_max_pos;
   findpeak (od_matrix_smoothed, &odmax_i, &odmax_j, &od_max_pos, true);
   maxOD = od_max_pos;
-
   if (p->phc)
     {
       unsigned int smooth_bins = 4;
@@ -1409,10 +1504,10 @@ Fermions::SaveColumnDensity ()
       toTiffImage (missing_counts, missing_path);
     }
 
+  save_gsl_matrix_ASCII (columndensity, column_ascii_path);
   if (p->saveascii)
     {
       save_gsl_matrix_ASCII (columndensity_scattered_ph, scatt_ascii_path);
-      save_gsl_matrix_ASCII (columndensity, column_ascii_path);
       save_gsl_matrix_ASCII (probe, probe_ascii_path);
       save_gsl_matrix_ASCII (missing_counts, missing_ascii_path);
     }
@@ -1546,10 +1641,7 @@ Fermions::Fit2DGauss ()
       printf ("\tpeakd = %.3f\n", gaus2dfit[4]);
       printf ("\tsize1 = %.3f\n", gaus2dfit[1]);
       printf ("\tsize2 = %.3f\n", gaus2dfit[3]);
-
-
     }
-  TF = p->hvbar * pow (6 * nfit, 1. / 3.);
   nfit_err =
     pow (pow (gaus2dfit_err[4] * nfit / gaus2dfit[4], 2) +
 	 pow (gaus2dfit_err[1] * nfit / gaus2dfit[1],
@@ -1565,6 +1657,14 @@ Fermions::Fit2DGauss ()
       printf ("peak   = %.3e \n", gaus2dfit[4]);
       printf ("offset = %.3e \n", gaus2dfit[5]);
       printf ("N from fit = %.3e \n", nfit);
+    }
+  TF = p->hvbar * pow (6 * nfit, 1. / 3.);
+  if (VERBOSE)
+    {
+      printf
+	("..........  DETERMINE FERMI TEMPERATURE FROM NUMBER ..........\n");
+      printf (" h * ( v_r * v_r * va )^1/3 = %.3f uK\n", p->hvbar);
+      printf ("                         TF = %.3f uK\n", p->hvbar);
     }
 
   residuals = gaus2d_residual (columndensity, gaus2dfit);
@@ -1653,8 +1753,8 @@ Fermions::FitProbe2DGauss ()
     fit2dgaus_no_offset (probe, probe2dfit);
   string probeinspect = p->shotnum;
   probeinspect += "_probe";
-  double probefit[6] =
-    { probe2dfit[0], probe2dfit[1], probe2dfit[2], probe2dfit[3],
+  double probefit[6] = {
+    probe2dfit[0], probe2dfit[1], probe2dfit[2], probe2dfit[3],
     probe2dfit[4], 0.0
   };
   make_gaus2d_inspect (probe, probefit, probeinspect.c_str ());
@@ -1675,7 +1775,6 @@ Fermions::FitProbe2DGauss ()
   printf (" 1/e^2 beam waist of the probe:\n");
   printf ("  i (horizontal on camera) = %.3f um\n", probe2dfit[1] * sqrt (2) * 16.);	//sqrt(2) to go from 1/e to 1/e^2 and 16um/px for the Andor
   printf ("  j (  vertical on camera) = %.3f um\n", probe2dfit[3] * sqrt (2) * 16.);	//sqrt(2) to go from 1/e to 1/e^2 and 16um/px for the Andor
-
   unsigned int smooth_bins = 10;
   gsl_matrix *probe_smoothed = smooth (probe, smooth_bins);
   unsigned int probemax_i, probemax_j;
@@ -1806,7 +1905,7 @@ Fermions::GetAzimuthalAverageEllipse ()
     }
 
   // Define the number of bins to be used in the radial profile  and the bin size 
-  nbins = 1024;
+  nbins = 2048;
   binsize = 1.2;		//in pixels
   // Declare the auxiliary arrays to calculate the average 
   //    _0 is sum of values for the data
@@ -1825,11 +1924,23 @@ Fermions::GetAzimuthalAverageEllipse ()
       gsl_vector_set (azim_histo_1, j, 0.0);
     }
 
+  if (VERBOSE)
+    {
+      printf ("\t...Begin iteration for azimuthal average calculation\n");
+    }
   // initialize cut arrays
   icut_r = gsl_vector_alloc (columndensity->size1);
   icut_dat = gsl_vector_alloc (columndensity->size1);
   jcut_r = gsl_vector_alloc (columndensity->size2);
   jcut_dat = gsl_vector_alloc (columndensity->size2);
+  bool DEBUG_VECTORS = false;
+  if (DEBUG_VECTORS)
+    {
+      printf ("icut size = %u\n", (unsigned int) columndensity->size1);
+      printf ("jcut size = %u\n", (unsigned int) columndensity->size2);
+    }
+
+  bool DEBUG_AZIMUTH = false;
   // populate auxiliary arrays for average
   // at the same time populate arrays for cuts along principal axis 
   for (unsigned int i = 0; i < columndensity->size1; i++)
@@ -1838,15 +1949,32 @@ Fermions::GetAzimuthalAverageEllipse ()
 	{
 	  double xi = (double) i;	// this is y  radial
 	  double xj = (double) j;	// this is g  axial
+	  if (DEBUG_AZIMUTH)
+	    printf ("i=%u,j=%u\n", i, j);
 	  double data = gsl_matrix_get (columndensity, i, j);
+	  if (DEBUG_AZIMUTH)
+	    printf ("data = %f\n", data);
 	  // Find the radial distance, aspect ratio is taken into account
 	  unsigned int dist =
-	    (unsigned int)
-	    floor (pow
-		   (pow (p->AR * (xi - gaus2dfit[0]), 2) +
-		    pow (xj - gaus2dfit[2], 2), 0.5) / binsize);
+	    (unsigned int) floor (pow
+				  (pow (p->AR * (xi - gaus2dfit[0]), 2) +
+				   pow (xj - gaus2dfit[2], 2),
+				   0.5) / binsize);
+	  if (dist > nbins)
+	    {
+	      printf ("\n!!!!!!!!!!!!!!!!!!!\n");
+	      printf
+		(" ERROR in AZIMUTHAL AVERAGE CALCULATION:\n\t dist > nbins\n");
+	      printf ("!!!!!!!!!!!!!!!!!!!\n");
+	      exit (0);
+	    }
+
 	  gsl_matrix_set (rho, i, j, dist);
-	  //DEBUG: printf( " dist(%d,%d) = %d\n", i, j, dist); 
+	  if (DEBUG_AZIMUTH)
+	    printf ("rho = %u\n", dist);
+	  if (DEBUG_AZIMUTH)
+	    printf (" dist(%d,%d) from (%.2f,%.2f)  = %d\n", i, j,
+		    gaus2dfit[0], gaus2dfit[2], dist);
 	  //increment sum of data
 	  gsl_vector_set (azim_histo_0, dist,
 			  gsl_vector_get (azim_histo_0, dist) + data);
@@ -1879,7 +2007,7 @@ Fermions::GetAzimuthalAverageEllipse ()
     toTiffImage (rho, rho_path, true);
   if (p->saveascii)
     save_gsl_matrix_ASCII (rho, rho_ascii_path);
-  if (VERBOSE && false)
+  if (p->azimverbose)		//CAN CHECK HERE THE INTEGRITY OF THE AZIMUTHAL AVERAGE HISTOGRAMS
     {
       printf ("\n AZIMUTHAL AVERAGE HISTOGRAMS:\n");
       for (unsigned int ii = 0; ii < nbins; ii++)
