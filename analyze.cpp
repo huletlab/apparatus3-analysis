@@ -33,6 +33,7 @@ main (int argc, char **argv)
   processArgsAnalyze (argc, argv, p);
   VERBOSE = p.verbose;
   init_params (&p);
+  setINI_num (p.reportfile, "CPP", "phcdet", p.det);
 
 
   Fermions *f = new Fermions (&p);

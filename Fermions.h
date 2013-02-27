@@ -107,6 +107,9 @@ struct params
   bool phc;
   double phcsign;
 
+  // Fluorescence analysis
+  bool fluor;
+
 
 };
 
@@ -125,9 +128,22 @@ init_params (struct params *p)
 
   p->hfimg = (double) getINI_num (p->reportfile, "ANDOR", "hfimg");	// hfimg in MHz
 
-  p->det = (double) getINI_num (p->reportfile, "ANDOR", "phcdet");	// phase contrast detuning in MHz
+  double hfimg0 = (double) getINI_num (p->reportfile, "ANDOR", "hfimg0");	// State |1> resonance frequency in MHz
+  if (hfimg0 < -1.e10)
+    {
+      printf
+	("Used ANDOR:phcdet to determine phase-contrast detuning, because hfimg0 does not exit\n");
+      p->det = (double) getINI_num (p->reportfile, "ANDOR", "phcdet");	// phase contrast detuning in MHz
+    }
+  else
+    {
+      p->det = hfimg0 - p->hfimg;
+    }
+
+
   p->phc = (bool) getINI_num (p->reportfile, "ANDOR", "phc");	// phase contrast 
   p->phcsign = (double) getINI_num (p->reportfile, "ANDOR", "phcsign");	// prefactor in the calculation of the phase contrast signal
+  p->fluor = (bool) getINI_num (p->reportfile, "ANDOR", "fluor");	// fluorescence counting
 
   bool auxblanks = (bool) getINI_num (p->reportfile, "ANDOR", "blanks");	// taking blanks ?
   p->blanks = p->blanks || auxblanks;	// if either the command line or the report says it, these are blanks
@@ -876,9 +892,12 @@ sig_phcimg (double ncol, struct phc_params *phc)
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->c->phi
-								       +
-								       phc->c->phi_pi)
+								       phc->
+								       c->
+								       phi +
+								       phc->
+								       c->
+								       phi_pi)
     * sin (2. * th);
   phc->c->noatoms =
     b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
@@ -1207,7 +1226,7 @@ Fermions::ComputeColumnDensity ()
 	  else if (OD > maxOD)
 	    maxOD = OD;
 	  /*********** ABSORPTION IMAGING ***************/
-	  if (!p->phc)
+	  if (!p->phc && !p->fluor)
 	    {
 
 	      term1 =
@@ -1259,6 +1278,14 @@ Fermions::ComputeColumnDensity ()
 		{
 		  cd = cd_highintabs;
 		}
+	    }
+
+	  else if (p->fluor)
+	    {
+
+	      cd = c1 - c0;
+	      nsp = 0.;		//this is not relevant for phase contrast so just make it zero.
+
 	    }
 
 	  /*********** PHASE - CONTRAST IMAGING ***************/
@@ -1337,7 +1364,7 @@ Fermions::ComputeColumnDensity ()
 	      c1CDMAX = c1;
 	      if (p->phc)
 		calcMAX = calc;
-	      if (!p->phc)
+	      if (!p->phc && !p->fluor)
 		{
 		  maxCDterm1 = term1;
 		  maxCDterm2 = term2;
@@ -1386,7 +1413,7 @@ Fermions::ComputeColumnDensity ()
     {
       cout << endl << "------------ Column Density Stats ------------" <<
 	endl;
-      if (!p->phc)
+      if (!p->phc && !p->fluor)
 	{
 	  cout << endl << "----> Method used : absorption" << endl;
 	  printf ("\tSample contains: %s\n",
@@ -1429,6 +1456,12 @@ Fermions::ComputeColumnDensity ()
 		}
 	    }
 
+	}
+      else if (p->fluor)
+	{
+	  cout << endl << "----> Method used : flourescence counting photons"
+	    << endl;
+	  printf ("\tmax CD = %.5f \n", maxCD);
 	}
       else
 	{

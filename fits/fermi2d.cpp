@@ -174,8 +174,6 @@ double
 fermi2d_simplex_f (const gsl_vector * v, void *params)
 {
 
-  //benchmark start
-//  double start = omp_get_wtime(); 
 
   unsigned int s1 = ((gsl_matrix *) params)->size1;
   unsigned int s2 = ((gsl_matrix *) params)->size2;
@@ -185,19 +183,31 @@ fermi2d_simplex_f (const gsl_vector * v, void *params)
   //i is radial === y
   //j is axial  === g
 
+  gsl_matrix *sq = gsl_matrix_alloc (s1, s2);
+
+
+#pragma omp parallel num_threads(4)
+  {
+#pragma omp for
+    for (unsigned int i = 0; i < s1; i++)
+      {
+	for (unsigned int j = 0; j < s2; j++)
+	  {
+	    double model = fermi2d_model (i, j, v);
+	    double dat = gsl_matrix_get ((gsl_matrix *) params, i, j);
+	    gsl_matrix_set (sq, i, j, pow (model - dat, 2));
+	  }
+      }
+  }
+
   for (unsigned int i = 0; i < s1; i++)
     {
       for (unsigned int j = 0; j < s2; j++)
 	{
-	  double model = fermi2d_model (i, j, v);
-	  double dat = gsl_matrix_get ((gsl_matrix *) params, i, j);
-	  sumsq += pow (model - dat, 2);
+	  sumsq += gsl_matrix_get (sq, i, j);
 	}
     }
 
-  //end benchmark
-//  double end = omp_get_wtime();
-//  printf( "time elapsed in fermi errfunc %.5f\n", end-start); 
 
   return sumsq;
 }

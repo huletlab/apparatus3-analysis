@@ -477,19 +477,24 @@ gaus2d_f (const gsl_vector * x, void *data, gsl_vector * f)
   unsigned int s1 = ((gsl_matrix *) data)->size1;
   unsigned int s2 = ((gsl_matrix *) data)->size2;
 
-  size_t ii = 0;
+  //size_t ii = 0;
 
-  //#pragma omp parallel for
-  for (unsigned int i = 0; i < s1; i++)
-    {
-      for (unsigned int j = 0; j < s2; j++)
-	{
-	  double model = gaus2d_model ((double) i, (double) j, x);
-	  double dat = gsl_matrix_get ((gsl_matrix *) data, i, j);
-	  gsl_vector_set (f, ii, (model - dat));
-	  ii++;
-	}
-    }
+
+#pragma omp parallel num_threads(4)
+  {
+#pragma omp for
+    for (unsigned int i = 0; i < s1; i++)
+      {
+	for (unsigned int j = 0; j < s2; j++)
+	  {
+	    double model = gaus2d_model ((double) i, (double) j, x);
+	    double dat = gsl_matrix_get ((gsl_matrix *) data, i, j);
+	    size_t ii = i * s2 + j;
+	    gsl_vector_set (f, ii, (model - dat));
+	    //ii++;
+	  }
+      }
+  }
 
   return GSL_SUCCESS;
 }
@@ -512,31 +517,37 @@ gaus2d_df (const gsl_vector * x, void *data, gsl_matrix * J)
   double A = gsl_vector_get (x, 4);
 //  double B = gsl_vector_get (x, 5);
 
-  size_t ii = 0;
+  //size_t ii = 0;
 
-  for (unsigned int i = 0; i < s1; i++)
-    {
-      for (unsigned int j = 0; j < s2; j++)
-	{
-	  double E =
-	    exp (-1 * (pow ((i - cx) / wx, 2) + pow ((j - cy) / wy, 2)));
-	  double df_dcx = A * E * 2. * (i - cx) / pow (wx, 2);
-	  double df_dwx = A * E * pow (i - cx, 2) * 2.0 / pow (wx, 3);
-	  double df_dcy = A * E * 2. * (j - cy) / pow (wy, 2);
-	  double df_dwy = A * E * pow (j - cy, 2) * 2.0 / pow (wy, 3);
-	  double df_dA = E;
-	  double df_dB = 1;
+#pragma omp parallel num_threads(4)
+  {
+#pragma omp for
+    for (unsigned int i = 0; i < s1; i++)
+      {
+	for (unsigned int j = 0; j < s2; j++)
+	  {
+	    double E =
+	      exp (-1 * (pow ((i - cx) / wx, 2) + pow ((j - cy) / wy, 2)));
+	    double df_dcx = A * E * 2. * (i - cx) / pow (wx, 2);
+	    double df_dwx = A * E * pow (i - cx, 2) * 2.0 / pow (wx, 3);
+	    double df_dcy = A * E * 2. * (j - cy) / pow (wy, 2);
+	    double df_dwy = A * E * pow (j - cy, 2) * 2.0 / pow (wy, 3);
+	    double df_dA = E;
+	    double df_dB = 1;
 
-	  gsl_matrix_set (J, ii, 0, df_dcx);
-	  gsl_matrix_set (J, ii, 1, df_dwx);
-	  gsl_matrix_set (J, ii, 2, df_dcy);
-	  gsl_matrix_set (J, ii, 3, df_dwy);
-	  gsl_matrix_set (J, ii, 4, df_dA);
-	  gsl_matrix_set (J, ii, 5, df_dB);
+	    size_t ii = i * s2 + j;
 
-	  ii++;
-	}
-    }
+	    gsl_matrix_set (J, ii, 0, df_dcx);
+	    gsl_matrix_set (J, ii, 1, df_dwx);
+	    gsl_matrix_set (J, ii, 2, df_dcy);
+	    gsl_matrix_set (J, ii, 3, df_dwy);
+	    gsl_matrix_set (J, ii, 4, df_dA);
+	    gsl_matrix_set (J, ii, 5, df_dB);
+
+	    //ii++;
+	  }
+      }
+  }
   return GSL_SUCCESS;
 }
 
