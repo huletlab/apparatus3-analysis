@@ -31,6 +31,8 @@ struct params
   string shotnum, reportfile, atomsfile, noatomsfile, atomsreffile,
     noatomsreffile;
 
+  string shotnum_fileout;
+
   // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
   unsigned int roi[4], roisize[2], centerpt[2];
   bool keeproi;
@@ -111,6 +113,8 @@ struct params
   // Fluorescence analysis
   bool fluor;
 
+  // Analyze pictures from second camera
+  bool andor2;
 
 };
 
@@ -163,6 +167,14 @@ init_params (struct params *p)
     {
       p->fluor = true;
     }
+
+  //If pictures come from Andor2, then fluorescence analysis is done
+  if (p->andor2)
+    p->fluor = true;
+  if (p->andor2)
+    p->shotnum_fileout = p->shotnum + "_andor2";
+  else
+    p->shotnum_fileout = p->shotnum;
 
 
 
@@ -239,6 +251,8 @@ init_params (struct params *p)
     p->mJ_per_photon * (12.9 / 0.95 / emp);***/
   //p->eff = p->andoreff_10MHz_14bit_x1_Electron_Mult;
   //p->eff = p->andoreff_10MHz_14bit_x5_Electron_Mult_300_BaselineOffset;
+
+
   /*** ANDOR EFFICIENCY CALIBRACTION - SEPTEMBER 2012 ***/
   //  measured probe beam waist =  2750 um 
   //  *Russ Book #4, Page 99. 
@@ -662,7 +676,7 @@ Fermions::LoadFITS ()
 
   char base[MAXPATHLEN];
   getcwd (base, MAXPATHLEN);
-  string norm_path = makepath (base, p->shotnum, "_normpatch.TIFF");
+  string norm_path = makepath (base, p->shotnum_fileout, "_normpatch.TIFF");
   if (p->savetiff)
     toTiffImage (norm, norm_path);
   gsl_matrix_free (norm);
@@ -932,9 +946,12 @@ sig_phcimg (double ncol, struct phc_params *phc)
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->c->phi
-								       +
-								       phc->c->phi_pi)
+								       phc->
+								       c->
+								       phi +
+								       phc->
+								       c->
+								       phi_pi)
     * sin (2. * th);
   phc->c->noatoms =
     b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
@@ -1592,16 +1609,20 @@ Fermions::SaveColumnDensity ()
   ********************************************/
   char base[MAXPATHLEN];
   getcwd (base, MAXPATHLEN);
-  string column_path = makepath (base, p->shotnum, "_column.TIFF");
-  string scatt_path = makepath (base, p->shotnum, "_column_scatt.TIFF");
-  string missing_path = makepath (base, p->shotnum, "_missing_counts.TIFF");
-  string probe_path = makepath (base, p->shotnum, "_probe.TIFF");
-  string column_ascii_path = makepath (base, p->shotnum, "_column.ascii");
+  string column_path = makepath (base, p->shotnum_fileout, "_column.TIFF");
+  string scatt_path =
+    makepath (base, p->shotnum_fileout, "_column_scatt.TIFF");
+  string missing_path =
+    makepath (base, p->shotnum_fileout, "_missing_counts.TIFF");
+  string probe_path = makepath (base, p->shotnum_fileout, "_probe.TIFF");
+  string column_ascii_path =
+    makepath (base, p->shotnum_fileout, "_column.ascii");
   string scatt_ascii_path =
-    makepath (base, p->shotnum, "_column_scatt.ascii");
+    makepath (base, p->shotnum_fileout, "_column_scatt.ascii");
   string missing_ascii_path =
-    makepath (base, p->shotnum, "_missing_counts.ascii");
-  string probe_ascii_path = makepath (base, p->shotnum, "_probe.ascii");
+    makepath (base, p->shotnum_fileout, "_missing_counts.ascii");
+  string probe_ascii_path =
+    makepath (base, p->shotnum_fileout, "_probe.ascii");
   if (p->savetiff)
     {
       toTiffImage (columndensity, column_path);
@@ -1644,7 +1665,7 @@ Fermions::CropAll (unsigned int roi[4])
 void
 Fermions::FindMoments ()
 {
-  Gaus2DGuess (columndensity, gaus2dfit, p->shotnum, false);
+  Gaus2DGuess (columndensity, gaus2dfit, p->shotnum_fileout, false);
   return;
 }
 
@@ -1733,8 +1754,9 @@ Fermions::Fit2DGauss ()
   if (!p->blanks)
     {
       fit2dgaus_err (columndensity, gaus2dfit, gaus2dfit_err);
-      make_gaus2d_inspect (columndensity, gaus2dfit, p->shotnum.c_str ());
-      gaus2d_eval_Azimuth (gaus2dfit, p->shotnum);
+      make_gaus2d_inspect (columndensity, gaus2dfit,
+			   p->shotnum_fileout.c_str ());
+      gaus2d_eval_Azimuth (gaus2dfit, p->shotnum_fileout);
     }
 
   if (VERBOSE)
@@ -1857,7 +1879,7 @@ Fermions::FitProbe2DGauss ()
       "------------ Fitting with 2D Gaussian ------------" << endl;
   if (!p->blanks)
     fit2dgaus_no_offset (probe, probe2dfit);
-  string probeinspect = p->shotnum;
+  string probeinspect = p->shotnum_fileout;
   probeinspect += "_probe";
   double probefit[6] = {
     probe2dfit[0], probe2dfit[1], probe2dfit[2], probe2dfit[3],
@@ -1931,8 +1953,8 @@ Fermions::Fit2DFermi ()
     {
       fit2dfermi_neldermead (columndensity, fermi2dfit);
       make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit,
-				   gaus2dfit, p->shotnum.c_str ());
-      fermi2d_eval_Azimuth (fermi2dfit, p->shotnum);
+				   gaus2dfit, p->shotnum_fileout.c_str ());
+      fermi2d_eval_Azimuth (fermi2dfit, p->shotnum_fileout);
     }
 
   if (VERBOSE)
@@ -2107,8 +2129,8 @@ Fermions::GetAzimuthalAverageEllipse ()
 
   char base[MAXPATHLEN];
   getcwd (base, MAXPATHLEN);
-  string rho_path = makepath (base, p->shotnum, "_rho.TIFF");
-  string rho_ascii_path = makepath (base, p->shotnum, "_rho.ascii");
+  string rho_path = makepath (base, p->shotnum_fileout, "_rho.TIFF");
+  string rho_ascii_path = makepath (base, p->shotnum_fileout, "_rho.ascii");
   if (p->savetiff)
     toTiffImage (rho, rho_path, true);
   if (p->saveascii)
@@ -2197,14 +2219,14 @@ Fermions::GetAzimuthalAverageEllipse ()
     }
 
 
-  to_dat_file_2 (azimuthal_r, azimuthal_dat, p->shotnum,
+  to_dat_file_2 (azimuthal_r, azimuthal_dat, p->shotnum_fileout,
 		 "datAzimuth.AZASCII");
   to_dat_file_2 (azimuthal_all_r, azimuthal_all_dat,
-		 p->shotnum, "datAllAzimuth.AZASCII");
-  to_dat_file_2 (icut_r, icut_dat, p->shotnum, "datIcut.AZASCII");
-  to_dat_file_2 (jcut_r, jcut_dat, p->shotnum, "datJcut.AZASCII");
+		 p->shotnum_fileout, "datAllAzimuth.AZASCII");
+  to_dat_file_2 (icut_r, icut_dat, p->shotnum_fileout, "datIcut.AZASCII");
+  to_dat_file_2 (jcut_r, jcut_dat, p->shotnum_fileout, "datJcut.AZASCII");
   return;
-  /* Azimuthal-type data consists of two vector with an equan number of 
+  /* Azimuthal-type data consists of two vector with an equal number of 
    * elements.  Each element in the vectors represents a bin. 
    * One vector contains the distances from the center and the other
    * vector contains the averaged value.  
@@ -2258,7 +2280,7 @@ Fermions::FitAzimuthalFermi ()
 	}
       gsl_vector *fitAzimuth =
 	fermiAzimuth_eval (azimuthal_r, fermi_azimuth_fit);
-      to_dat_file_2 (azimuthal_r, fitAzimuth, p->shotnum,
+      to_dat_file_2 (azimuthal_r, fitAzimuth, p->shotnum_fileout,
 		     "fitAzimuth.AZASCII");
     }
 
@@ -2297,7 +2319,7 @@ Fermions::FitAzimuthalFermi ()
 	}
       gsl_vector *fitAzimuthZeroT = fermiAzimuthZeroT_eval (azimuthal_r,
 							    fermi_azimuth_fit_zero);
-      to_dat_file_2 (azimuthal_r, fitAzimuthZeroT, p->shotnum,
+      to_dat_file_2 (azimuthal_r, fitAzimuthZeroT, p->shotnum_fileout,
 		     "fitAzimuthZeroT.AZASCII");
     }
 
@@ -2339,6 +2361,8 @@ Fermions::MakePlots ()
   stringstream inspectstr;
   inspectstr << "inspectAz_ascii.py ";
   inspectstr << p->shotnum;
+  if (p->andor2)
+    inspectstr << " andor2";
   system (inspectstr.str ().c_str ());
   return;
 }

@@ -55,7 +55,7 @@ makeShotPaths_Basler (char *shot, string & shotnum, string & report,
 int
 makeShotPaths (char *shot, string & shotnum, string & report,
 	       string & atoms, string & noatoms, string & atomsref,
-	       string & noatomsref)
+	       string & noatomsref, const bool andor2)
 {
 
   //fisrt argument is the shot number
@@ -79,28 +79,40 @@ makeShotPaths (char *shot, string & shotnum, string & report,
   atoms += path;
   atoms += "/";
   atoms += shot_str;
-  atoms += "atoms.fits";
+  if (andor2)
+    atoms += "atoms_andor2.fits";
+  else
+    atoms += "atoms.fits";
 
   //creates noatoms file path in the current directory
   noatoms = "";
   noatoms += path;
   noatoms += "/";
   noatoms += shot_str;
-  noatoms += "noatoms.fits";
+  if (andor2)
+    noatoms += "noatoms_andor2.fits";
+  else
+    noatoms += "noatoms.fits";
 
   //creates atomsref file path in the current directory
   atomsref = "";
   atomsref += path;
   atomsref += "/";
   atomsref += shot_str;
-  atomsref += "atomsref.fits";
+  if (andor2)
+    atomsref += "atomsref_andor2.fits";
+  else
+    atomsref += "atomsref.fits";
 
   //creates noatomsref file path in the current directory
   noatomsref = "";
   noatomsref += path;
   noatomsref += "/";
   noatomsref += shot_str;
-  noatomsref += "noatomsref.fits";
+  if (andor2)
+    noatomsref += "noatomsref_andor2.fits";
+  else
+    noatomsref += "noatomsref.fits";
 
   return EXIT_SUCCESS;
 }

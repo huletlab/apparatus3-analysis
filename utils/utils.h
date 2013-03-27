@@ -32,7 +32,7 @@ int makeShotPaths_Basler (char *shot, string & shotnum, string & report,
 			  string & atoms);
 int makeShotPaths (char *shot, string & shotnum, string & report,
 		   string & atoms, string & noatoms, string & atomsref,
-		   string & noatomsref);
+		   string & noatomsref, const bool andor2);
 
 int NLines (string datafile);
 

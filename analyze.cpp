@@ -242,34 +242,48 @@ int
 processArgsAnalyze (int argc, char **argv, struct params &p)
 {
 /*  Read command line arguments */
+  char argv1[MAXPATHLEN];
+  strcpy (argv1, argv[1]);
+
+
   writelog (argc, argv);
   if (argc == 1)
     {
       printf ("\n  usage:  %s SHOTNUM [OPTIONS]\n\n", argv[0]);
       printf (BOLDWHITE "  OPTIONS\n\n");
+
       printf (BOLDWHITE "\t--phc\n" RESET);
       printf ("\t\tdo polarization phase contrast analysis\n\n");
+
       printf (BOLDWHITE "\t--show-B\n" RESET);
       printf ("\t\tshow odttof, B1(w,t), and B2(w,t) then exit\n\n");
+
       printf (BOLDWHITE "\t-a, --alphastar [a*]\n" RESET);
       printf ("\t\tset absorption imaging calibration parameter\n\n");
+
       printf (BOLDWHITE "\t--cdsp\n" RESET);
       printf
 	("\t\tuses number from scattered photons to obtain the column density\n\n");
+
       printf (BOLDWHITE "\t--highintabs [PROBEPOWER]\n" RESET);
       printf
 	("\t\tuses high intensity number from scattered photons to obtain the column density\n");
       printf ("\t\tthe power of the probe beam must be provided. \n\n");
+
       printf (BOLDWHITE "\t--magnif [m]\n" RESET);
       printf ("\t\tuse to override the magnification. m is in um/pixel\n\n");
+
       printf (BOLDWHITE "\t--probewaist [w]\n" RESET);
       printf ("\t\tuse to override the probe beam waist. w is in cm\n\n");
+
       printf (BOLDWHITE "\t--trapfreq [vr]\n" RESET);
       printf ("\t\tuse to override default radial trapfreq in kHz \n\n");
+
       printf (BOLDWHITE "\t-C, --center [c0,c1]\n" RESET);
       printf
 	("\t\tmanually specify the initial guess for the cloud center\n");
       printf ("\t\t(not implemented yet, does not do anything\n\n");
+
       printf (BOLDWHITE "\t-c, --crop\n" RESET);
       printf
 	("\t\tcrop images, according to user speficied region before doing any fits\n\n");
@@ -277,67 +291,89 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	("\t\tNOTE: by default images are autocropped after a first fit with a 2D Gaussian.\n\n");
       printf
 	("\t\t      If you use to keep the user defined ROI use --keeproi\n\n");
+
       printf (BOLDWHITE "\t--keeproi\n" RESET);
       printf ("\t\tkeeps the user defined ROI, does not autocrop\n\n");
+
       printf (BOLDWHITE "\t--fermi1d\n" RESET);
       printf ("\t\tperform fermi fits on integrated 1D profiles\n\n");
+
       printf (BOLDWHITE "\t--fermi2d\n" RESET);
       printf ("\t\tperform 2D Fermi-Dirac fit\n\n");
+
       printf (BOLDWHITE "\t--fermi-azimuth\n" RESET);
       printf ("\t\tperform azimuthal Fermi-Dirac fit\n\n");
+
       printf (BOLDWHITE "\t--maxr-azimuth [MAXR]\n" RESET);
       printf ("\t\tset max radius to be considered in azimuthal fits\n");
       printf
 	("\t\tif this option is given --chop-azimuth will be ignored\n\n");
+
       printf (BOLDWHITE "\t--chop-azimuth [DIST]\n" RESET);
       printf
 	("\t\tdistance to be chopped off the tail when doing an azimuthal average\n");
       printf
 	("\t\tthe tail is always noise as there are less points to do averaging with\n\n");
+
       printf (BOLDWHITE "\t--start-azimuth [DIST]\n" RESET);
       printf
 	("\t\tdistance from the center for the start of  the azimuthal fit\n");
       printf
 	("\t\tthe center is unwanted because the Fermi character of the cloud is more pronounced on the wings\n\n");
+
       printf (BOLDWHITE "\t--show-fermi\n" RESET);
       printf ("\t\tshow results of 2D Fermi and/or azimuthal Fermi fits\n\n");
+
       printf (BOLDWHITE "\t-f, --force\n" RESET);
       printf ("\t\tforce reanalysis of the shot\n\n");
+
       printf (BOLDWHITE "\t-r [PATH], --ref [PATH]\n" RESET);
       printf ("\t\tindicates path of reference image\n\n");
+
       printf (BOLDWHITE
 	      "\t-R, --roi [ax0pos,ax1pos,ax0size,ax1size]\n" RESET);
       printf ("\t\tsets the atoms region of interest\n\n");
+
       printf (BOLDWHITE "\t--blanks\n" RESET);
       printf
 	("\t\tuse this option when taking empty pictures (for diagnosing probe, etc.)\n\n");
+
       printf (BOLDWHITE "\t--saveascii\n" RESET);
       printf
 	("\t\tuse this option to enable saving of the ascii files with image processing data.\n\n");
+
       printf (BOLDWHITE "\t--savetiff\n" RESET);
       printf
 	("\t\tuse this option to enable saving of the TIFF files with image processing data.\n\n");
+
       printf (BOLDWHITE "\t-v, --verbose\n" RESET);
       printf ("\t\tshow messages to explain what is being done\n\n");
+
       printf (BOLDWHITE "\t-i, --imgverbose\n" RESET);
       printf
 	("\t\tshow messages to explain the results of the column density calculation\n\n");
+
       printf (BOLDWHITE "\t--azimverbose\n" RESET);
       printf
 	("\t\tshow histogram calculation for azimuthal averaging (produces long output)\n\n");
+
       printf (BOLDWHITE "\t-i, --onestate\n" RESET);
       printf
 	("\t\tuse this flag if taking pictures of only state |1> atoms\n\n");
+
       printf (BOLDWHITE "\t-e, --eigenface\n" RESET);
       printf
 	("\t\tuse this flag if you want to clean up the image with eigenface\n\n");
+
+      printf (BOLDWHITE "\t--andor2\n" RESET);
+      printf
+	("\t\tuse this to analyze the set of pictures taken by andor2\n\n");
+
 //      printf (BOLDWHITE "\t--debug-fits\n" RESET);
 //      printf ("\t\tshow details about fit evaluations for debugging\n\n");
       exit (2);
     }
 
-  makeShotPaths (argv[1], p.shotnum, p.reportfile, p.atomsfile, p.noatomsfile,
-		 p.atomsreffile, p.noatomsreffile);
   p.shot = atoi (p.shotnum.c_str ());
   p.verbose = false;
   p.imgverbose = false;
@@ -372,6 +408,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
   p.probewaist_override = false;
   //Obtain colulmn density using number from scattered photons
   p.cdsp = false;
+
+  p.andor2 = false;		//By default andor2 analysis is false
+
   int c;
   while (1)
     {
@@ -434,6 +473,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	 "magnif", required_argument, 0, 'm'},
 	{
 	 "probewaist", required_argument, 0, 'p'},
+	{
+	 "andor2", no_argument, 0, '2'},
 	{
 	 0, 0, 0, 0}
       };
@@ -531,6 +572,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	case 'e':
 	  p.eigenface = true;
 	  break;
+	case '2':
+	  p.andor2 = true;
+	  break;
 	case '1':
 	  p.twostates = false;
 	  break;
@@ -567,6 +611,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  abort ();
 	}
     }
+
+  makeShotPaths (argv1, p.shotnum, p.reportfile, p.atomsfile, p.noatomsfile,
+		 p.atomsreffile, p.noatomsreffile, p.andor2);
 
   if (sectionExists (p.reportfile, "CPP") && !p.reanalyze)
     {
