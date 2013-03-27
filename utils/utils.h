@@ -48,6 +48,7 @@ int NLines (string datafile);
 bool ReadFluorImg (string & datafile, double img[ROW][COL]);
 gsl_matrix *ReadFluorImg_gsl_matrix (string & datafile);
 bool ReadFitsImg (string & datafile, valarray < unsigned long >&imgdata);
+gsl_matrix *ReadZeros_gsl_matrix (const gsl_matrix * shape);
 gsl_matrix *ReadFitsImg_gsl_matrix (string & datafile);
 
 bool save_gsl_matrix_ASCII (gsl_matrix * m, string & file);

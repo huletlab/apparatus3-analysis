@@ -130,7 +130,7 @@ main (int argc, char **argv)
 
 
 
-  if (!p.phc)
+  if (!p.phc && !p.fluor)
     {
       //Print number from scattered photons
       //printf (", Nsp = %.2e", f->Nsp);
@@ -167,6 +167,23 @@ main (int argc, char **argv)
       printf (", ODmax = %.1f", f->maxOD);
       //Print max column density
       printf (", CDmax = %.1f", f->maxCD);
+
+    }
+
+  else if (p.fluor || p.Nframes == 2)
+    {
+      printf (", MAX Counts/Px = %.1f", f->maxCD);
+
+      //Print axial size
+      printf (", ax0w = %.1f +/- %.1f", f->gaus2dfit[1] * p.magnif,
+	      f->gaus2dfit_err[1] * p.magnif);
+
+      //Print center
+      printf (", c = (%.0f,%.0f)", f->abs_ci, f->abs_cj);
+
+      //Print range of counts in atoms and noatoms frames
+      printf (", atoms:(%d to %d),  noatoms:(%d to %d)", (int) f->minCA,
+	      (int) f->maxCA, (int) f->minCN, (int) f->maxCN);
     }
 
   else

@@ -34,6 +34,7 @@ struct params
   // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
   unsigned int roi[4], roisize[2], centerpt[2];
   bool keeproi;
+  int Nframes;
 
   bool verbose, center, crop, plots, reanalyze, roi_user,
     fitfermi1D, fermi2d, fermiazimuth, showfermi, show_B, blanks;
@@ -132,7 +133,7 @@ init_params (struct params *p)
   if (hfimg0 < -1.e10)
     {
       printf
-	("Used ANDOR:phcdet to determine phase-contrast detuning, because hfimg0 does not exit\n");
+	("Used ANDOR:phcdet to determine phase-contrast detuning, because hfimg0 does not exist\n");
       p->det = (double) getINI_num (p->reportfile, "ANDOR", "phcdet");	// phase contrast detuning in MHz
     }
   else
@@ -141,10 +142,31 @@ init_params (struct params *p)
     }
 
 
+
+
   p->phc = (bool) getINI_num (p->reportfile, "ANDOR", "phc");	// phase contrast 
   p->phcsign = (double) getINI_num (p->reportfile, "ANDOR", "phcsign");	// prefactor in the calculation of the phase contrast signal
   p->fluor = (bool) getINI_num (p->reportfile, "ANDOR", "fluor");	// fluorescence counting
 
+  double Nframes = (double) getINI_num (p->reportfile, "ANDOR", "saveframes");
+  if (Nframes < -1.e10)
+    {
+      printf
+	("Used 4 frames for ANDOR.  Could not find ANDOR:saveframes key to determine number of frames\n");
+      p->Nframes = 4;
+    }
+  else
+    {
+      p->Nframes = (int) floor (Nframes);
+    }
+  if (p->Nframes == 2)
+    {
+      p->fluor = true;
+    }
+
+
+
+  //If pictures are blanks then it does not do any fitting
   bool auxblanks = (bool) getINI_num (p->reportfile, "ANDOR", "blanks");	// taking blanks ?
   p->blanks = p->blanks || auxblanks;	// if either the command line or the report says it, these are blanks
 
@@ -508,10 +530,27 @@ Fermions::LoadFITS ()
   abs_ci = 0.;
   abs_cj = 0.;
 
-  atoms = ReadFitsImg_gsl_matrix (p->atomsfile);
-  noatoms = ReadFitsImg_gsl_matrix (p->noatomsfile);
-  atomsref = ReadFitsImg_gsl_matrix (p->atomsreffile);
-  noatomsref = ReadFitsImg_gsl_matrix (p->noatomsreffile);
+  if (p->Nframes == 4)
+    {
+      atoms = ReadFitsImg_gsl_matrix (p->atomsfile);
+      noatoms = ReadFitsImg_gsl_matrix (p->noatomsfile);
+      atomsref = ReadFitsImg_gsl_matrix (p->atomsreffile);
+      noatomsref = ReadFitsImg_gsl_matrix (p->noatomsreffile);
+    }
+  else if (p->Nframes == 2)
+    {
+      atoms = ReadFitsImg_gsl_matrix (p->atomsfile);
+      noatoms = ReadFitsImg_gsl_matrix (p->noatomsfile);
+      atomsref = ReadZeros_gsl_matrix (atoms);
+      noatomsref = ReadZeros_gsl_matrix (atoms);
+    }
+  else
+    {
+      printf
+	(" ERROR:  The program does not know what to do if  Nframes =  %d\n",
+	 p->Nframes);
+    }
+
 
 
   if (p->crop)
@@ -726,6 +765,7 @@ Fermions::LoadFITS ()
 }
 
 
+
   /********************************************
   PHASE-CONTRAST IMAGING CALCULATION
   ********************************************/
@@ -892,12 +932,9 @@ sig_phcimg (double ncol, struct phc_params *phc)
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->
-								       c->
-								       phi +
-								       phc->
-								       c->
-								       phi_pi)
+								       phc->c->phi
+								       +
+								       phc->c->phi_pi)
     * sin (2. * th);
   phc->c->noatoms =
     b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
@@ -1103,22 +1140,40 @@ Fermions::ComputeColumnDensity ()
   printf ("---  CAMERA PARAMETERS: ---\n");
   //printf ("  efficiency    = %.3e mJ/count\n", p->eff);
   //printf ("  photons/mJ    = %.3e\n", p->photon_per_mJ);
+  printf ("  frames saved  = %d\n", p->Nframes);
   printf ("  photons/count = %.3e\n", p->eff * p->photon_per_mJ);
   printf ("  magnif        = %.2f um/pixel\n", p->magnif);
 
   double probeintensity;
-  if (p->highintabs)
-    {
-      probeintensity = 2. * p->probepower / (M_PI * pow (p->probewaist, 2));
-      printf ("  probepower    = %.3f mW\n", p->probepower);
-      printf ("  probewaist    = %.3f cm\n", p->probewaist);
-      printf ("  probeintensity= %.3f isat\n", probeintensity / isat);
-    }
 
   /************ PHASE-CONTRAST IMAGING VARIABLES ************/
   double signal, phase_shift, sig1, sig2, state2det, state1det, delta12;
   gsl_matrix *phc_signal;
-  if (p->phc)
+  if (!p->phc && !p->fluor)
+    {
+      printf ("---  ABSORPTION IMAGING ---\n");
+      if (p->cdsp)
+	{
+	  printf
+	    ("... User selected Col Dens. From Scattered Photons calculation.\n");
+	}
+      if (p->highintabs)
+	{
+	  printf
+	    ("... User selected High-Intensity Absorption imaging calculation.\n");
+	  printf ("... Below are the probe parameters that will be used. \n");
+	  probeintensity =
+	    2. * p->probepower / (M_PI * pow (p->probewaist, 2));
+	  printf ("  probepower    = %.3f mW\n", p->probepower);
+	  printf ("  probewaist    = %.3f cm\n", p->probewaist);
+	  printf ("  probeintensity= %.3f isat\n", probeintensity / isat);
+	}
+    }
+  else if (p->fluor)
+    {
+      printf ("---  FLUORESENCE IMAGING ---\n");
+    }
+  else if (p->phc)
     {
       phc_signal = gsl_matrix_alloc (s1, s2);	// A matrix of the phase-contrast Signal at each pixel.
       sigma0 = 3 * M_PI * pow (p->lambda / 2. / M_PI, 2);
@@ -1164,9 +1219,18 @@ Fermions::ComputeColumnDensity ()
 		      noatref);
 	    }
 
+	  if (p->Nframes == 2)
+	    {
+	      // Ensure theres is no probe normalization
+	      // Ensure reference frames are considered zero
+	      norm_noat = 1.;
+	      noatref = 0.;
+	      atref = 0.;
+	    }
 
 	  c0 = norm_noat * (noat - noatref);	// counts in no atoms frame
 	  c1 = at - atref;	// counts in atoms frame
+
 	  if (c0 < minCN)
 	    minCN = c0;
 	  if (c0 > maxCN)
@@ -1225,6 +1289,8 @@ Fermions::ComputeColumnDensity ()
 
 	  else if (OD > maxOD)
 	    maxOD = OD;
+
+
 	  /*********** ABSORPTION IMAGING ***************/
 	  if (!p->phc && !p->fluor)
 	    {
@@ -1280,6 +1346,7 @@ Fermions::ComputeColumnDensity ()
 		}
 	    }
 
+	  /*********** FLUORESCENCE IMAGING ***************/
 	  else if (p->fluor)
 	    {
 
@@ -1289,7 +1356,6 @@ Fermions::ComputeColumnDensity ()
 	    }
 
 	  /*********** PHASE - CONTRAST IMAGING ***************/
-
 	  else
 	    {
 	      signal = p->phcsign * (c1 / c0 - 1);
@@ -1386,13 +1452,16 @@ Fermions::ComputeColumnDensity ()
 
   aveIweighted = aveIweighted / sumcd;
 
-  unsigned int smooth_bins = 4;
-  gsl_matrix *od_matrix_smoothed = smooth (od_matrix, smooth_bins);
-  unsigned int odmax_i, odmax_j;
-  double od_max_pos;
-  findpeak (od_matrix_smoothed, &odmax_i, &odmax_j, &od_max_pos, true);
-  maxOD = od_max_pos;
-  if (p->phc)
+  if (!p->fluor)
+    {
+      unsigned int smooth_bins = 4;
+      gsl_matrix *od_matrix_smoothed = smooth (od_matrix, smooth_bins);
+      unsigned int odmax_i, odmax_j;
+      double od_max_pos;
+      findpeak (od_matrix_smoothed, &odmax_i, &odmax_j, &od_max_pos, true);
+      maxOD = od_max_pos;
+    }
+  if (p->phc && !p->fluor)
     {
       unsigned int smooth_bins = 4;
       gsl_matrix *phc_signal_smoothed = smooth (phc_signal, smooth_bins);
@@ -1461,7 +1530,11 @@ Fermions::ComputeColumnDensity ()
 	{
 	  cout << endl << "----> Method used : flourescence counting photons"
 	    << endl;
-	  printf ("\tmax CD = %.5f \n", maxCD);
+	  printf ("\tmax photons in pixel = %.5f \n", maxCD);
+	  printf ("\tcounts in atoms picture:     ( %f to %f )\n",
+		  minCA, maxCA);
+	  printf ("\tcounts in no atoms picture:  ( %f to %f )\n",
+		  minCN, maxCN);
 	}
       else
 	{

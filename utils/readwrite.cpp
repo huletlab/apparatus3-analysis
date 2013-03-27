@@ -78,6 +78,25 @@ ReadFitsImg (string & datafile, valarray < unsigned long >&imgdata)
   return EXIT_SUCCESS;
 }
 
+
+//Return a gsl_matrix filled with zeros.
+gsl_matrix *
+ReadZeros_gsl_matrix (const gsl_matrix * shape)
+{
+
+  gsl_matrix *imgdata = gsl_matrix_alloc (shape->size1, shape->size2);	//rows,columns
+  for (unsigned int i = 0; i < shape->size1; i++)
+    {
+      for (unsigned int j = 0; j < shape->size2; j++)
+	{
+	  gsl_matrix_set (imgdata, i, j, 0.);
+	}
+    }
+  return imgdata;
+
+}
+
+
 //Read a .fits image from file and store it in a gsl_matrix
 gsl_matrix *
 ReadFitsImg_gsl_matrix (string & datafile)
