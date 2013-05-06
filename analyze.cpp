@@ -7,6 +7,18 @@
  * 
  */
 
+//Some shorthand to output colors to terminal
+#include <stdio.h>
+#define KNRM  "\x1B[0m"
+#define KRED  "\x1B[31m"
+#define KGRN  "\x1B[32m"
+#define KYEL  "\x1B[33m"
+#define KBLU  "\x1B[34m"
+#define KMAG  "\x1B[35m"
+#define KCYN  "\x1B[36m"
+#define KWHT  "\x1B[37m"
+
+
 #include "utils/utils.h"
 #include "funcs/funcs.h"
 #include "fits/fits.h"
@@ -17,6 +29,10 @@
 #include <sstream>
 
 #include "Fermions.h"
+
+
+
+
 
 bool VERBOSE;
 bool DEBUG_FUNCS;
@@ -33,18 +49,24 @@ main (int argc, char **argv)
   processArgsAnalyze (argc, argv, p);
   VERBOSE = p.verbose;
   init_params (&p);
-  setINI_num (p.reportfile, "CPP", "phcdet", p.det);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "phcdet", p.det);
 
 
   Fermions *f = new Fermions (&p);
   f->LoadFITS ();		// LoadFITS already computes the column density
 
-  setINI_num (p.reportfile, "CPP", "maxOD", f->maxOD);
-  setINI_num (p.reportfile, "CPP", "maxPHI", f->maxPHI);
-  setINI_num (p.reportfile, "CPP", "maxPHCSIG", f->maxPHCSIG);
-  setINI_num (p.reportfile, "CPP", "maxCD", f->maxCD);
-  setINI_num (p.reportfile, "CPP", "maxI", f->maxI);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "maxOD", f->maxOD);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "maxPHI", f->maxPHI);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "maxPHCSIG",
+	      f->maxPHCSIG);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "maxCD", f->maxCD);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "maxI", f->maxI);
 
+  if (p.onlyCD)
+    {
+      f->SaveColumnDensity ();
+      return EXIT_SUCCESS;
+    }
 //  f->FindMoments ();
   if (!p.keeproi)
     {
@@ -65,21 +87,30 @@ main (int argc, char **argv)
   f->abs_ci += f->gaus2dfit[0];
   f->abs_cj += f->gaus2dfit[2];
 
-  setINI_num (p.reportfile, "CPP", "offset",
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "offset",
 	      f->gaus2dfit[5] * f->GetNPixels ());
 
-  setINI_num (p.reportfile, "CPP", "nfit", f->nfit);
-  setINI_num (p.reportfile, "CPP", "nfit_err", f->nfit_err);
-  setINI_num (p.reportfile, "CPP", "peakd", f->peakd);
-  setINI_num (p.reportfile, "CPP", "ax0w", f->gaus2dfit[1] * p.magnif);
-  setINI_num (p.reportfile, "CPP", "ax1w", f->gaus2dfit[3] * p.magnif);
-  setINI_num (p.reportfile, "CPP", "ax0c", f->abs_ci);
-  setINI_num (p.reportfile, "CPP", "ax1c", f->abs_cj);
-  setINI_num (p.reportfile, "CPP", "TF", f->TF);
-  setINI_num (p.reportfile, "CPP", "ph_per_at", f->Tsp / f->nfit);
-  setINI_num (p.reportfile, "CPP", "peak_cd", f->gaus2dfit[4]);
-  setINI_num (p.reportfile, "CPP", "photons_in_pulse", f->Tp0);
-  setINI_num (p.reportfile, "CPP", "alphastar", p.alphastar);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "nfit", f->nfit);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "nfit_err",
+	      f->nfit_err);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "peakd", f->peakd);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "peakd_sph",
+	      f->peakd_sph);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0w",
+	      f->gaus2dfit[1] * p.magnif);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1w",
+	      f->gaus2dfit[3] * p.magnif);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0c", f->abs_ci);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c", f->abs_cj);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "TF", f->TF);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ph_per_at",
+	      f->Tsp / f->nfit);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "peak_cd",
+	      f->gaus2dfit[4]);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "photons_in_pulse",
+	      f->Tp0);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "alphastar",
+	      p.alphastar);
 
   f->GetAzimuthalAverageEllipse ();
 
@@ -87,28 +118,37 @@ main (int argc, char **argv)
     {
       //f->GetAzimuthalAverage ();
       f->FitAzimuthalFermi ();
-      setINI_num (p.reportfile, "CPP", "n0_az", f->n0_az);
-      setINI_num (p.reportfile, "CPP", "BetaMu_az", f->BetaMu_az);
-      setINI_num (p.reportfile, "CPP", "r_az", f->r_az);
-      setINI_num (p.reportfile, "CPP", "B_az", f->B_az);
-      setINI_num (p.reportfile, "CPP", "mx_az", f->mx_az);
-      setINI_num (p.reportfile, "CPP", "TF_az", f->TF_az);
-      setINI_num (p.reportfile, "CPP", "T_az", f->T_az);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "n0_az", f->n0_az);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "BetaMu_az",
+		  f->BetaMu_az);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "r_az", f->r_az);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "B_az", f->B_az);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "mx_az", f->mx_az);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "TF_az", f->TF_az);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "T_az", f->T_az);
     }
 
   if (p.fermi2d)
     {
       f->Fit2DFermi ();
-      setINI_num (p.reportfile, "CPP", "n0_Fermi", f->n0);
-      setINI_num (p.reportfile, "CPP", "BetaMU_Fermi", f->BetaMu);
-      setINI_num (p.reportfile, "CPP", "ri_Fermi", f->ri_Fermi);
-      setINI_num (p.reportfile, "CPP", "rj_Fermi", f->rj_Fermi);
-      setINI_num (p.reportfile, "CPP", "ci_Fermi", f->ci_Fermi);
-      setINI_num (p.reportfile, "CPP", "cj_Fermi", f->cj_Fermi);
-      setINI_num (p.reportfile, "CPP", "B_Fermi", f->B_Fermi);
-      setINI_num (p.reportfile, "CPP", "TF_2d", f->TF_2d);
-      setINI_num (p.reportfile, "CPP", "T_2d_rd", f->T_2d_rd);
-      setINI_num (p.reportfile, "CPP", "T_2d_ax", f->T_2d_ax);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "n0_Fermi", f->n0);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "BetaMU_Fermi",
+		  f->BetaMu);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ri_Fermi",
+		  f->ri_Fermi);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "rj_Fermi",
+		  f->rj_Fermi);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ci_Fermi",
+		  f->ci_Fermi);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "cj_Fermi",
+		  f->cj_Fermi);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "B_Fermi",
+		  f->B_Fermi);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "TF_2d", f->TF_2d);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "T_2d_rd",
+		  f->T_2d_rd);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "T_2d_ax",
+		  f->T_2d_ax);
     }
 
 
@@ -118,7 +158,7 @@ main (int argc, char **argv)
       f->MakePlots ();
     }
 
-  printf ("%s  N = %.2e", p.shotnum.c_str (), f->nfit);
+  printf ("%s  %sN = %.2e%s", p.shotnum.c_str (), KCYN, f->nfit, KNRM);
 
   //Print number
   if (f->nfit_err * 50. > f->nfit)
@@ -144,12 +184,15 @@ main (int argc, char **argv)
       //Print peak density
       printf (", n = %.2e", f->peakd);
 
+      //Print peak density
+      printf (", %sn_sph = %.2e%s", KMAG, f->peakd_sph, KNRM);
+
       //Print axial size
       printf (", ax0w = %.1f +/- %.1f", f->gaus2dfit[1] * p.magnif,
 	      f->gaus2dfit_err[1] * p.magnif);
 
       //Print center
-      printf (", c = (%.0f,%.0f)", f->abs_ci, f->abs_cj);
+      printf (", %sc = (%.0f,%.0f)%s", KGRN, f->abs_ci, f->abs_cj, KNRM);
 
       //Print max intensity
       //printf (", Imax = %.2f", f->maxI);
@@ -192,11 +235,13 @@ main (int argc, char **argv)
       printf (", Ph = %.2e", f->Tp0);
       //Print peak density
       printf (", n = %.2e", f->peakd);
+      //Print peak density
+      printf (", %sn_sph = %.2e%s", KMAG, f->peakd_sph, KNRM);
       //Print axial size
       printf (", ax0w = %.1f +/- %.1f", f->gaus2dfit[1] * p.magnif,
 	      f->gaus2dfit_err[1] * p.magnif);
       //Print center
-      printf (", c = (%.0f,%.0f)", f->abs_ci, f->abs_cj);
+      printf (", %sc = (%.0f,%.0f)%s", KGRN, f->abs_ci, f->abs_cj, KNRM);
       //Print max intensity
       //printf (", Imax = %.2f", f->maxI);
       //Print average intensity
@@ -207,6 +252,11 @@ main (int argc, char **argv)
       printf (", SIGmax = %.3f", f->maxPHCSIG);
       //Print max column density
       printf (", CDmax = %.1f", f->maxCD);
+
+      //Print sqrt(N)/n parameter
+      printf (", %ssqrt(N)/n = %.2e%s", KYEL, sqrt (f->nfit) / f->peakd_sph,
+	      KNRM);
+
     }
 //  printf
 //    ("%s  N = %.2e +/- %.0e, n =  %.2e , ax0w = %.1f +/- %.1f, c = (%.0f,%.0f), I_max = %.2f, OD_max = %.1f",
@@ -228,9 +278,9 @@ main (int argc, char **argv)
   double cts = img_counts (signal);
   double peak = img_peak (signal, pos);
 
-  setINI_num (p.reportfile, "CPP", "peak", peak);
-  setINI_num (p.reportfile, "CPP", "ipeak", pos[0]);
-  setINI_num (p.reportfile, "CPP", "jpeak", pos[1]);
+  setINI_num (p.reportfile, p.andor2?"CPP2":"CPP", "peak", peak);
+  setINI_num (p.reportfile, p.andor2?"CPP2":"CPP", "ipeak", pos[0]);
+  setINI_num (p.reportfile, p.andor2?"CPP2":"CPP", "jpeak", pos[1]);
   cout << "#" << p.
     shotnum << " Counts=" << img_counts (signal) << " Peak=" << peak << endl;
 */
@@ -243,8 +293,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 {
 /*  Read command line arguments */
   char argv1[MAXPATHLEN];
-  strcpy (argv1, argv[1]);
-
+  if (argc > 1)
+    strcpy (argv1, argv[1]);
 
   writelog (argc, argv);
   if (argc == 1)
@@ -369,6 +419,10 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
       printf
 	("\t\tuse this to analyze the set of pictures taken by andor2\n\n");
 
+      printf (BOLDWHITE "\t--onlyCD\n" RESET);
+      printf
+	("\t\tuse this to only compute the column density, does not do any fits\n\n");
+
 //      printf (BOLDWHITE "\t--debug-fits\n" RESET);
 //      printf ("\t\tshow details about fit evaluations for debugging\n\n");
       exit (2);
@@ -410,6 +464,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
   p.cdsp = false;
 
   p.andor2 = false;		//By default andor2 analysis is false
+
+  p.onlyCD = false;		//By default we want to fit the column density to something
 
   int c;
   while (1)
@@ -475,6 +531,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	 "probewaist", required_argument, 0, 'p'},
 	{
 	 "andor2", no_argument, 0, '2'},
+	{
+	 "onlyCD", no_argument, 0, 'D'},
 	{
 	 0, 0, 0, 0}
       };
@@ -605,6 +663,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	case 'n':
 	  p.cdsp = true;
 	  break;
+	case 'D':
+	  p.onlyCD = true;
+	  break;
 	case '?':
 	  break;
 	default:
@@ -615,7 +676,7 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
   makeShotPaths (argv1, p.shotnum, p.reportfile, p.atomsfile, p.noatomsfile,
 		 p.atomsreffile, p.noatomsreffile, p.andor2);
 
-  if (sectionExists (p.reportfile, "CPP") && !p.reanalyze)
+  if (sectionExists (p.reportfile, p.andor2 ? "CPP2" : "CPP") && !p.reanalyze)
     {
       cout << endl;
       cout << " Shot " << p.shotnum << " has already been analyzed." << endl;

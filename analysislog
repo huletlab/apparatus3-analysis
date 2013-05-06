@@ -3,3 +3,7 @@
  Wed 08 Aug 2012 19:04:17 PM CDT   |   analyze 
  Tue 28 Aug 2012 15:52:52 PM CDT   |   analyze 1933 -f -i -R 0,0,512,512 --keeproi -c . 
  Wed 17 Oct 2012 16:30:13 PM CDT   |   analyze_phcabs 
+ Tue 02 Apr 2013 00:43:12 AM CDT   |   analyze -v 
+ Tue 02 Apr 2013 00:47:09 AM CDT   |   analyze 
+ Tue 02 Apr 2013 00:47:24 AM CDT   |   analyze 
+ Tue 02 Apr 2013 00:49:06 AM CDT   |   analyze 6539 -f --highintabs 1.0 
