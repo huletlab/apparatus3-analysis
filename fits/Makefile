@@ -11,8 +11,8 @@ TIFF_LIB = /home/ernie/analysis/cpptools/tiff-4.0.0/libtiff/.libs/libtiff.so
 
 RUN_TIME_PATHS = -R/home/ernie/analysis/cpptools/gsl-1.15/.libs/:/home/ernie/analysis/cpptools/gsl-1.15/cblas/.libs/:/home/ernie/analysis/cpptools/CCfits/.libs/:/home/ernie/analysis/cpptools/tiff-4.0.0/libtiff/.libs/
 
-CFLAGS = -Wall ${INC}
-LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS} -fopenmp
+CFLAGS = -Wall ${INC} -fopenmp
+LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS} -lgomp
 
 objs =  /home/ernie/analysis/apparatus3-analysis/qini/qini_utils.o /home/ernie/analysis/apparatus3-analysis/funcs/funcs.o /home/ernie/analysis/apparatus3-analysis/utils/utils.a 
 
