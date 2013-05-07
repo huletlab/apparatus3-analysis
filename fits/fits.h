@@ -36,14 +36,14 @@ void fit1dgaus (gsl_vector * m, double *fit);
  *
  */
 double gaus2d_model (double i, double j, const gsl_vector * v);
-double mottGaus2d_model (double i, double j, const gsl_vector * v);
+double mottgaus2d_model (double i, double j, const gsl_vector * v);
 gsl_matrix *gaus2d_eval (const gsl_matrix * d, const double gaus_fit[6],
 			 const bool offset = true);
 void gaus2d_eval_Azimuth (const double gaus2dfit[6], string prefix);
 gsl_matrix *gaus2d_residual (const gsl_matrix * d, const double gaus_fit[6],
 			     const bool offset = true);
 void make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
-			  const char *prefix);
+			  const char *prefix, bool mott = false);
 
 void fit2dgaus_neldermead (gsl_matrix * m, double *fit);
 void fit2dmottgaus_neldermead (gsl_matrix * m, double *fit);

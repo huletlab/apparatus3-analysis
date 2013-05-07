@@ -956,9 +956,12 @@ sig_phcimg (double ncol, struct phc_params *phc)
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->c->phi
-								       +
-								       phc->c->phi_pi)
+								       phc->
+								       c->
+								       phi +
+								       phc->
+								       c->
+								       phi_pi)
     * sin (2. * th);
   phc->c->noatoms =
     b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
@@ -1780,9 +1783,13 @@ Fermions::Fit2DGauss (bool mott = 0)
 					 3) * exp (-gaus2dfit_mott[5] *
 						   gaus2dfit_mott[5]));
 	  peakd_mott =
-	    gaus2dfit_mott[4] / M_SQRTPI / gaus2dfit_mott[1] *
+	    gaus2dfit_mott[4] / M_SQRTPI / pow (gaus2dfit_mott[1] *
+						gaus2dfit_mott[3],
+						0.5) *
 	    exp (-gaus2dfit_mott[5] * gaus2dfit_mott[5]) / pow (p->magnif *
 								1e-4, 3);
+	  make_gaus2d_inspect (columndensity, gaus2dfit_mott,
+			       p->shotnum_fileout.c_str (), true);
 	}
       make_gaus2d_inspect (columndensity, gaus2dfit,
 			   p->shotnum_fileout.c_str ());

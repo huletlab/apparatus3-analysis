@@ -156,7 +156,7 @@ main (int argc, char **argv)
     {
       double x = i * 1.0;
       outputfile << x << "\t" << gaus2d_model (x, 0, g2d) << "\t" <<
-	mottGaus2d_model (x, 0, mg2d) << "\t" <<
+	mottgaus2d_model (x, 0, mg2d) << "\t" <<
 	gsl_matrix_get ((gsl_matrix *) cold, int (x + gaus2dfit[0]),
 			int (gaus2dfit[2])) << endl;
     }
