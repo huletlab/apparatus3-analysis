@@ -117,6 +117,9 @@ struct params
   // Analyze pictures from second camera
   bool andor2;
 
+  // Only calculate column density, do not attempt fits
+  bool onlyCD;
+
 };
 
 double
@@ -171,9 +174,11 @@ init_params (struct params *p)
 
   //If pictures come from Andor2, then fluorescence analysis is done
   if (p->andor2)
-    p->fluor = true;
-  if (p->andor2)
-    p->shotnum_fileout = p->shotnum + "_andor2";
+    {
+      p->fluor = true;
+      printf ("\n--- ANDOR 2 PICTURES ---\n");
+      p->shotnum_fileout = p->shotnum + "_andor2";
+    }
   else
     p->shotnum_fileout = p->shotnum;
 
@@ -453,6 +458,7 @@ public:
   double nfit_err;
   double peakd;
   double peakd_mott;
+  double peakd_sph;
 
   double TF;
 
@@ -950,12 +956,9 @@ sig_phcimg (double ncol, struct phc_params *phc)
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->
-								       c->
-								       phi +
-								       phc->
-								       c->
-								       phi_pi)
+								       phc->c->phi
+								       +
+								       phc->c->phi_pi)
     * sin (2. * th);
   phc->c->noatoms =
     b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
@@ -1192,7 +1195,7 @@ Fermions::ComputeColumnDensity ()
     }
   else if (p->fluor)
     {
-      printf ("---  FLUORESENCE IMAGING ---\n");
+      printf ("--- FLUORESCENCE IMAGING ---\n");
     }
   else if (p->phc)
     {
@@ -1299,7 +1302,7 @@ Fermions::ComputeColumnDensity ()
 
 	  OD = log (fabs (c0 / c1));
 	  gsl_matrix_set (od_matrix, i, j, OD);
-	  if (OD > OD_err)
+	  if (OD > OD_err and ! p->fluor)
 	    {
 	      OD = OD_err;
 	      if (!OD_errmsg)
@@ -1801,7 +1804,13 @@ Fermions::Fit2DGauss (bool mott = 0)
     pow (pow (gaus2dfit_err[4] * nfit / gaus2dfit[4], 2) +
 	 pow (gaus2dfit_err[1] * nfit / gaus2dfit[1],
 	      2) + pow (gaus2dfit_err[3] * nfit / gaus2dfit[3], 2), 0.5);
+
+  //--peakd obtainied using only size along i (up to 04/16/2013)
   peakd = gaus2dfit[4] / (pow (M_PI, 0.5) * gaus2dfit[1]) / pow (p->magnif * 1e-4, 3);	// cm^-3
+
+  //--peakd_sph  is obtained using the geometric mean
+  peakd_sph = gaus2dfit[4] / (pow (M_PI * gaus2dfit[1] * gaus2dfit[3], 0.5)) / pow (p->magnif * 1e-4, 3);	// cm^-3
+
   if (VERBOSE)
     {
       printf ("..............  GAUSSIAN 2D FIT RESULTS ..............\n");
@@ -2051,7 +2060,10 @@ Fermions::GetAzimuthalAverageEllipse ()
   // should not be different by more than 2%
   // If they are it means that we do not know the trap frequencies
   double ar_err = abs (trap_aspect - gaus2d_aspect) / trap_aspect;
-  if (ar_err > 0.02)
+
+  //Disabled aspect ratio warning message, since we now have a
+  //variety of traps that we image and they have different AR's
+  if (ar_err > 0.02 && false)
     {
       printf
 	("\n******   WARNING: 2D-Gauss aspect ratio != Self similar aspect ratio !!! ******\n");
