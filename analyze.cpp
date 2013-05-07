@@ -92,16 +92,19 @@ main (int argc, char **argv)
 
   if (p.gaus2d_mott)
     {
-      setINI_num (p.reportfile, p.andor2 ? "CPP2" :"CPP", "nfit_mott", f->nfit_mott);
-      setINI_num (p.reportfile, p.andor2 ? "CPP2" :"CPP", "r0_mott", f->gaus2dfit_mott[5]);
-      setINI_num (p.reportfile, p.andor2 ? "CPP2" :"CPP", "peakd_mott", f->peakd_mott);
-      setINI_num (p.reportfile, p.andor2 ? "CPP2" :"CPP", "ax0w_mott",
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "nfit_mott",
+		  f->nfit_mott);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "r0_mott",
+		  f->gaus2dfit_mott[5]);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "peakd_mott",
+		  f->peakd_mott);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0w_mott",
 		  f->gaus2dfit_mott[1] * p.magnif);
-      setINI_num (p.reportfile, p.andor2 ? "CPP2" :"CPP", "ax1w_mott",
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1w_mott",
 		  f->gaus2dfit_mott[3] * p.magnif);
-      setINI_num (p.reportfile, p.andor2 ? "CPP2" :"CPP", "ax0c_mott",
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0c_mott",
 		  f->abs_ci - f->gaus2dfit[0] + f->gaus2dfit_mott[0]);
-      setINI_num (p.reportfile, p.andor2 ? "CPP2" :"CPP", "ax1c_mott",
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c_mott",
 		  f->abs_cj - f->gaus2dfit[2] + f->gaus2dfit_mott[2]);
     }
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "nfit", f->nfit);

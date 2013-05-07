@@ -132,7 +132,7 @@ gaus2d_model (double i, double j, const gsl_vector * v)
  */
 
 double
-mottGaus2d_model (double i, double j, const gsl_vector * v)
+mottgaus2d_model (double i, double j, const gsl_vector * v)
 {
   double cx = gsl_vector_get (v, 0);
   double wx = gsl_vector_get (v, 1);
@@ -166,6 +166,32 @@ mottGaus2d_model (double i, double j, const gsl_vector * v)
     }
 }
 
+/* Matrix data with 2D Gaussian Mott evaluation
+ *
+ */
+gsl_matrix *
+mottgaus2d_eval (const gsl_matrix * d, const double gaus_fit[6])
+{
+  gsl_matrix *eval = gsl_matrix_alloc (d->size1, d->size2);
+  int nparams = 6;		//offset == true ? 6 : 5;
+
+  gsl_vector *v = gsl_vector_alloc (nparams);
+//  fprintf( stderr, "\nEvaulating 2D Gaussian fit results. nparams=%d\n",nparams);  
+  for (int e = 0; e < nparams; e++)
+    {
+      gsl_vector_set (v, e, gaus_fit[e]);
+//  fprintf( stderr, "gaus2d_fit[%d] = %f\n", e, gaus_fit[e]); 
+    }
+
+  for (unsigned int i = 0; i < d->size1; i++)
+    {
+      for (unsigned int j = 0; j < d->size2; j++)
+	{
+	  gsl_matrix_set (eval, i, j, mottgaus2d_model (i, j, v));
+	}
+    }
+  return eval;
+}
 
 /* Matrix data with 2D Gaussian evaluation
  *
@@ -257,15 +283,16 @@ gaus2d_residual (const gsl_matrix * d, const double gaus_fit[6],
 
 void
 make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
-		     const char *prefix)
+		     const char *prefix, bool mott)
 {
   string datfile (prefix);
   datfile += "_gaus2ddat.ascii";
   string fitfile (prefix);
-  fitfile += "_gaus2dfit.ascii";
+  fitfile += mott ? "_mottgaus2dfit.ascii" : "_gaus2dfit.ascii";
 
   save_gsl_matrix_ASCII (c, datfile);
-  gsl_matrix *fit2d = gaus2d_eval (c, gaus2d_fit);
+  gsl_matrix *fit2d =
+    mott ? mottgaus2d_eval (c, gaus2d_fit) : gaus2d_eval (c, gaus2d_fit);
   save_gsl_matrix_ASCII (fit2d, fitfile);
 
   stringstream inspectstr;
@@ -279,7 +306,7 @@ make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
   inspectstr << gaus2d_fit[0];
   inspectstr << " ";
   inspectstr << prefix;
-  inspectstr << "_gaus";
+  inspectstr << (mott ? "_mottgaus" : "_gaus");
   //cerr << endl << inspectstr.str () << endl;
   system (inspectstr.str ().c_str ());
 
@@ -304,7 +331,7 @@ mottgaus2d_simplex_f (const gsl_vector * v, void *params)
     {
       for (unsigned int j = 0; j < s2; j++)
 	{
-	  double model = mottGaus2d_model ((double) i, (double) j, v);
+	  double model = mottgaus2d_model ((double) i, (double) j, v);
 	  double dat = gsl_matrix_get ((gsl_matrix *) params, i, j);
 	  sumsq += pow (model - dat, 2);
 	}
