@@ -50,7 +50,7 @@ main (int argc, char **argv)
     {
       f->MinimalCrop (5.0);
     }
-  f->Fit2DGauss ();
+  f->Fit2DGauss (p.gaus2d_mott);
   f->SaveColumnDensity ();
   if (!p.keeproi)
     {
@@ -80,7 +80,20 @@ main (int argc, char **argv)
   setINI_num (p.reportfile, "CPP", "peak_cd", f->gaus2dfit[4]);
   setINI_num (p.reportfile, "CPP", "photons_in_pulse", f->Tp0);
   setINI_num (p.reportfile, "CPP", "alphastar", p.alphastar);
-
+  if (p.gaus2d_mott)
+    {
+      setINI_num (p.reportfile, "CPP", "nfit_mott", f->nfit_mott);
+      setINI_num (p.reportfile, "CPP", "r0_mott", f->gaus2dfit_mott[5]);
+      setINI_num (p.reportfile, "CPP", "peakd_mott", f->peakd_mott);
+      setINI_num (p.reportfile, "CPP", "ax0w_mott",
+		  f->gaus2dfit_mott[1] * p.magnif);
+      setINI_num (p.reportfile, "CPP", "ax1w_mott",
+		  f->gaus2dfit_mott[3] * p.magnif);
+      setINI_num (p.reportfile, "CPP", "ax0c_mott",
+		  f->abs_ci - f->gaus2dfit[0] + f->gaus2dfit_mott[0]);
+      setINI_num (p.reportfile, "CPP", "ax1c_mott",
+		  f->abs_cj - f->gaus2dfit[2] + f->gaus2dfit_mott[2]);
+    }
   f->GetAzimuthalAverageEllipse ();
 
   if (p.fermiazimuth)
@@ -295,6 +308,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
       printf (BOLDWHITE "\t--keeproi\n" RESET);
       printf ("\t\tkeeps the user defined ROI, does not autocrop\n\n");
 
+      printf (BOLDWHITE "\t-M, --Mott\n" RESET);
+      printf ("\t\tperform gaussian 2d Mott fits\n\n");
+
       printf (BOLDWHITE "\t--fermi1d\n" RESET);
       printf ("\t\tperform fermi fits on integrated 1D profiles\n\n");
 
@@ -383,6 +399,7 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
   p.crop = false;
   p.keeproi = false;
   p.roi_user = false;
+  p.gaus2d_mott = false;
   p.fitfermi1D = false;
   p.fermi2d = false;
   p.fermiazimuth = false;
@@ -432,6 +449,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	{
 	 "fermi2d", no_argument, 0, 'F'},
 	{
+	 "Mott", no_argument, 0, 'M'},
+	{
 	 "fermi-azimuth", no_argument, 0, 'a'},
 	{
 	 "maxr-azimuth", required_argument, 0, 'd'},
@@ -480,7 +499,7 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
       };
       int option_index = 0;
       c =
-	getopt_long (argc, argv, "Ccfpr:R:S:vie", long_options,
+	getopt_long (argc, argv, "Ccfpr:R:S:vieM", long_options,
 		     &option_index);
       if (c == -1)
 	break;
@@ -604,6 +623,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  break;
 	case 'n':
 	  p.cdsp = true;
+	  break;
+	case 'M':
+	  p.gaus2d_mott = true;
 	  break;
 	case '?':
 	  break;

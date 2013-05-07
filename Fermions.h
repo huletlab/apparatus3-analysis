@@ -20,6 +20,7 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_roots.h>
+#include <gsl/gsl_sf_erf.h>
 
 extern bool VERBOSE;
 
@@ -39,7 +40,7 @@ struct params
   int Nframes;
 
   bool verbose, center, crop, plots, reanalyze, roi_user,
-    fitfermi1D, fermi2d, fermiazimuth, showfermi, show_B, blanks;
+    fitfermi1D, fermi2d, fermiazimuth, showfermi, show_B, blanks, gaus2d_mott;
 
   // Use high intensity number from scattered photons in absorption imaging
   bool highintabs;
@@ -398,7 +399,7 @@ public:
   {
     return columndensity->size1 * columndensity->size2;
   }
-  void Fit2DGauss ();
+  void Fit2DGauss (bool mott);
   void FitScatt2DGauss ();
   void FitProbe2DGauss ();
   void Fit2DFermi ();
@@ -431,6 +432,7 @@ public:
 
   // Arrays for fit results 
   double gaus2dfit[6];
+  double gaus2dfit_mott[6];
   double gaus2dfit_err[6];
   double scatt2dfit[6];
   double probe2dfit[5];
@@ -447,8 +449,10 @@ public:
 
   double number_fit;
   double nfit;
+  double nfit_mott;
   double nfit_err;
   double peakd;
+  double peakd_mott;
 
   double TF;
 
@@ -1720,9 +1724,8 @@ Fermions::MinimalCrop (double CROP_FACTOR)
   return;
 }
 
-
 void
-Fermions::Fit2DGauss ()
+Fermions::Fit2DGauss (bool mott = 0)
 {
 
   if (VERBOSE)
@@ -1754,6 +1757,30 @@ Fermions::Fit2DGauss ()
   if (!p->blanks)
     {
       fit2dgaus_err (columndensity, gaus2dfit, gaus2dfit_err);
+      if (mott)
+	{
+	  /*Use regular 2d fit para as a initial guess for mott 2d gaussian fit */
+	  gaus2dfit_mott[0] = gaus2dfit[0];
+	  gaus2dfit_mott[1] = gaus2dfit[1];
+	  gaus2dfit_mott[2] = gaus2dfit[2];
+	  gaus2dfit_mott[3] = gaus2dfit[3];
+	  gaus2dfit_mott[4] = gaus2dfit[4];
+	  gaus2dfit_mott[5] = 1;
+	  fit2dmottgaus_neldermead (columndensity, gaus2dfit_mott);
+	  nfit_mott =
+	    gaus2dfit_mott[4] * M_PI * gaus2dfit_mott[1] * gaus2dfit_mott[3] *
+	    (1 +
+	     2 / M_SQRTPI * gaus2dfit_mott[5] * exp (-gaus2dfit_mott[5] *
+						     gaus2dfit_mott[5]) -
+	     gsl_sf_erf (gaus2dfit_mott[5]) +
+	     4.0 / 3.0 / M_SQRTPI * pow (gaus2dfit_mott[5],
+					 3) * exp (-gaus2dfit_mott[5] *
+						   gaus2dfit_mott[5]));
+	  peakd_mott =
+	    gaus2dfit_mott[4] / M_SQRTPI / gaus2dfit_mott[1] *
+	    exp (-gaus2dfit_mott[5] * gaus2dfit_mott[5]) / pow (p->magnif *
+								1e-4, 3);
+	}
       make_gaus2d_inspect (columndensity, gaus2dfit,
 			   p->shotnum_fileout.c_str ());
       gaus2d_eval_Azimuth (gaus2dfit, p->shotnum_fileout);
@@ -1778,13 +1805,23 @@ Fermions::Fit2DGauss ()
   if (VERBOSE)
     {
       printf ("..............  GAUSSIAN 2D FIT RESULTS ..............\n");
-      printf ("ci     = %.1f pixels\n", gaus2dfit[0]);
-      printf ("wi     = %.1f pixels\n", gaus2dfit[1]);
-      printf ("cj     = %.1f pixels\n", gaus2dfit[2]);
-      printf ("wj     = %.1f pixels\n", gaus2dfit[3]);
-      printf ("peak   = %.3e \n", gaus2dfit[4]);
-      printf ("offset = %.3e \n", gaus2dfit[5]);
+      printf ("ci  	  = %.1f pixels\n", gaus2dfit[0]);
+      printf ("wi   	  = %.1f pixels\n", gaus2dfit[1]);
+      printf ("cj    	  = %.1f pixels\n", gaus2dfit[2]);
+      printf ("wj   	  = %.1f pixels\n", gaus2dfit[3]);
+      printf ("peak 	  = %.3e \n", gaus2dfit[4]);
+      printf ("offset	  = %.3e \n", gaus2dfit[5]);
       printf ("N from fit = %.3e \n", nfit);
+      if (mott)
+	{
+	  printf ("wi_mott    = %.1f pixels\n", gaus2dfit_mott[1]);
+	  printf ("ci_mott	  = %.1f pixels\n", gaus2dfit_mott[0]);
+	  printf ("cj_mott    = %.1f pixels\n", gaus2dfit_mott[2]);
+	  printf ("wj_mott    = %.1f pixels\n", gaus2dfit_mott[3]);
+	  printf ("r0_mott    = %.1f pixels\n", gaus2dfit_mott[5]);
+	  printf ("peak_mott  = %.3e \n", gaus2dfit_mott[4]);
+	  printf ("N_mott from fit = %.3e \n", nfit_mott);
+	}
     }
   TF = p->hvbar * pow (6 * nfit, 1. / 3.);
   if (VERBOSE)

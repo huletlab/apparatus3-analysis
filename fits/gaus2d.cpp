@@ -7,7 +7,8 @@
 
 
 #include "fits/fits.h"
-
+#include <gsl/gsl_sf_erf.h>
+#include <cmath>
 extern bool VERBOSE;
 using namespace std;
 
@@ -125,6 +126,46 @@ gaus2d_model (double i, double j, const gsl_vector * v)
   return B +
     A * exp (-1. * (pow ((i - cx) / wx, 2.) + pow ((j - cy) / wy, 2.)));
 }
+
+/* Model to evaluate the 2D projection of a 3D gaussian with a uniform core
+ *
+ */
+
+double
+mottGaus2d_model (double i, double j, const gsl_vector * v)
+{
+  double cx = gsl_vector_get (v, 0);
+  double wx = gsl_vector_get (v, 1);
+  double cy = gsl_vector_get (v, 2);
+  double wy = gsl_vector_get (v, 3);
+  double A = gsl_vector_get (v, 4);	// relative radius: (x/wx)^2+(y/wy)^2+(z/wz)^2 < rd^2 the 3D guassian is a constant value
+  double rd = gsl_vector_get (v, 5);
+  double rij2 =
+    -(pow ((i - cx) / wx, 2) + pow ((j - cy) / wy, 2)) + pow (rd, 2);
+  double B;
+  if (v->size == 7)
+    B = gsl_vector_get (v, 6);
+  else if (v->size == 6)
+    B = 0.;
+  else
+    {
+      printf (" ERROR --> Number of parameters in gaus2d model is invalid ");
+      exit (1);
+    }
+
+  if (rij2 < 0)
+    return B +
+      A * exp (-1. * (pow ((i - cx) / wx, 2.) + pow ((j - cy) / wy, 2.)));
+  else
+    {
+
+      return B +
+	A * exp (-1. * (pow ((i - cx) / wx, 2.) + pow ((j - cy) / wy, 2.))) *
+	(1 - gsl_sf_erf (sqrt (rij2)) +
+	 sqrt (rij2) * 2 / M_SQRTPI * exp (-rij2));
+    }
+}
+
 
 /* Matrix data with 2D Gaussian evaluation
  *
@@ -247,6 +288,30 @@ make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
   return;
 }
 
+/* Error function used in the implementation of the Nelder-Mead
+ * fitting algorithm.
+ *
+ */
+double
+mottgaus2d_simplex_f (const gsl_vector * v, void *params)
+{
+  unsigned int s1 = ((gsl_matrix *) params)->size1;
+  unsigned int s2 = ((gsl_matrix *) params)->size2;
+
+  double sumsq = 0.;
+
+  for (unsigned int i = 0; i < s1; i++)
+    {
+      for (unsigned int j = 0; j < s2; j++)
+	{
+	  double model = mottGaus2d_model ((double) i, (double) j, v);
+	  double dat = gsl_matrix_get ((gsl_matrix *) params, i, j);
+	  sumsq += pow (model - dat, 2);
+	}
+    }
+
+  return sumsq;
+}
 
 /* Error function used in the implementation of the Nelder-Mead
  * fitting algorithm.
@@ -378,6 +443,90 @@ fit2dgaus_no_offset (gsl_matrix * m, double *fit)
 
   return;
 }
+
+/* simplex fit for MOTT gauss*/
+void
+fit2dmottgaus_neldermead (gsl_matrix * m, double *fit)
+{
+
+  double cx = fit[0];
+  double wx = fit[1];
+  double cy = fit[2];
+  double wy = fit[3];
+  double A = fit[4];
+  double rd = fit[5];
+
+  const gsl_multimin_fminimizer_type *T = gsl_multimin_fminimizer_nmsimplex2;
+  gsl_multimin_fminimizer *s = NULL;
+  gsl_vector *ss, *x;
+  gsl_multimin_function f;
+
+/*Starting Point */
+  x = gsl_vector_alloc (6);
+  gsl_vector_set (x, 0, cx);
+  gsl_vector_set (x, 1, wx);
+  gsl_vector_set (x, 2, cy);
+  gsl_vector_set (x, 3, wy);
+  gsl_vector_set (x, 4, A);
+  gsl_vector_set (x, 5, rd);
+
+
+/*Set initial step sizes to 1*/
+  ss = gsl_vector_alloc (6);
+  gsl_vector_set_all (ss, 1.0);
+
+  f.n = 6;
+  f.f = &mottgaus2d_simplex_f;
+  f.params = m;
+
+  s = gsl_multimin_fminimizer_alloc (T, 6);
+  gsl_multimin_fminimizer_set (s, &f, x, ss);
+
+
+  size_t iter = 0;
+  int status;
+  double size;
+
+  do
+    {
+      iter++;
+      status = gsl_multimin_fminimizer_iterate (s);
+      if (status)
+	break;
+
+      size = gsl_multimin_fminimizer_size (s);
+      status = gsl_multimin_test_size (size, 1e-2);
+
+      if (status == GSL_SUCCESS && VERBOSE)
+	{
+	  printf (" converged to minimum at \n");
+	}
+      if (VERBOSE)
+	{
+	  printf
+	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.3f\n",
+	     (int) iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
+	     gsl_vector_get (s->x, 2), gsl_vector_get (s->x, 3),
+	     gsl_vector_get (s->x, 4), gsl_vector_get (s->x, 5), s->fval,
+	     size);
+	}
+    }
+  while (status == GSL_CONTINUE && iter < 1000);
+
+  fit[0] = FIT (0);
+  fit[1] = FIT (1);
+  fit[2] = FIT (2);
+  fit[3] = FIT (3);
+  fit[4] = FIT (4);
+  fit[5] = abs (FIT (5));
+
+  gsl_vector_free (x);
+  gsl_vector_free (ss);
+  gsl_multimin_fminimizer_free (s);
+
+  return;
+}
+
 
 /* Nelder-Mead algorithm
  * 

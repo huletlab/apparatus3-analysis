@@ -11,8 +11,8 @@ TIFF_LIB = CPPTOOLS/tiff-4.0.0/libtiff/.libs/libtiff.so
 
 RUN_TIME_PATHS = -RCPPTOOLS/gsl-1.15/.libs/:CPPTOOLS/gsl-1.15/cblas/.libs/:CPPTOOLS/CCfits/.libs/:CPPTOOLS/tiff-4.0.0/libtiff/.libs/
 
-CFLAGS = -Wall ${INC} -fopenmp 
-LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS}
+CFLAGS = -Wall ${INC} 
+LFLAGS = ${GSL_LIB} -lgsl -lgslcblas -lm ${CCFITS_LIB} ${TIFF_LIB} -Xlinker ${RUN_TIME_PATHS} -fopenmp
 
 objs =  APP3-CPP/qini/qini_utils.o APP3-CPP/funcs/funcs.o APP3-CPP/utils/utils.a 
 
