@@ -120,6 +120,10 @@ struct params
   // Only calculate column density, do not attempt fits
   bool onlyCD;
 
+  // Make nice figures of column density and azimuthal density
+  // ready for talks 
+  bool pubqual;
+
 };
 
 double
@@ -405,6 +409,7 @@ public:
     return columndensity->size1 * columndensity->size2;
   }
   void Fit2DGauss (bool mott);
+  void Fit1DCuts (unsigned int nrows, unsigned int ncols);
   void FitScatt2DGauss ();
   void FitProbe2DGauss ();
   void Fit2DFermi ();
@@ -451,6 +456,8 @@ public:
 
   // Quantities obtained as results of fits
   double abs_ci, abs_cj;	// centers of cloud in the uncropped pict
+
+  unsigned int centeri, centerj;
 
   double number_fit;
   double nfit;
@@ -956,12 +963,9 @@ sig_phcimg (double ncol, struct phc_params *phc)
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->
-								       c->
-								       phi +
-								       phc->
-								       c->
-								       phi_pi)
+								       phc->c->phi
+								       +
+								       phc->c->phi_pi)
     * sin (2. * th);
   phc->c->noatoms =
     b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
@@ -1853,6 +1857,10 @@ Fermions::Fit2DGauss (bool mott = 0)
 					 columndensity->size1);
   unsigned int cj = coerce_matrix_index ((unsigned int) floor (gaus2dfit[2]),
 					 columndensity->size2);
+
+  centeri = ci;
+  centerj = cj;
+
   if (VERBOSE)
     {
       cout << "ci = " << ci << " ; cj = " << cj << endl;
@@ -1870,6 +1878,50 @@ Fermions::Fit2DGauss (bool mott = 0)
 	  number_fit += gaus2d_model (i, j, gaus2d_v) - gaus2dfit[5];
 	}
     }
+  return;
+}
+
+void
+Fermions::Fit1DCuts (unsigned int nrows, unsigned int ncols)
+{
+
+  if (VERBOSE)
+    cout << endl <<
+      "----------- FIT 1D CUTS OF COLUMN DENSITY ------------" << endl;
+  unsigned int s1 = columndensity->size1;
+  unsigned int s2 = columndensity->size2;
+  gsl_vector *cut_density_0 = gsl_vector_alloc (s1);
+  gsl_vector *cut_density_1 = gsl_vector_alloc (s2);
+  gsl_vector_set_all (cut_density_0, 0.0);
+  gsl_vector_set_all (cut_density_1, 0.0);
+  double cd_ij = 0.0;
+
+  unsigned int im = floor (nrows / 2);
+  unsigned int jm = floor (ncols / 2);
+
+  for (unsigned int i = 0; i < s1; i++)
+    {
+      for (unsigned int j = 0; j < ncols; j++)
+	{
+	  cd_ij = gsl_matrix_get (columndensity, im + i, jm + j) / ncols;
+	  gsl_vector_set (cut_density_0, i,
+			  gsl_vector_get (cut_density_0, i) + cd_ij);
+	}
+    }
+
+  for (unsigned int i = 0; i < nrows; i++)
+    {
+      for (unsigned int j = 0; j < s2; j++)
+	{
+	  cd_ij = gsl_matrix_get (columndensity, im + i, jm + j) / nrows;
+	  gsl_vector_set (cut_density_1, j,
+			  gsl_vector_get (cut_density_1, j) + cd_ij / nrows);
+	}
+    }
+
+  gsl_vector_free (cut_density_0);
+  gsl_vector_free (cut_density_1);
+
   return;
 }
 
@@ -2419,6 +2471,9 @@ Fermions::MakePlots ()
   inspectstr << p->shotnum;
   if (p->andor2)
     inspectstr << " andor2";
+  if (!p->andor2 and p->pubqual)
+    inspectstr << " pubqual";
+
   system (inspectstr.str ().c_str ());
   return;
 }

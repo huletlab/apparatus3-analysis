@@ -72,14 +72,16 @@ main (int argc, char **argv)
     {
       f->MinimalCrop (5.0);
     }
-  f->Fit2DGauss (p.gaus2d_mott);
+  f->Fit2DGauss (p.gaus2d_mott && p.phc);
   f->SaveColumnDensity ();
   if (!p.keeproi)
     {
       f->MinimalCrop (3.5);
-      f->Fit2DGauss ();
+      f->Fit2DGauss (p.gaus2d_mott && p.phc);
       f->SaveColumnDensity ();
     }
+
+  //f->Fit1DCuts (5, 5);
 //  f->FitScatt2DGauss ();
 //  f->FitProbe2DGauss ();
 
@@ -90,7 +92,7 @@ main (int argc, char **argv)
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "offset",
 	      f->gaus2dfit[5] * f->GetNPixels ());
 
-  if (p.gaus2d_mott)
+  if (p.gaus2d_mott && p.phc)
     {
       setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "nfit_mott",
 		  f->nfit_mott);
@@ -113,6 +115,8 @@ main (int argc, char **argv)
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "peakd", f->peakd);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "peakd_sph",
 	      f->peakd_sph);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "sqrtN_over_n",
+	      sqrt (f->nfit) / f->peakd_sph);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0w",
 	      f->gaus2dfit[1] * p.magnif);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1w",
@@ -197,19 +201,21 @@ main (int argc, char **argv)
 
       //Print average number of photons scattered per atom
       printf (", Ph/At = %.0f", f->Tsp / f->nfit);
-
       //Print peak density
       printf (", n = %.2e", f->peakd);
 
       //Print peak density
       printf (", %sn_sph = %.2e%s", KMAG, f->peakd_sph, KNRM);
 
-      //Print axial size
+      //Print 0 size
       printf (", ax0w = %.1f +/- %.1f", f->gaus2dfit[1] * p.magnif,
 	      f->gaus2dfit_err[1] * p.magnif);
+      //Print 1 size
+      printf (", ax1w = %.1f +/- %.1f", f->gaus2dfit[3] * p.magnif,
+	      f->gaus2dfit_err[3] * p.magnif);
 
       //Print center
-      printf (", %sc = (%.0f,%.0f)%s", KGRN, f->abs_ci, f->abs_cj, KNRM);
+      printf (", %sc = (%.2f,%.2f)%s", KGRN, f->abs_ci, f->abs_cj, KNRM);
 
       //Print max intensity
       //printf (", Imax = %.2f", f->maxI);
@@ -234,12 +240,15 @@ main (int argc, char **argv)
     {
       printf (", MAX Counts/Px = %.1f", f->maxCD);
 
-      //Print axial size
+      //Print 0 size
       printf (", ax0w = %.1f +/- %.1f", f->gaus2dfit[1] * p.magnif,
 	      f->gaus2dfit_err[1] * p.magnif);
+      //Print 1 size
+      printf (", ax1w = %.1f +/- %.1f", f->gaus2dfit[3] * p.magnif,
+	      f->gaus2dfit_err[3] * p.magnif);
 
       //Print center
-      printf (", c = (%.0f,%.0f)", f->abs_ci, f->abs_cj);
+      printf (", c = (%.2f,%.2f)", f->abs_ci, f->abs_cj);
 
       //Print range of counts in atoms and noatoms frames
       printf (", atoms:(%d to %d),  noatoms:(%d to %d)", (int) f->minCA,
@@ -248,17 +257,35 @@ main (int argc, char **argv)
 
   else
     {
+      //Print Number for Mott
+      if (p.gaus2d_mott && p.phc)
+	printf (", %sN_mott = %.2e%s", KRED, f->nfit_mott, KNRM);
       //Print total number of photons in probe pulse
       printf (", Ph = %.2e", f->Tp0);
       //Print peak density
       printf (", n = %.2e", f->peakd);
+
       //Print peak density
       printf (", %sn_sph = %.2e%s", KMAG, f->peakd_sph, KNRM);
-      //Print axial size
+
+      //Print peak density for Mott
+      if (p.gaus2d_mott && p.phc)
+	printf (", %sn_sph_mott = %.2e%s", KRED, f->peakd_mott, KNRM);
+
+      //Print 0 size
       printf (", ax0w = %.1f +/- %.1f", f->gaus2dfit[1] * p.magnif,
 	      f->gaus2dfit_err[1] * p.magnif);
+      //Print 1 size
+      printf (", ax1w = %.1f +/- %.1f", f->gaus2dfit[3] * p.magnif,
+	      f->gaus2dfit_err[3] * p.magnif);
       //Print center
-      printf (", %sc = (%.0f,%.0f)%s", KGRN, f->abs_ci, f->abs_cj, KNRM);
+      printf (", %sc = (%.2f,%.2f)%s", KGRN, f->abs_ci, f->abs_cj, KNRM);
+
+      //Print center for Mott fit
+      if (p.gaus2d_mott && p.phc)
+	printf (", %sc_mott = (%.2f,%.2f)%s", KRED,
+		f->abs_ci - f->gaus2dfit[0] + f->gaus2dfit_mott[0],
+		f->abs_cj - f->gaus2dfit[2] + f->gaus2dfit_mott[2], KNRM);
       //Print max intensity
       //printf (", Imax = %.2f", f->maxI);
       //Print average intensity
@@ -488,6 +515,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 
   p.onlyCD = false;		//By default we want to fit the column density to something
 
+  p.pubqual = false;
+
   int c;
   while (1)
     {
@@ -556,6 +585,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	 "andor2", no_argument, 0, '2'},
 	{
 	 "onlyCD", no_argument, 0, 'D'},
+	{
+	 "pubqual", no_argument, 0, ';'},
 	{
 	 0, 0, 0, 0}
       };
@@ -691,6 +722,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  break;
 	case 'D':
 	  p.onlyCD = true;
+	  break;
+	case ';':
+	  p.pubqual = true;
 	  break;
 	case '?':
 	  break;
