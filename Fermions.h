@@ -417,6 +417,9 @@ public:
   void GetAzimuthalAverageEllipse ();
   void FitAzimuthalFermi ();
   void MakePlots ();
+  void MakeGaus2DInspect (gsl_matrix * dat, const double fit_results[6],
+			  const char *prefix, bool mott);
+  void MakeFermi2DInspect ();
 
   struct params *p;
 
@@ -963,9 +966,12 @@ sig_phcimg (double ncol, struct phc_params *phc)
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->c->phi
-								       +
-								       phc->c->phi_pi)
+								       phc->
+								       c->
+								       phi +
+								       phc->
+								       c->
+								       phi_pi)
     * sin (2. * th);
   phc->c->noatoms =
     b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
@@ -1792,11 +1798,12 @@ Fermions::Fit2DGauss (bool mott = 0)
 						0.5) *
 	    exp (-gaus2dfit_mott[5] * gaus2dfit_mott[5]) / pow (p->magnif *
 								1e-4, 3);
-	  make_gaus2d_inspect (columndensity, gaus2dfit_mott,
-			       p->shotnum_fileout.c_str (), true);
+
+	  MakeGaus2DInspect (columndensity, gaus2dfit_mott,
+			     p->shotnum_fileout.c_str (), true);
 	}
-      make_gaus2d_inspect (columndensity, gaus2dfit,
-			   p->shotnum_fileout.c_str ());
+      MakeGaus2DInspect (columndensity, gaus2dfit,
+			 p->shotnum_fileout.c_str (), false);
       gaus2d_eval_Azimuth (gaus2dfit, p->shotnum_fileout);
     }
 
@@ -1990,9 +1997,8 @@ Fermions::FitProbe2DGauss ()
     probe2dfit[0], probe2dfit[1], probe2dfit[2], probe2dfit[3],
     probe2dfit[4], 0.0
   };
-  make_gaus2d_inspect (probe, probefit, probeinspect.c_str ());
-  if (VERBOSE)
-    cout << endl;
+  MakeGaus2DInspect (probe, probefit, probeinspect.c_str (), false);
+  cout << endl;
   probe2dfit[1] = fabs (probe2dfit[1]);
   probe2dfit[3] = fabs (probe2dfit[3]);
   if (VERBOSE)
@@ -2057,8 +2063,11 @@ Fermions::Fit2DFermi ()
   if (!p->blanks)
     {
       fit2dfermi_neldermead (columndensity, fermi2dfit);
+      string options ("");
       make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit,
-				   gaus2dfit, p->shotnum_fileout.c_str ());
+				   gaus2dfit,
+				   p->shotnum_fileout.c_str (),
+				   options.c_str ());
       fermi2d_eval_Azimuth (fermi2dfit, p->shotnum_fileout);
     }
 
@@ -2466,15 +2475,49 @@ Fermions::MakePlots ()
 {
   if (VERBOSE)
     cout << endl << "----------------- MAKE PLOTS ----------------" << endl;
+
   stringstream inspectstr;
   inspectstr << "inspectAz_ascii.py ";
   inspectstr << p->shotnum;
   if (p->andor2)
-    inspectstr << " andor2";
+    inspectstr << " --andor2";
   if (!p->andor2 and p->pubqual)
-    inspectstr << " pubqual";
+    inspectstr << " --pubqual";
+
+  if (p->fermi2d)
+    inspectstr << " --fermi2d " << TF_2d;
+  if (p->fermiazimuth)
+    inspectstr << " --fermiazimuth " << TF_az;
+
+  if (p->pubqual)
+    {
+      printf ("\n\n\tSTRING FOR AZASCII:\n");
+      printf ("\t%s\n\n", inspectstr.str ().c_str ());
+    }
 
   system (inspectstr.str ().c_str ());
+  return;
+}
+
+void
+Fermions::MakeGaus2DInspect (gsl_matrix * dat, const double fit_results[6],
+			     const char *prefix, bool mott)
+{
+  if (VERBOSE)
+    cout << endl << "----------------- MAKE GAUS2D INSPECT ----------------"
+      << endl;
+
+  // Inside make_gaus2d_inspect the data is saved to disk
+  // so that the python script can plot it . 
+
+  string options ("");
+  options += "";
+
+  // HERE SOME OPTIONS CAN BE ADDED THAT WILL BE PASSED ON TO
+  // inspect2d_ascii.py prefix  
+
+  make_gaus2d_inspect (dat, fit_results,
+		       p->shotnum_fileout.c_str (), options.c_str (), mott);
   return;
 }
 

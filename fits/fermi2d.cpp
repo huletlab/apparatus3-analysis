@@ -96,7 +96,7 @@ fermi2d_eval_Azimuth (const double fermi_fit[7], string prefix)
 
 void
 make_fermi2d_inspect (gsl_matrix * c, const double fermi2d_fit[6],
-		      const char *prefix)
+		      const char *prefix, const char *options)
 {
   string datfile (prefix);
   datfile += "_fermi2ddat.ascii";
@@ -119,6 +119,8 @@ make_fermi2d_inspect (gsl_matrix * c, const double fermi2d_fit[6],
   inspectstr << " ";
   inspectstr << prefix;
   inspectstr << "_fermi";
+  inspectstr << " ";
+  inspectstr << options;
   //cerr << endl << inspectstr.str () << endl;
   system (inspectstr.str ().c_str ());
 
@@ -129,7 +131,8 @@ make_fermi2d_inspect (gsl_matrix * c, const double fermi2d_fit[6],
 
 void
 make_fermi2d_gaus2d_inspect (gsl_matrix * c, const double fermi2d_fit[7],
-			     const double gaus2d_fit[6], const char *prefix)
+			     const double gaus2d_fit[6], const char *prefix,
+			     const char *options)
 {
   string datfile (prefix);
   datfile += "_fermi2ddat.ascii";
@@ -158,6 +161,8 @@ make_fermi2d_gaus2d_inspect (gsl_matrix * c, const double fermi2d_fit[7],
   inspectstr << " ";
   inspectstr << prefix;
   inspectstr << "_fermi";
+  inspectstr << " ";
+  inspectstr << options;
   //cerr << endl << inspectstr.str () << endl;
   system (inspectstr.str ().c_str ());
 

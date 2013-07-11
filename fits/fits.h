@@ -42,8 +42,12 @@ gsl_matrix *gaus2d_eval (const gsl_matrix * d, const double gaus_fit[6],
 void gaus2d_eval_Azimuth (const double gaus2dfit[6], string prefix);
 gsl_matrix *gaus2d_residual (const gsl_matrix * d, const double gaus_fit[6],
 			     const bool offset = true);
+
+
 void make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
-			  const char *prefix, bool mott = false);
+			  const char *prefix, const char *options,
+			  bool mott = false);
+
 
 void fit2dgaus_neldermead (gsl_matrix * m, double *fit);
 void fit2dmottgaus_neldermead (gsl_matrix * m, double *fit);
@@ -65,11 +69,13 @@ void Gaus2DGuess (gsl_matrix * m, double *guess, string prefix,
 double fermi2d_model (double i, double j, const gsl_vector * v);
 gsl_matrix *fermi2d_eval (const gsl_matrix * d, const double fermi_fit[7]);
 void fermi2d_eval_Azimuth (const double fermi_fit[7], string prefix);
+
 void make_fermi2d_inspect (gsl_matrix * c, const double fermi2d_fit[6],
-			   const char *prefix);
+			   const char *shotnum, const char *options);
+
 void make_fermi2d_gaus2d_inspect (gsl_matrix * c, const double fermi2d_fit[7],
 				  const double gaus2d_fit[6],
-				  const char *prefix);
+				  const char *shotnum, const char *options);
 
 
 void fit2dfermi_neldermead (gsl_matrix * m, double *fit);

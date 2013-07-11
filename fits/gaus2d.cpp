@@ -36,7 +36,7 @@ Fit2DGaus_High_Level (gsl_matrix * m, double *fit, double *fit_err,
 
   fit[1] = fabs (fit[1]);
   fit[3] = fabs (fit[3]);
-  make_gaus2d_inspect (m, fit, prefix.c_str ());
+  make_gaus2d_inspect (m, fit, prefix.c_str (), prefix.c_str ());
 
   return;
 }
@@ -283,7 +283,7 @@ gaus2d_residual (const gsl_matrix * d, const double gaus_fit[6],
 
 void
 make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
-		     const char *prefix, bool mott)
+		     const char *prefix, const char *options, bool mott)
 {
   string datfile (prefix);
   datfile += "_gaus2ddat.ascii";
@@ -307,6 +307,8 @@ make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
   inspectstr << " ";
   inspectstr << prefix;
   inspectstr << (mott ? "_mottgaus" : "_gaus");
+  inspectstr << " ";
+  inspectstr << options;
   //cerr << endl << inspectstr.str () << endl;
   system (inspectstr.str ().c_str ());
 

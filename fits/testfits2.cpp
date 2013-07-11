@@ -40,8 +40,8 @@ main (int argc, char **argv)
   fprintf (stderr, "\n\n\t...Then using 2D Fermi Nelder-Mead : \n\t");
   fit2dfermi_neldermead (cold, fermi2d_fit);
 
-  make_fermi2d_inspect (cold, fermi2d_fit, "fitexamples/9568nm");
-  make_fermi2d_gaus2d_inspect (cold, fermi2d_fit, gaus2dfit,
+  make_fermi2d_inspect (cold, fermi2d_fit, "9568nm", "fitexamples/9568nm");
+  make_fermi2d_gaus2d_inspect (cold, fermi2d_fit, gaus2dfit, "9568nm",
 			       "fitexamples/9568nm");
 
   //Try out the High Level 2D Gaus fit
