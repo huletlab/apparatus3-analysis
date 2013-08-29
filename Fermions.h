@@ -717,7 +717,7 @@ Fermions::LoadFITS ()
   eigenfacestr << "eigenface.py ";
   eigenfacestr << p->shotnum << " ";
   eigenfacestr << pos0 << "," << pos1 << "," << siz0 << "," << siz1 << " ";
-  eigenfacestr << "100";
+  eigenfacestr << "50";
   stringstream eigen_background;
   eigen_background << p->shotnum << "_eigenclean.ascii";
   string eigen_filename = eigen_background.str ();
