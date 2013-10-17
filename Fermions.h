@@ -2063,6 +2063,7 @@ Fermions::Fit2DFermi ()
   if (!p->blanks)
     {
       fit2dfermi_neldermead (columndensity, fermi2dfit);
+      fit2dfermi_neldermead_BetaMu_Error (columndensity, fermi2dfit);
       string options ("");
       make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit,
 				   gaus2dfit,
@@ -2495,6 +2496,7 @@ Fermions::MakePlots ()
       printf ("\t%s\n\n", inspectstr.str ().c_str ());
     }
 
+  //printf ("%s\n", inspectstr.str ().c_str ());
   system (inspectstr.str ().c_str ());
   return;
 }

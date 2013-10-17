@@ -8,6 +8,7 @@
 
 
 #include "fits/fits.h"
+#include <gsl/gsl_roots.h>
 
 extern bool VERBOSE;
 using namespace std;
@@ -213,7 +214,6 @@ fermi2d_simplex_f (const gsl_vector * v, void *params)
 	}
     }
 
-
   return sumsq;
 }
 
@@ -318,6 +318,175 @@ fit2dfermi_neldermead (gsl_matrix * m, double *fit)
   return;
 }
 
+
+/* Nelder-Mead algorithm 2D Fermi fit - Estimation of error in BetaMu
+ *
+ */
+struct fermi2d_error_fun_params
+{
+  gsl_matrix *m;
+  double *fit;
+  double sumsq;
+};
+double
+fermi2d_simplex_f_BetaMu (double BetaMu, void *params)
+{
+  struct fermi2d_error_fun_params *err =
+    (struct fermi2d_error_fun_params *) params;
+
+  double n0 = err->fit[0];
+  double ri = err->fit[2];
+  double rj = err->fit[3];
+  double ci = err->fit[4];
+  double cj = err->fit[5];
+  double B = err->fit[6];
+
+  /*Starting Point */
+  gsl_vector *x;
+  x = gsl_vector_alloc (7);
+  gsl_vector_set (x, 0, n0);
+  gsl_vector_set (x, 1, BetaMu);
+  gsl_vector_set (x, 2, ri);
+  gsl_vector_set (x, 3, rj);
+  gsl_vector_set (x, 4, ci);
+  gsl_vector_set (x, 5, cj);
+  gsl_vector_set (x, 6, B);
+
+  return fermi2d_simplex_f (x, err->m) - err->sumsq;
+}
+
+void
+fit2dfermi_neldermead_BetaMu_Error (gsl_matrix * m, double *fit)
+{
+  double BetaMu = fit[1];
+  struct fermi2d_error_fun_params params = { m, fit, 0. };
+  double error0 = fermi2d_simplex_f_BetaMu (BetaMu, &params);
+  if (VERBOSE || true)
+    printf
+      (" Obtaining error in BetaMu for 2D Fermi fit  ==>  BetaMu= %.3f\n",
+       BetaMu);
+  if (VERBOSE || true)
+    printf (" Errorfun post fit = %.3f\n", error0);
+
+  //double xval;
+  //for (xval = 0; xval <= 100.; xval += 5.)
+  //  {
+  //    printf ("  xval = %.2f ==> error = %.2f\n", BetaMu - xval,
+  //          fermi2d_simplex_f_BetaMu (BetaMu - xval, &params1));
+  //  }
+
+  double BetaMu_Left, BetaMu_Right;
+
+  //FIRST WORK ON FINDING THE LEFT SIDE ERROR FOR BetaMu
+  int status;
+  int iter = 0, max_iter = 100;
+  const gsl_root_fsolver_type *T;
+  gsl_root_fsolver *s;
+  double r = 0;
+  double x_lo = BetaMu - 100., x_hi = BetaMu + 1.0;
+
+  gsl_function F;
+  double CONFIDENCE = 1.10;
+  struct fermi2d_error_fun_params params1 = { m, fit, CONFIDENCE * error0 };
+  F.function = &fermi2d_simplex_f_BetaMu;
+  F.params = &params1;
+
+  //Check if the endpoints straddle zero
+  if (fermi2d_simplex_f_BetaMu (x_lo, &params1) *
+      fermi2d_simplex_f_BetaMu (x_hi, &params1) > 0.)
+    {
+      printf
+	("  Error finding left bound of BetaMu, endpoints do not straddle y=0");
+      BetaMu_Left = x_lo;
+    }
+  else
+    {
+
+      T = gsl_root_fsolver_brent;
+      s = gsl_root_fsolver_alloc (T);
+      gsl_root_fsolver_set (s, &F, x_lo, x_hi);
+      if (VERBOSE || true)
+	{
+	  printf ("using %s method\n", gsl_root_fsolver_name (s));
+	  printf ("%5s [%9s, %9s] %9s %9s\n",
+		  "iter", "lower", "upper", "root", "err(est)");
+	}
+      do
+	{
+	  iter++;
+	  status = gsl_root_fsolver_iterate (s);
+	  r = gsl_root_fsolver_root (s);
+	  x_lo = gsl_root_fsolver_x_lower (s);
+	  x_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_test_interval (x_lo, x_hi, 0, 0.1);
+	  if (status == GSL_SUCCESS && true)
+	    printf ("Converged:\n");
+	  if (VERBOSE || true)
+	    {
+	      printf ("%5d [%.7f, %.7f] %.7f %.7f\n",
+		      iter, x_lo, x_hi, r, x_hi - x_lo);
+	    }
+	}
+      while (status == GSL_CONTINUE && iter < max_iter);
+      gsl_root_fsolver_free (s);
+      BetaMu_Left = r;
+    }
+
+  //THEN FIND THE RIGHT SIDE ERROR FOR BetaMu
+  iter = 0;
+  max_iter = 100;
+  r = 0;
+  x_lo = BetaMu - 1.;
+  x_hi = BetaMu + 1e2;
+  //Check if the endpoints straddle zero
+  if (fermi2d_simplex_f_BetaMu (x_lo, &params1) *
+      fermi2d_simplex_f_BetaMu (x_hi, &params1) > 0.)
+    {
+      printf
+	("  Error finding right bound of BetaMu, endpoints do not straddle y=0\n");
+      BetaMu_Right = x_hi;
+    }
+  else
+    {
+
+      T = gsl_root_fsolver_brent;
+      s = gsl_root_fsolver_alloc (T);
+      gsl_root_fsolver_set (s, &F, x_lo, x_hi);
+      if (VERBOSE || true)
+	{
+	  printf ("using %s method\n", gsl_root_fsolver_name (s));
+	  printf ("%5s [%9s, %9s] %9s %9s\n",
+		  "iter", "lower", "upper", "root", "err(est)");
+	}
+      do
+	{
+	  iter++;
+	  status = gsl_root_fsolver_iterate (s);
+	  r = gsl_root_fsolver_root (s);
+	  x_lo = gsl_root_fsolver_x_lower (s);
+	  x_hi = gsl_root_fsolver_x_upper (s);
+	  status = gsl_root_test_interval (x_lo, x_hi, 0, 0.1);
+	  if (status == GSL_SUCCESS && true)
+	    printf ("Converged:\n");
+	  if (VERBOSE || true)
+	    {
+	      printf ("%5d [%.7f, %.7f] %.7f %.7f\n",
+		      iter, x_lo, x_hi, r, x_hi - x_lo);
+	    }
+	}
+      while (status == GSL_CONTINUE && iter < max_iter);
+      gsl_root_fsolver_free (s);
+      BetaMu_Right = r;
+    }
+
+  printf ("BetaMu %.2f std.dev. confidence interval = [%.3f, %.3f]\n",
+	  CONFIDENCE, BetaMu_Left, BetaMu_Right);
+  printf ("T/TF %.2f std.dev confidence interval = [%.3f, %.3f]\n",
+	  CONFIDENCE, pow (6 * f2 (BetaMu_Left), -0.333),
+	  pow (6 * f2 (BetaMu_Right), -0.333));
+
+  return;
+}
 
 
 double

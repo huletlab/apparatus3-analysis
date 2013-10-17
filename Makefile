@@ -22,7 +22,7 @@ analyze: analyze.o ${objs}
 	g++ analyze.o ${objs} ${LFLAGS} -o analyze
 	chmod a+w analyze 
 	#cp -v analyze /lab/software/apparatus3/cpp/bin/analyze
-	cp -v analyze /lab/software/apparatus3/cpp/bin/analyze_test_figures
+	cp -v analyze /lab/software/apparatus3/cpp/bin/analyze_TF_err
 	rm analyze.o
 
 analyze.o: Fermions.h

@@ -79,6 +79,7 @@ void make_fermi2d_gaus2d_inspect (gsl_matrix * c, const double fermi2d_fit[7],
 
 
 void fit2dfermi_neldermead (gsl_matrix * m, double *fit);
+void fit2dfermi_neldermead_BetaMu_Error (gsl_matrix * m, double *fit);
 void fit1dfermi_neldermead (gsl_vector * m, double *fit);
 
 /*
