@@ -30,12 +30,14 @@ struct params
   unsigned int shot;
 
   string shotnum, reportfile, atomsfile, noatomsfile, atomsreffile,
-    noatomsreffile;
+    noatomsreffile, ASCIIfile;
 
   string shotnum_fileout;
 
   // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
   unsigned int roi[4], roisize[2], centerpt[2];
+  // The parameter for 1d cut fit nrows,ncols,c0,c1
+  int onedcutn[4];
   bool keeproi;
   int Nframes;
 
@@ -75,6 +77,10 @@ struct params
   // Useful for debugging the algorithms
   bool saveascii, savetiff;
 
+  // Decide if AzimuthalAverage should use an aspect ratio
+  // correction for elliptical clouds. 
+  // true = no correction 
+  bool azimuth_noaspect;
 
   double azimuth_maxr, azimuth_chop, azimuth_start;
 
@@ -123,7 +129,8 @@ struct params
   // Make nice figures of column density and azimuthal density
   // ready for talks 
   bool pubqual;
-
+  //Load a ASCII file instead of a FITS
+  bool loadASCII;
 };
 
 double
@@ -393,6 +400,7 @@ public:
   }
 
   void LoadFITS ();
+  void LoadASCII ();
   double ncol_phcimg (double cd, double sig, double det, double i0,
 		      double imgbfield, bool twostates, bool SHOW,
 		      struct phc_calc *c);
@@ -409,7 +417,7 @@ public:
     return columndensity->size1 * columndensity->size2;
   }
   void Fit2DGauss (bool mott);
-  void Fit1DCuts (unsigned int nrows, unsigned int ncols);
+  void Fit1DCuts ();
   void FitScatt2DGauss ();
   void FitProbe2DGauss ();
   void Fit2DFermi ();
@@ -454,15 +462,21 @@ public:
   double fermi_azimuth_fit_zero[4];
   double fit1d_gaus_0[4];
   double fit1d_gaus_1[4];
+  double fit1dcut_gaus_0[4];
+  double fit1dcut_gaus_1[4];
+  double masked1dcut_size[2];
   double fit1d_fermi_0[5];
   double fit1d_fermi_1[5];
 
   // Quantities obtained as results of fits
   double abs_ci, abs_cj;	// centers of cloud in the uncropped pict
+  double abs_ci_1dcut, abs_cj_1dcut;	// centers of cloud in 1 d cut
+
 
   unsigned int centeri, centerj;
 
   double number_fit;
+  double number_count;
   double nfit;
   double nfit_mott;
   double nfit_err;
@@ -545,6 +559,17 @@ private:
 
 };
 
+void
+Fermions::LoadASCII ()
+{
+  //cout << "Trying to load ASCII\n";
+  columndensity = read_gsl_matrix_ASCII (p->ASCIIfile);
+  FindMoments ();
+  //p->roi[0] = 0.0;
+  //p->roi[1] = 0.0;
+  //p->roi[2] = columndensity->size1;
+  //p->roi[3] = columndensity->size2;
+}
 
 void
 Fermions::LoadFITS ()
@@ -704,96 +729,123 @@ Fermions::LoadFITS ()
   ComputeColumnDensity ();
   FindMoments ();
 
-  // ROI pos
-  double EIGEN_ROI_FACTOR = 3.0;
-  double pos0 = max (gaus2dfit[0] - EIGEN_ROI_FACTOR * gaus2dfit[1], 0.);
-  double pos1 = max (gaus2dfit[2] - EIGEN_ROI_FACTOR * gaus2dfit[3], 0.);
-  double siz0 = min (columndensity->size1 - pos0,
-		     gaus2dfit[0] + EIGEN_ROI_FACTOR * gaus2dfit[1] - pos0);
-  double siz1 = min (columndensity->size2 - pos1,
-		     gaus2dfit[2] + EIGEN_ROI_FACTOR * gaus2dfit[3] - pos1);
+  // OLD: auto-determination of eigen ROI
+  //double EIGEN_ROI_FACTOR = 3.0;
+  //double pos0 = max (gaus2dfit[0] - EIGEN_ROI_FACTOR * gaus2dfit[1], 0.);
+  //double pos1 = max (gaus2dfit[2] - EIGEN_ROI_FACTOR * gaus2dfit[3], 0.);
+  //double siz0 = min (columndensity->size1 - pos0,
+//                   gaus2dfit[0] + EIGEN_ROI_FACTOR * gaus2dfit[1] - pos0);
+//  double siz1 = min (columndensity->size2 - pos1,
+//                   gaus2dfit[2] + EIGEN_ROI_FACTOR * gaus2dfit[3] - pos1);
 
-  stringstream eigenfacestr;
-  eigenfacestr << "eigenface.py ";
-  eigenfacestr << p->shotnum << " ";
-  eigenfacestr << pos0 << "," << pos1 << "," << siz0 << "," << siz1 << " ";
-  eigenfacestr << "50";
-  stringstream eigen_background;
-  eigen_background << p->shotnum << "_eigenclean.ascii";
-  string eigen_filename = eigen_background.str ();
 
-  if (p->eigenface && !p->crop)
+  if (p->eigenface)
     {
-      if (VERBOSE)
+      if (p->crop)
 	{
-	  cout << "First few elements of noatoms matrix BEFORE eigenface: " <<
-	    endl;
-	  for (int i = 0; i < 5; i++)
-	    {
-	      for (int j = 0; j < 5; j++)
-		{
-		  printf ("%.5f\t ", gsl_matrix_get (noatoms, i, j));
-		}
-	      cout << "... " << endl;
-	    }
-	}
-      if (VERBOSE)
-	{
-	  cout << "First few elements of noatomsref matrix BEFORE eigenface: "
+	  cout <<
+	    "EIGENFACE : you must not use the crop flag (-c) when doing eigen"
 	    << endl;
-	  for (int i = 0; i < 5; i++)
-	    {
-	      for (int j = 0; j < 5; j++)
-		{
-		  printf ("%.5f\t ", gsl_matrix_get (noatomsref, i, j));
-		}
-	      cout << "... " << endl;
-	    }
 	}
-
-
-      printf ("%s\n", eigenfacestr.str ().c_str ());
-      system (eigenfacestr.str ().c_str ());
-
-      for (unsigned int i = 0; i < s1; i++)
+      else if (!p->roi_user)
 	{
-	  for (unsigned int j = 0; j < s2; j++)
-	    {
-	      gsl_matrix_set (noatomsref, i, j, 0.);
-	    }
-	}
-      noatoms = read_gsl_matrix_ASCII (eigen_filename);
-      p->eigenface_done = true;
-      ComputeColumnDensity ();
-      FindMoments ();
-
-      if (VERBOSE)
-	{
-	  cout << "First few elements of noatoms matrix AFTER eigenface: " <<
+	  cout <<
+	    "EIGENFACE : you must always specify the ROI when doing eigen" <<
 	    endl;
-	  for (int i = 0; i < 5; i++)
-	    {
-	      for (int j = 0; j < 5; j++)
-		{
-		  printf ("%.5f\t ", gsl_matrix_get (noatoms, i, j));
-		}
-	      cout << "... " << endl;
-	    }
+	  cout << "            ROI is used as the mask region for eigen" <<
+	    endl;
 	}
-      if (VERBOSE)
+      else
 	{
-	  cout << "First few elements of noatomsref matrix AFTER eigenface: "
-	    << endl;
-	  for (int i = 0; i < 5; i++)
+	  double pos0 = p->roi[0];
+	  double pos1 = p->roi[1];
+	  double siz0 = p->roi[2];
+	  double siz1 = p->roi[3];
+	  stringstream eigenfacestr;
+	  eigenfacestr << "eigenface.py ";
+	  eigenfacestr << p->shotnum << " ";
+	  eigenfacestr << pos0 << "," << pos1 << "," << siz0 << "," << siz1 <<
+	    " ";
+	  eigenfacestr << "50";
+	  stringstream eigen_background;
+	  eigen_background << p->shotnum << "_eigenclean.ascii";
+	  string eigen_filename = eigen_background.str ();
+	  if (VERBOSE)
 	    {
-	      for (int j = 0; j < 5; j++)
+	      cout <<
+		"First few elements of noatoms matrix BEFORE eigenface: " <<
+		endl;
+	      for (int i = 0; i < 5; i++)
 		{
-		  printf ("%.5f\t ", gsl_matrix_get (noatomsref, i, j));
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ", gsl_matrix_get (noatoms, i, j));
+		    }
+		  cout << "... " << endl;
 		}
-	      cout << "... " << endl;
 	    }
-	}
-    }
+	  if (VERBOSE)
+	    {
+	      cout <<
+		"First few elements of noatomsref matrix BEFORE eigenface: "
+		<< endl;
+	      for (int i = 0; i < 5; i++)
+		{
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ", gsl_matrix_get (noatomsref, i, j));
+		    }
+		  cout << "... " << endl;
+		}
+	    }
+
+
+	  printf ("\n%s\n", eigenfacestr.str ().c_str ());
+	  system (eigenfacestr.str ().c_str ());
+
+	  // noatomsref matrix is set to all zeros
+	  for (unsigned int i = 0; i < s1; i++)
+	    {
+	      for (unsigned int j = 0; j < s2; j++)
+		{
+		  gsl_matrix_set (noatomsref, i, j, 0.);
+		}
+	    }
+	  // noatoms matrix is read from disk
+	  noatoms = read_gsl_matrix_ASCII (eigen_filename);
+	  p->eigenface_done = true;
+
+	  ComputeColumnDensity ();
+	  FindMoments ();
+
+	  if (VERBOSE)
+	    {
+	      cout << "First few elements of noatoms matrix AFTER eigenface: "
+		<< endl;
+	      for (int i = 0; i < 5; i++)
+		{
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ", gsl_matrix_get (noatoms, i, j));
+		    }
+		  cout << "... " << endl;
+		}
+	    }
+	  if (VERBOSE)
+	    {
+	      cout <<
+		"First few elements of noatomsref matrix AFTER eigenface: " <<
+		endl;
+	      for (int i = 0; i < 5; i++)
+		{
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ", gsl_matrix_get (noatomsref, i, j));
+		    }
+		  cout << "... " << endl;
+		}
+	    }
+    }}
 
   return;
 }
@@ -966,12 +1018,9 @@ sig_phcimg (double ncol, struct phc_params *phc)
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->
-								       c->
-								       phi +
-								       phc->
-								       c->
-								       phi_pi)
+								       phc->c->phi
+								       +
+								       phc->c->phi_pi)
     * sin (2. * th);
   phc->c->noatoms =
     b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
@@ -1719,6 +1768,16 @@ Fermions::MinimalCrop (double CROP_FACTOR)
   roi[1] = (unsigned int) floor (pos1);
   roi[2] = (unsigned int) floor (siz0);
   roi[3] = (unsigned int) floor (siz1);
+
+  if (p->eigenface && p->eigenface_done)
+    {
+      // When doing eigenface a region is enforced by the user
+      roi[0] = p->roi[0];
+      roi[1] = p->roi[1];
+      roi[2] = p->roi[2];
+      roi[3] = p->roi[3];
+    }
+
   if (VERBOSE)
     {
       printf
@@ -1874,6 +1933,7 @@ Fermions::Fit2DGauss (bool mott = 0)
     }
 
   number_fit = 0.0;
+  number_count = 0.0;
   gsl_vector *gaus2d_v = gsl_vector_alloc (6);
   for (int e = 0; e < 6; e++)
     gsl_vector_set (gaus2d_v, e, gaus2dfit[e]);
@@ -1883,15 +1943,45 @@ Fermions::Fit2DGauss (bool mott = 0)
 	{
 	  //Integrate the gaus2d fit, subtracting the offset
 	  number_fit += gaus2d_model (i, j, gaus2d_v) - gaus2dfit[5];
+	  number_count += gsl_matrix_get (columndensity, i, j);
 	}
+    }
+  if (VERBOSE)
+    {
+      printf ("..........  NUMBER FROM CD COUNTING ..........\n");
+      printf (" N_count = %.3e \n", number_count);
     }
   return;
 }
 
 void
-Fermions::Fit1DCuts (unsigned int nrows, unsigned int ncols)
+Fermions::Fit1DCuts ()
 {
+  unsigned int nrows = p->onedcutn[0];
+  unsigned int ncols = p->onedcutn[1];
+  unsigned int c0_1d;
+  unsigned int c1_1d;
+  // use 2d fit center if center is not specified
+  if (p->onedcutn[2] == -1 or p->onedcutn[3] == -1)
+    {
+      c0_1d = gaus2dfit[0];
+      c1_1d = gaus2dfit[2];
+      p->onedcutn[2] = c0_1d + abs_ci;
+      p->onedcutn[3] = c1_1d + abs_cj;
+      cout << "Using gaus2dfit centers for 1d cut fit" << endl;
+      cout << "2dCenter: (" << p->onedcutn[2] << "," << p->
+	onedcutn[3] << ")" << endl;
+    }
+  else
+    {
+      c0_1d = p->onedcutn[2] - abs_ci;
+      c1_1d = p->onedcutn[3] - abs_cj;
+      cout << endl << "Using (" << p->onedcutn[2] << "," << p->
+	onedcutn[3] << ") for 1d cut fit center" << endl;
 
+    }
+  cout << endl << "Using " << nrows << " rows and " << ncols <<
+    " columns for 1dcut fit." << endl << endl;
   if (VERBOSE)
     cout << endl <<
       "----------- FIT 1D CUTS OF COLUMN DENSITY ------------" << endl;
@@ -1903,29 +1993,103 @@ Fermions::Fit1DCuts (unsigned int nrows, unsigned int ncols)
   gsl_vector_set_all (cut_density_1, 0.0);
   double cd_ij = 0.0;
 
-  unsigned int im = floor (nrows / 2);
-  unsigned int jm = floor (ncols / 2);
-
+  unsigned int im = c0_1d - floor (ncols / 2);
+  unsigned int jm = c1_1d - floor (nrows / 2);
   for (unsigned int i = 0; i < s1; i++)
     {
-      for (unsigned int j = 0; j < ncols; j++)
+      for (unsigned int j = 0; j < nrows; j++)
 	{
-	  cd_ij = gsl_matrix_get (columndensity, im + i, jm + j) / ncols;
+	  cd_ij = gsl_matrix_get (columndensity, i, jm + j);
 	  gsl_vector_set (cut_density_0, i,
 			  gsl_vector_get (cut_density_0, i) + cd_ij);
 	}
     }
 
-  for (unsigned int i = 0; i < nrows; i++)
+  for (unsigned int i = 0; i < ncols; i++)
     {
       for (unsigned int j = 0; j < s2; j++)
 	{
-	  cd_ij = gsl_matrix_get (columndensity, im + i, jm + j) / nrows;
+	  cd_ij = gsl_matrix_get (columndensity, im + i, j);
 	  gsl_vector_set (cut_density_1, j,
-			  gsl_vector_get (cut_density_1, j) + cd_ij / nrows);
+			  gsl_vector_get (cut_density_1, j) + cd_ij);
+	}
+    }
+  fit1dcut_gaus_0[0] = c0_1d;
+  fit1dcut_gaus_0[1] = gaus2dfit[1];
+  fit1dcut_gaus_0[2] = gsl_vector_max (cut_density_0);
+  fit1dcut_gaus_0[3] = 0.1;
+  if (!p->blanks)
+    fit1dgaus (sum_density_0, fit1dcut_gaus_0);
+
+  fit1dcut_gaus_1[0] = c1_1d;
+  fit1dcut_gaus_1[1] = gaus2dfit[3];
+  fit1dcut_gaus_1[2] = gsl_vector_max (cut_density_1);
+  fit1dcut_gaus_1[3] = 0.1;
+  if (!p->blanks)
+    fit1dgaus (sum_density_1, fit1dcut_gaus_1);
+  abs_ci_1dcut = abs_ci + fit1dcut_gaus_0[0];
+  abs_cj_1dcut = abs_cj + fit1dcut_gaus_1[0];
+
+
+  //double gaus2dfit_guess[6];
+  //Gaus2DGuess ( columndensity, gaus2dfit_guess, p->shotnum_fileout, true);
+  //Try to estimate the size by finding the edges of a  masked columndensity
+  gsl_vector_set_all (cut_density_0, 0.0);
+  gsl_vector_set_all (cut_density_1, 0.0);
+
+  unsigned int SMOOTH_BINS = 3;
+  gsl_matrix *smoothed = smooth (columndensity, SMOOTH_BINS);
+  double MASK_FACTOR = 0.33;
+  gsl_matrix *masked = mask (smoothed, MASK_FACTOR);
+  for (unsigned int i = 0; i < s1; i++)
+    {
+      for (unsigned int j = 0; j < nrows; j++)
+	{
+	  cd_ij = gsl_matrix_get (masked, i, jm + j);
+	  gsl_vector_set (cut_density_0, i,
+			  gsl_vector_get (cut_density_0, i) + cd_ij);
 	}
     }
 
+  for (unsigned int i = 0; i < ncols; i++)
+    {
+      for (unsigned int j = 0; j < s2; j++)
+	{
+	  cd_ij = gsl_matrix_get (masked, im + i, j);
+	  gsl_vector_set (cut_density_1, j,
+			  gsl_vector_get (cut_density_1, j) + cd_ij);
+	}
+    }
+
+  unsigned int left = 0, right = 0, top = 0, down = 0;
+  unsigned int buf = 0, buf2 = 0;
+  for (unsigned int j = 0; j < s2; j++)
+    {
+      buf = floor (gsl_vector_get (cut_density_1, j) / ncols);
+      if (buf > buf2)
+	down = j;
+      if (buf < buf2)
+	top = j;
+      buf2 = buf;
+    }
+  buf = 0;
+  buf2 = 0;
+  for (unsigned int i = 0; i < s1; i++)
+    {
+      buf = floor (gsl_vector_get (cut_density_0, i) / nrows);
+      //cout<<i<<" ,"<<buf<<endl;
+      if (buf > buf2)
+	left = i;
+      if (buf < buf2)
+	right = i;
+      buf2 = buf;
+    }
+  cout << "left,right,top,down=" << left << "," << right << "," << top << ","
+    << down << "," << endl;
+  masked1dcut_size[0] = right - left;
+  masked1dcut_size[1] = top - down;
+  gsl_matrix_free (smoothed);
+  gsl_matrix_free (masked);
   gsl_vector_free (cut_density_0);
   gsl_vector_free (cut_density_1);
 
@@ -2123,12 +2287,39 @@ Fermions::GetAzimuthalAverageEllipse ()
       << endl;
   //Aspect ratio from trap geometry and self similar expansion
   double trap_aspect = sqrt (p->B2 / p->B1);
+
   //Aspect ratio obtained from 2D Gaussian fit
   double gaus2d_aspect = gaus2dfit[3] / gaus2dfit[1];
   // Aspect ratio determined from trap geometry and self similar expansion
   // should not be different by more than 2%
   // If they are it means that we do not know the trap frequencies
   double ar_err = abs (trap_aspect - gaus2d_aspect) / trap_aspect;
+
+
+  // Centers can be wrong if fit is not accurate 
+  double center1 = gaus2dfit[0];
+  double center2 = gaus2dfit[2];
+  if (center1 < 0. || center1 > columndensity->size1)
+    {
+      center1 = ((double) columndensity->size1) / 2.;
+      if (VERBOSE)
+	{
+	  printf ("center1 was coereced for Azimuthal average\n");
+	  printf ("\twas : %.2f ,  changed to : %.2f\n", gaus2dfit[0],
+		  center1);
+	}
+    }
+  if (center2 < 0. || center2 > columndensity->size2)
+    {
+      center2 = ((double) columndensity->size2) / 2.;
+      if (VERBOSE)
+	{
+	  printf ("center2 was coereced for Azimuthal average\n");
+	  printf ("\twas : %.2f ,  changed to : %.2f\n", gaus2dfit[2],
+		  center2);
+	}
+    }
+
 
   //Disabled aspect ratio warning message, since we now have a
   //variety of traps that we image and they have different AR's
@@ -2142,7 +2333,29 @@ Fermions::GetAzimuthalAverageEllipse ()
     }
 
   // Define aspect ratio to be used in calculating the azimuthal average
-  p->AR = gaus2d_aspect;
+  if (p->azimuth_noaspect)
+    {
+      p->AR = 1.;
+      if (VERBOSE or true)
+	{
+	  printf ("AspectRatio was coereced for Azimuthal average\n");
+	  printf ("\tchanged to : %.2f\n", 1.0);
+	}
+    }
+  else if (gaus2d_aspect < 1e-2 || gaus2d_aspect > 1e2)
+    {
+      p->AR = 1.;
+      if (VERBOSE)
+	{
+	  printf ("AspectRatio was coereced for Azimuthal average\n");
+	  printf ("\twas : %.2f ,  changed to : %.2f\n", gaus2d_aspect, 1.0);
+	}
+    }
+  else
+    {
+      p->AR = gaus2d_aspect;
+    }
+
   if (VERBOSE)
     {
       cout << "\tAspect ratio from trap geometry = " << trap_aspect << endl;
@@ -2203,8 +2416,8 @@ Fermions::GetAzimuthalAverageEllipse ()
 	  // Find the radial distance, aspect ratio is taken into account
 	  unsigned int dist =
 	    (unsigned int) floor (pow
-				  (pow (p->AR * (xi - gaus2dfit[0]), 2) +
-				   pow (xj - gaus2dfit[2], 2),
+				  (pow (p->AR * (xi - center1), 2) +
+				   pow (xj - center2, 2),
 				   0.5) / binsize);
 	  if (dist > nbins)
 	    {
@@ -2220,7 +2433,7 @@ Fermions::GetAzimuthalAverageEllipse ()
 	    printf ("rho = %u\n", dist);
 	  if (DEBUG_AZIMUTH)
 	    printf (" dist(%d,%d) from (%.2f,%.2f)  = %d\n", i, j,
-		    gaus2dfit[0], gaus2dfit[2], dist);
+		    center1, center2, dist);
 	  //increment sum of data
 	  gsl_vector_set (azim_histo_0, dist,
 			  gsl_vector_get (azim_histo_0, dist) + data);
@@ -2228,16 +2441,16 @@ Fermions::GetAzimuthalAverageEllipse ()
 	  gsl_vector_set (azim_histo_1, dist,
 			  gsl_vector_get (azim_histo_1, dist) + 1);
 	  //set icut
-	  if (j == (unsigned int) floor (gaus2dfit[2]))
+	  if (j == (unsigned int) floor (center2))
 	    {
-	      gsl_vector_set (icut_r, i, p->AR * (i - gaus2dfit[0]));
+	      gsl_vector_set (icut_r, i, p->AR * (i - center1));
 	      gsl_vector_set (icut_dat, i, data);
 	    }
 
 	  //set jcut
-	  if (i == (unsigned int) floor (gaus2dfit[0]))
+	  if (i == (unsigned int) floor (center1))
 	    {
-	      gsl_vector_set (jcut_r, j, j - gaus2dfit[2]);
+	      gsl_vector_set (jcut_r, j, j - center2);
 	      gsl_vector_set (jcut_dat, j, data);
 	    }
 
@@ -2506,8 +2719,14 @@ Fermions::MakeGaus2DInspect (gsl_matrix * dat, const double fit_results[6],
 			     const char *prefix, bool mott)
 {
   if (VERBOSE)
-    cout << endl << "----------------- MAKE GAUS2D INSPECT ----------------"
-      << endl;
+    {
+      cout << endl << "----------------- MAKE GAUS2D INSPECT ----------------"
+	<< endl;
+      if (mott)
+	printf (" mott = True");
+      else
+	printf (" mott = False");
+    }
 
   // Inside make_gaus2d_inspect the data is saved to disk
   // so that the python script can plot it . 
@@ -2527,10 +2746,9 @@ Fermions::MakeGaus2DInspect (gsl_matrix * dat, const double fit_results[6],
 void
 Fermions::ComputeIntegrated1DDensity ()
 {
-
   if (VERBOSE)
-    cout << endl <<
-      "----------- COMPUTE INTEGRATED 1D DENSITY ------------" << endl;
+    cout << endl << "----------- COMPUTE INTEGRATED 1D DENSITY ------------"
+      << endl;
   unsigned int s1 = columndensity->size1;
   unsigned int s2 = columndensity->size2;
   sum_density_0 = gsl_vector_alloc (s1);

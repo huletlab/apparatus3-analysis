@@ -295,25 +295,42 @@ make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
     mott ? mottgaus2d_eval (c, gaus2d_fit) : gaus2d_eval (c, gaus2d_fit);
   save_gsl_matrix_ASCII (fit2d, fitfile);
 
+  double center1 = gaus2d_fit[0];
+  double center2 = gaus2d_fit[2];
+
+  if (gaus2d_fit[0] < 0 || gaus2d_fit[0] > c->size1)
+    {
+      center1 = ((double) c->size1) / 2.0;
+    }
+  if (gaus2d_fit[2] < 0 || gaus2d_fit[2] > c->size2)
+    {
+      center2 = ((double) c->size2) / 2.0;
+    }
+
+
   stringstream inspectstr;
   inspectstr << "inspect2d_ascii.py ";
   inspectstr << datfile;
   inspectstr << " ";
   inspectstr << fitfile;
   inspectstr << " ";
-  inspectstr << gaus2d_fit[2];
+  inspectstr << center2;
   inspectstr << " ";
-  inspectstr << gaus2d_fit[0];
+  inspectstr << center1;
   inspectstr << " ";
   inspectstr << prefix;
   inspectstr << (mott ? "_mottgaus" : "_gaus");
   inspectstr << " ";
   inspectstr << options;
   //cerr << endl << inspectstr.str () << endl;
+  if (VERBOSE)
+    {
+      printf ("%s\n", inspectstr.str ().c_str ());
+    }
   system (inspectstr.str ().c_str ());
 
-  remove (datfile.c_str ());
-  remove (fitfile.c_str ());
+  //remove (datfile.c_str ());
+  //remove (fitfile.c_str ());
   return;
 }
 

@@ -19,7 +19,7 @@ objs = testutils.o /lab/software/apparatus3/cpp/qini/qini_utils.o
 testutils: testutils.o /lab/software/apparatus3/cpp/qini/qini_utils.o utils.a
 	g++ $^ ${LFLAGS} -o testutils
 
-utils.a:
+utils.a: crop.cpp utils.h fileutils.cpp readwrite.cpp matrices.cpp
 	indent utils.h
 	indent fileutils.cpp 
 	indent readwrite.cpp

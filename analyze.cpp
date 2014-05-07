@@ -53,7 +53,14 @@ main (int argc, char **argv)
 
 
   Fermions *f = new Fermions (&p);
-  f->LoadFITS ();		// LoadFITS already computes the column density
+  if (p.loadASCII)
+    {
+      f->LoadASCII ();		// LoadASCII and bypass conversion to column density
+    }
+  else
+    {
+      f->LoadFITS ();		// LoadFITS already computes the column density
+    }
 
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "maxOD", f->maxOD);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "maxPHI", f->maxPHI);
@@ -68,23 +75,28 @@ main (int argc, char **argv)
       return EXIT_SUCCESS;
     }
 //  f->FindMoments ();
-  if (!p.keeproi)
+  if (((!p.keeproi) || p.eigenface) && (!p.loadASCII))
     {
       f->MinimalCrop (5.0);
     }
+
   f->Fit2DGauss (p.gaus2d_mott && p.phc);
   f->SaveColumnDensity ();
-  if (!p.keeproi)
+
+  if (!p.keeproi && !p.eigenface && !p.loadASCII)
     {
       f->MinimalCrop (3.5);
       f->Fit2DGauss (p.gaus2d_mott && p.phc);
       f->SaveColumnDensity ();
     }
 
-  //f->Fit1DCuts (5, 5);
+  if (!p.loadASCII)
+    {
+      f->ComputeIntegrated1DDensity ();
+      f->Fit1DCuts ();
+    }
 //  f->FitScatt2DGauss ();
 //  f->FitProbe2DGauss ();
-
   //Get center of cloud with respect to the Andor full frame
   f->abs_ci += f->gaus2dfit[0];
   f->abs_cj += f->gaus2dfit[2];
@@ -108,7 +120,13 @@ main (int argc, char **argv)
 		  f->abs_ci - f->gaus2dfit[0] + f->gaus2dfit_mott[0]);
       setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c_mott",
 		  f->abs_cj - f->gaus2dfit[2] + f->gaus2dfit_mott[2]);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0c_crop_mott",
+		  f->gaus2dfit_mott[0]);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c_crop_mott",
+		  f->gaus2dfit_mott[2]);
     }
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ncount",
+	      f->number_count);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "nfit", f->nfit);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "nfit_err",
 	      f->nfit_err);
@@ -121,8 +139,28 @@ main (int argc, char **argv)
 	      f->gaus2dfit[1] * p.magnif);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1w",
 	      f->gaus2dfit[3] * p.magnif);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0w_1dsum",
+	      f->fit1d_gaus_0[1] * p.magnif);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1w_1dsum",
+	      f->fit1d_gaus_1[1] * p.magnif);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0w_1dcut",
+	      abs (f->fit1dcut_gaus_0[1]) * p.magnif);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1w_1dcut",
+	      abs (f->fit1dcut_gaus_1[1]) * p.magnif);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0w_1dcut_masked",
+	      abs (f->masked1dcut_size[0]) * p.magnif);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1w_1dcut_masked",
+	      abs (f->masked1dcut_size[1]) * p.magnif);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0c_1dcut",
+	      f->abs_ci_1dcut);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c_1dcut",
+	      f->abs_cj_1dcut);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0c", f->abs_ci);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c", f->abs_cj);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0c_crop",
+	      f->gaus2dfit[0]);
+  setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c_crop",
+	      f->gaus2dfit[2]);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "TF", f->TF);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ph_per_at",
 	      f->Tsp / f->nfit);
@@ -173,7 +211,7 @@ main (int argc, char **argv)
     }
 
 
-  if (p.fitfermi1D || p.fermiazimuth || p.fermi2d || true)
+  if ((p.fitfermi1D || p.fermiazimuth || p.fermi2d || true) && !p.loadASCII)
     {
       f->ComputeIntegrated1DDensity ();
       f->MakePlots ();
@@ -301,6 +339,8 @@ main (int argc, char **argv)
       printf (", %ssqrt(N)/n = %.2e%s", KYEL, sqrt (f->nfit) / f->peakd_sph,
 	      KNRM);
 
+      printf (", %sN_count = %.2e%s", KRED, f->number_count, KNRM);
+
     }
 //  printf
 //    ("%s  N = %.2e +/- %.0e, n =  %.2e , ax0w = %.1f +/- %.1f, c = (%.0f,%.0f), I_max = %.2f, OD_max = %.1f",
@@ -345,6 +385,10 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
     {
       printf ("\n  usage:  %s SHOTNUM [OPTIONS]\n\n", argv[0]);
       printf (BOLDWHITE "  OPTIONS\n\n");
+
+      printf (BOLDWHITE "\t--loadASCII\n" RESET);
+      printf
+	("\t\tdo loaa an ASCII file instead of a FITS file. This will bypass the columndensity conversion.\n\n");
 
       printf (BOLDWHITE "\t--phc\n" RESET);
       printf ("\t\tdo polarization phase contrast analysis\n\n");
@@ -431,6 +475,11 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	      "\t-R, --roi [ax0pos,ax1pos,ax0size,ax1size]\n" RESET);
       printf ("\t\tsets the atoms region of interest\n\n");
 
+      printf (BOLDWHITE
+	      "\t-u, --1dcut [nrows,ncols,ax0_center,ax1_center]\n" RESET);
+      printf
+	("\t\tsets the 1d cut fit parameter, if centers are not specified will use 2D fit center\n\n");
+
       printf (BOLDWHITE "\t--blanks\n" RESET);
       printf
 	("\t\tuse this option when taking empty pictures (for diagnosing probe, etc.)\n\n");
@@ -469,6 +518,10 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
       printf (BOLDWHITE "\t--onlyCD\n" RESET);
       printf
 	("\t\tuse this to only compute the column density, does not do any fits\n\n");
+
+      printf (BOLDWHITE "\t--azimuth-noaspect\n" RESET);
+      printf
+	("\t\tuse this to disape aspect ratio correction in the calculation of azimuthal average for elliptical clouds\n\n");
 
 //      printf (BOLDWHITE "\t--debug-fits\n" RESET);
 //      printf ("\t\tshow details about fit evaluations for debugging\n\n");
@@ -514,13 +567,21 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
   p.andor2 = false;		//By default andor2 analysis is false
 
   p.onlyCD = false;		//By default we want to fit the column density to something
+  p.loadASCII = false;		//By default we load FITS instead of ASCII
+  p.ASCIIfile = "";
 
   p.pubqual = false;
-
+  p.azimuth_noaspect = false;
+  p.onedcutn[0] = 10;		//set defualt cut numbers for 1d cut fit
+  p.onedcutn[1] = 10;		//set defualt cut numbers for 1d cut fit
+  p.onedcutn[2] = (-1);		//set defualt cut numbers for 1d cut fit
+  p.onedcutn[3] = (-1);		//set defualt cut numbers for 1d cut fit
   int c;
   while (1)
     {
       static struct option long_options[] = {
+	{
+	 "loadASCII", required_argument, 0, 'I'},
 	{
 	 "alphastar", required_argument, 0, '*'},
 	{
@@ -556,6 +617,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	{
 	 "roi", required_argument, 0, 'R'},
 	{
+	 "1dcut", required_argument, 0, 'u'},
+	{
 	 "blanks", no_argument, 0, 'b'},
 	{
 	 "saveascii", no_argument, 0, 'A'},
@@ -588,11 +651,13 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	{
 	 "pubqual", no_argument, 0, ';'},
 	{
+	 "azimuth_noaspect", no_argument, 0, '('},
+	{
 	 0, 0, 0, 0}
       };
       int option_index = 0;
       c =
-	getopt_long (argc, argv, "Ccfpr:R:S:vieM", long_options,
+	getopt_long (argc, argv, "Ccfpr:R:S:u:vieMI:", long_options,
 		     &option_index);
       if (c == -1)
 	break;
@@ -605,6 +670,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  ss << temp;
 	  ss >> p.alphastar;
 	  break;
+	case 'I':
+	  p.loadASCII = true;
+	  p.ASCIIfile = optarg;
 	case 'P':
 	  p.phc = true;
 	  break;
@@ -662,6 +730,15 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  ss >> (p.roi)[1];
 	  ss >> (p.roi)[2];
 	  ss >> (p.roi)[3];
+	  break;
+	case 'u':
+	  temp = optarg;
+	  replace (temp.begin (), temp.end (), ',', '\n');
+	  ss << temp;
+	  ss >> (p.onedcutn)[0];
+	  ss >> (p.onedcutn)[1];
+	  ss >> (p.onedcutn)[2];
+	  ss >> (p.onedcutn)[3];
 	  break;
 	case 'b':
 	  p.blanks = true;
@@ -725,6 +802,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  break;
 	case ';':
 	  p.pubqual = true;
+	  break;
+	case '(':
+	  p.azimuth_noaspect = true;
 	  break;
 	case '?':
 	  break;
