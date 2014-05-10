@@ -42,7 +42,8 @@ struct params
   int Nframes;
 
   bool verbose, center, crop, plots, reanalyze, roi_user,
-    fitfermi1D, fermi2d, fermiazimuth, showfermi, show_B, blanks, gaus2d_mott;
+    fitfermi1D, fermi2d, fermiazimuth, showfermi, show_B, blanks, gaus2d_mott,
+    gaus2d_dual;
 
   // Use high intensity number from scattered photons in absorption imaging
   bool highintabs;
@@ -416,7 +417,7 @@ public:
   {
     return columndensity->size1 * columndensity->size2;
   }
-  void Fit2DGauss (bool mott);
+  void Fit2DGauss (bool mott, bool dual);
   void Fit1DCuts ();
   void FitScatt2DGauss ();
   void FitProbe2DGauss ();
@@ -426,7 +427,7 @@ public:
   void FitAzimuthalFermi ();
   void MakePlots ();
   void MakeGaus2DInspect (gsl_matrix * dat, const double fit_results[6],
-			  const char *prefix, bool mott);
+			  const char *prefix, int mott);
   void MakeFermi2DInspect ();
 
   struct params *p;
@@ -453,8 +454,9 @@ public:
 
   // Arrays for fit results 
   double gaus2dfit[6];
-  double gaus2dfit_mott[6];
   double gaus2dfit_err[6];
+  double gaus2dfit_mott[6];
+  double gaus2dfit_dual[10];
   double scatt2dfit[6];
   double probe2dfit[5];
   double fermi2dfit[7];
@@ -483,6 +485,10 @@ public:
   double peakd;
   double peakd_mott;
   double peakd_sph;
+
+  double nfit_dual;
+  double peakd_dual0;
+  double peakd_dual1;
 
   double TF;
 
@@ -1800,7 +1806,7 @@ Fermions::MinimalCrop (double CROP_FACTOR)
 }
 
 void
-Fermions::Fit2DGauss (bool mott = 0)
+Fermions::Fit2DGauss (bool mott = 0, bool dual = 0)
 {
 
   if (VERBOSE)
@@ -1826,14 +1832,18 @@ Fermions::Fit2DGauss (bool mott = 0)
   gaus2dfit_err[3] = 1e15;
   gaus2dfit_err[4] = 1e15;
   gaus2dfit_err[5] = 1e15;
-  if (VERBOSE)
-    cout << endl <<
-      "------------ Fitting with 2D Gaussian ------------" << endl;
+
   if (!p->blanks)
     {
+      if (VERBOSE)
+	cout << endl <<
+	  "------------ Fitting with 2D Gaussian ------------" << endl;
       fit2dgaus_err (columndensity, gaus2dfit, gaus2dfit_err);
       if (mott)
 	{
+	  if (VERBOSE)
+	    cout << endl <<
+	      "------------ Fitting with 2D Mott ------------" << endl;
 	  /*Use regular 2d fit para as a initial guess for mott 2d gaussian fit */
 	  gaus2dfit_mott[0] = gaus2dfit[0];
 	  gaus2dfit_mott[1] = gaus2dfit[1];
@@ -1859,10 +1869,56 @@ Fermions::Fit2DGauss (bool mott = 0)
 								1e-4, 3);
 
 	  MakeGaus2DInspect (columndensity, gaus2dfit_mott,
-			     p->shotnum_fileout.c_str (), true);
+			     p->shotnum_fileout.c_str (), 1);
 	}
+      if (dual)
+	{
+	  if (VERBOSE)
+	    cout << endl <<
+	      "------------ Fitting with 2D Dual ------------" << endl;
+	  /*Get inital parameters from a combination of moments and the 2D Gaus 
+	     results */
+	  double moments_guess[6];
+	  Gaus2DGuess (columndensity, moments_guess, p->shotnum_fileout,
+		       false);
+
+	  // centers 
+	  gaus2dfit_dual[0] = gaus2dfit[0];
+	  gaus2dfit_dual[4] = gaus2dfit[2];
+	  // radii
+	  gaus2dfit_dual[1] = moments_guess[1];
+	  gaus2dfit_dual[5] = moments_guess[3];
+	  // sigma
+	  gaus2dfit_dual[2] = gaus2dfit[1] / 2.;
+	  gaus2dfit_dual[6] = gaus2dfit[3] / 2.;
+          // h
+          gaus2dfit_dual[3] = 0.65;  
+          gaus2dfit_dual[7] = 0.65; 
+  
+
+	  // height
+	  gaus2dfit_dual[8] = gaus2dfit[4];
+	  // offset
+	  gaus2dfit_dual[9] = gaus2dfit[5];
+
+	  if (VERBOSE)
+	    printf ("about to fit with dual\n");
+
+
+	  fit2ddualgaus_neldermead (columndensity, gaus2dfit_dual);
+
+	  nfit_dual =
+	    gaus2dfit_dual[8] * gaus2dfit_dual[1] * gaus2dfit_dual[5];
+
+	  peakd_dual0 = gaus2dfit_dual[8];
+	  peakd_dual1 = gaus2dfit_dual[8];
+
+	  MakeGaus2DInspect (columndensity,
+			     gaus2dfit_dual, p->shotnum_fileout.c_str (), 2);
+	}
+
       MakeGaus2DInspect (columndensity, gaus2dfit,
-			 p->shotnum_fileout.c_str (), false);
+			 p->shotnum_fileout.c_str (), 0);
       gaus2d_eval_Azimuth (gaus2dfit, p->shotnum_fileout);
     }
 
@@ -1888,7 +1944,7 @@ Fermions::Fit2DGauss (bool mott = 0)
   //--peakd_sph  is obtained using the geometric mean
   peakd_sph = gaus2dfit[4] / (pow (M_PI * gaus2dfit[1] * gaus2dfit[3], 0.5)) / pow (p->magnif * 1e-4, 3);	// cm^-3
 
-  if (VERBOSE)
+  if (VERBOSE or true)
     {
       printf ("..............  GAUSSIAN 2D FIT RESULTS ..............\n");
       printf ("ci  	  = %.1f pixels\n", gaus2dfit[0]);
@@ -1907,6 +1963,17 @@ Fermions::Fit2DGauss (bool mott = 0)
 	  printf ("r0_mott    = %.1f pixels\n", gaus2dfit_mott[5]);
 	  printf ("peak_mott  = %.3e \n", gaus2dfit_mott[4]);
 	  printf ("N_mott from fit = %.3e \n", nfit_mott);
+	}
+      if (dual)
+	{
+	  printf ("ci_dual    = %.1f pixels\n", gaus2dfit_dual[0]);
+	  printf ("cj_dual    = %.1f pixels\n", gaus2dfit_dual[3]);
+	  printf ("si_dual    = %.1f pixels\n", gaus2dfit_dual[1]);
+	  printf ("sj_dual    = %.1f pixels\n", gaus2dfit_dual[4]);
+	  printf ("ri_dual    = %.1f pixels\n", gaus2dfit_dual[2]);
+	  printf ("rj_dual    = %.1f pixels\n", gaus2dfit_dual[5]);
+	  printf ("peak_dual  = %.3e \n", gaus2dfit_dual[6]);
+	  printf ("N_dual from fit = %.3e \n", nfit_dual);
 	}
     }
   TF = p->hvbar * pow (6 * nfit, 1. / 3.);
@@ -2716,16 +2783,20 @@ Fermions::MakePlots ()
 
 void
 Fermions::MakeGaus2DInspect (gsl_matrix * dat, const double fit_results[6],
-			     const char *prefix, bool mott)
+			     const char *prefix, int mott)
 {
   if (VERBOSE)
     {
       cout << endl << "----------------- MAKE GAUS2D INSPECT ----------------"
 	<< endl;
-      if (mott)
-	printf (" mott = True");
+      if (mott == 0)
+	printf (" mott = 0 ; regular 2D Gauss");
+      else if (mott == 1)
+	printf (" mott = 1 ; 2D Mott fit");
+      else if (mott == 2)
+	printf (" mott = 2 ; 2D Dual fit");
       else
-	printf (" mott = False");
+	printf (" mott = Invalid");
     }
 
   // Inside make_gaus2d_inspect the data is saved to disk

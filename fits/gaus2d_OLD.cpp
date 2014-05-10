@@ -127,126 +127,6 @@ gaus2d_model (double i, double j, const gsl_vector * v)
     A * exp (-1. * (pow ((i - cx) / wx, 2.) + pow ((j - cy) / wy, 2.)));
 }
 
-/* Model to evaluate the 2D projection of a 3D gaussian with a uniform core by two gaussian 
- *
- */
-
-double
-gaussian (double x, double s)
-{
-  return exp (-1. * pow (x / s, 2));
-}
-
-//1D dual Gauss
-double
-dualgaus1d_model (double i, const gsl_vector * v)
-{
-  double cx = gsl_vector_get (v, 0);
-  double h2 = gsl_vector_get (v, 1);
-  double s2 = gsl_vector_get (v, 2);
-  double r = gsl_vector_get (v, 3);
-  double r0 = gsl_vector_get (v, 4);
-  double h = 1.0;
-  double s1 = 10 * r;
-  double x = abs (i - cx);
-  double h1 = (h - h2 * gaussian (r0, s2)) / (1 - gaussian (r + r0, s1));
-  if (x < (r + r0))
-    return h1 * gaussian (x, s1) - h1 * gaussian (r + r0,
-						  s1) + h2 * gaussian (r0,
-								       s2);
-  else
-    return h2 * gaussian ((x - r), s2);
-}
-
-//1D dual gauss reduced
-
-double
-dualgaus1d_r_model (double i, const gsl_vector * v)
-{
-  double cx = gsl_vector_get (v, 0);
-  double r = gsl_vector_get (v, 1);
-  double s2 = gsl_vector_get (v, 2);
-  double h2 = sqrt (r * s2 / 2);
-
-  gsl_vector *v2 = gsl_vector_alloc (8);
-  gsl_vector_set (v2, 0, cx);
-  gsl_vector_set (v2, 1, h2);
-  gsl_vector_set (v2, 2, s2);
-  gsl_vector_set (v2, 3, r);
-  gsl_vector_set (v2, 4, (1 - h2) * s2);
-
-  return dualgaus1d_model (i, v2);
-}
-
-
-//1d dual gauss integral 
-double
-dualgaus1d_integral (const gsl_vector * v)
-{
-  //double cx = gsl_vector_get (v, 0);
-  double h2 = gsl_vector_get (v, 1);
-  double s2 = gsl_vector_get (v, 2);
-  double r = gsl_vector_get (v, 3);
-  double r0 = gsl_vector_get (v, 4);
-  double h = 1.0;
-  double s1 = 10 * r;
-  double h1 = (h - h2 * gaussian (r0, s2)) / (1 - gaussian (r + r0, s1));
-  double a = M_SQRTPI / 2;
-  double I = h2 * s2 * a * (1 - gsl_sf_erf (r0 / s2));
-  double II =
-    h1 * s1 * a * gsl_sf_erf ((r + r0) / s1) + (r +
-						r0) * (-h1 * gaussian (r + r0,
-								       s1) +
-						       h2 * gaussian (r0,
-								      s2));
-
-  return 2 * (I + II);
-
-}
-
-//2D dual Gauss
-double
-dualgaus2d_model (double i, double j, const gsl_vector * v)
-{
-  double A = gsl_vector_get (v, 6);
-  double offset = gsl_vector_get (v, 7);
-  gsl_vector *vi = gsl_vector_alloc (3);
-  gsl_vector *vj = gsl_vector_alloc (3);
-  for (int n = 0; n < 3; n++)
-    {
-      gsl_vector_set (vi, n, gsl_vector_get (v, n));
-      gsl_vector_set (vj, n, gsl_vector_get (v, n + 3));
-    }
-  return A * dualgaus1d_r_model (i, vi) * dualgaus1d_r_model (j, vj) + offset;
-}
-
-
-/* Matrix data with 2D dual Gaussian evaluation
- *
- */
-gsl_matrix *
-dualgaus2d_eval (const gsl_matrix * d, const double dualgaus_fit[8])
-{
-  gsl_matrix *eval = gsl_matrix_alloc (d->size1, d->size2);
-  gsl_vector *v = gsl_vector_alloc (8);
-  for (int e = 0; e < 8; e++)
-    {
-      gsl_vector_set (v, e, dualgaus_fit[e]);
-    }
-
-  for (unsigned int i = 0; i < d->size1; i++)
-    {
-      for (unsigned int j = 0; j < d->size2; j++)
-	{
-	  gsl_matrix_set (eval, i, j, dualgaus2d_model (i, j, v));
-	}
-    }
-  return eval;
-
-}
-
-
-
 /* Model to evaluate the 2D projection of a 3D gaussian with a uniform core
  *
  */
@@ -402,56 +282,31 @@ gaus2d_residual (const gsl_matrix * d, const double gaus_fit[6],
 
 
 void
-make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[8],
-		     const char *prefix, const char *options, int mott)
+make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
+		     const char *prefix, const char *options, bool mott)
 {
   string datfile (prefix);
   datfile += "_gaus2ddat.ascii";
   string fitfile (prefix);
-  double center1 = gaus2d_fit[0];
-  double center2 = gaus2d_fit[2];
-  gsl_matrix *fit2d = gaus2d_eval (c, gaus2d_fit);
-
-  if (VERBOSE)
-    {
-      cout << endl << "--- Make Gaus2D Inspect ---" << endl;
-      printf ("    type = %d\n", mott);
-    }
-
-  if (mott == 0)
-    {
-      fitfile += "_gaus2dfit.ascii";
-    }
-  else if (mott == 1)
-    {
-      fit2d = mottgaus2d_eval (c, gaus2d_fit);
-      fitfile += "_mottgaus2dfit.ascii";
-    }
-  else if (mott == 2)
-    {
-      printf (" inside mott=2 case \n");
-      fitfile += "_dualgaus2dfit.ascii";
-      fit2d = dualgaus2d_eval (c, gaus2d_fit);
-      center2 = gaus2d_fit[3];
-      printf (" exiting mott=2 case \n");
-    }
-  else
-    {
-      printf (" Unrecognized gaus2d fit type!!!\n");
-    }
+  fitfile += mott ? "_mottgaus2dfit.ascii" : "_gaus2dfit.ascii";
 
   save_gsl_matrix_ASCII (c, datfile);
+  gsl_matrix *fit2d =
+    mott ? mottgaus2d_eval (c, gaus2d_fit) : gaus2d_eval (c, gaus2d_fit);
   save_gsl_matrix_ASCII (fit2d, fitfile);
 
+  double center1 = gaus2d_fit[0];
+  double center2 = gaus2d_fit[2];
 
-  if (center1 < 0 || center1 > c->size1)
+  if (gaus2d_fit[0] < 0 || gaus2d_fit[0] > c->size1)
     {
       center1 = ((double) c->size1) / 2.0;
     }
-  if (center2 < 0 || center2 > c->size2)
+  if (gaus2d_fit[2] < 0 || gaus2d_fit[2] > c->size2)
     {
       center2 = ((double) c->size2) / 2.0;
     }
+
 
   stringstream inspectstr;
   inspectstr << "inspect2d_ascii.py ";
@@ -464,13 +319,7 @@ make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[8],
   inspectstr << center1;
   inspectstr << " ";
   inspectstr << prefix;
-  if (mott == 0)
-    inspectstr << "_gaus";
-  else if (mott == 1)
-    inspectstr << "_mottgaus";
-  else
-    inspectstr << "_dualgaus";
-
+  inspectstr << (mott ? "_mottgaus" : "_gaus");
   inspectstr << " ";
   inspectstr << options;
   //cerr << endl << inspectstr.str () << endl;
@@ -483,31 +332,6 @@ make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[8],
   //remove (datfile.c_str ());
   //remove (fitfile.c_str ());
   return;
-}
-
-/* Error function used in the implementation of the Nelder-Mead
- * fitting algorithm.
- *
- */
-double
-dualgaus2d_simplex_f (const gsl_vector * v, void *params)
-{
-  unsigned int s1 = ((gsl_matrix *) params)->size1;
-  unsigned int s2 = ((gsl_matrix *) params)->size2;
-  double sumsq = 0.;
-  for (unsigned int i = 0; i < s1; i++)
-    {
-      for (unsigned int j = 0; j < s2; j++)
-	{
-	  double model = dualgaus2d_model ((double) i,
-					   (double) j, v);
-	  double dat = gsl_matrix_get ((gsl_matrix *) params,
-				       i, j);
-	  sumsq += pow (model - dat, 2);
-	}
-    }
-
-  return sumsq;
 }
 
 /* Error function used in the implementation of the Nelder-Mead
@@ -560,7 +384,6 @@ gaus2d_simplex_f (const gsl_vector * v, void *params)
   return sumsq;
 }
 
-
 /* Error function used in the implementation of the Nelder-Mead
  * fitting algorithm with no offset
  * 
@@ -584,101 +407,6 @@ gaus2d_no_offset_simplex_f (const gsl_vector * v, void *params)
     }
 
   return sumsq;
-}
-
-/* simplex fit for dual gauss*/
-void
-fit2ddualgaus_neldermead (gsl_matrix * m, double *fit)
-{
-  if (VERBOSE)
-    {
-      printf ("  Initial dual fit parameters: \n");
-      for (unsigned int i = 0; i < 8; i++)
-	{
-	  printf ("fit[%d] = %.3g\n", i, fit[i]);
-	}
-      printf ("\n");
-    }
-
-  double cx = fit[0];
-  double rx = fit[1];
-  double sx = fit[2];
-  double cy = fit[3];
-  double ry = fit[4];
-  double sy = fit[5];
-  double A = fit[6];
-  double offset = fit[7];
-
-  const gsl_multimin_fminimizer_type *T = gsl_multimin_fminimizer_nmsimplex2;
-  gsl_multimin_fminimizer *s = NULL;
-  gsl_vector *ss, *x;
-  gsl_multimin_function f;
-
-/*Starting Point */
-  x = gsl_vector_alloc (8);
-  gsl_vector_set (x, 0, cx);
-  gsl_vector_set (x, 1, rx);
-  gsl_vector_set (x, 2, sx);
-  gsl_vector_set (x, 3, cy);
-  gsl_vector_set (x, 4, ry);
-  gsl_vector_set (x, 5, sy);
-  gsl_vector_set (x, 6, A);
-  gsl_vector_set (x, 7, offset);
-
-
-/*Set initial step sizes to 1*/
-  ss = gsl_vector_alloc (8);
-  gsl_vector_set_all (ss, 1.0);
-
-  f.n = 8;
-  f.f = &dualgaus2d_simplex_f;
-  f.params = m;
-
-  s = gsl_multimin_fminimizer_alloc (T, 8);
-  gsl_multimin_fminimizer_set (s, &f, x, ss);
-
-  size_t iter = 0;
-  int status;
-  double size;
-
-  do
-    {
-      iter++;
-      status = gsl_multimin_fminimizer_iterate (s);
-      if (status)
-	break;
-
-      size = gsl_multimin_fminimizer_size (s);
-      status = gsl_multimin_test_size (size, 1e-2);
-
-      if (status == GSL_SUCCESS && VERBOSE)
-	{
-	  printf (" converged to minimum at \n");
-	}
-      if (VERBOSE && iter % 40 == 0)
-	{
-	  printf
-	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.3f\n",
-	     (int) iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
-	     gsl_vector_get (s->x, 2), gsl_vector_get (s->x, 3),
-	     gsl_vector_get (s->x, 4), gsl_vector_get (s->x, 5),
-	     gsl_vector_get (s->x, 6), gsl_vector_get (s->x, 7),
-	     s->fval, size);
-	}
-    }
-  while (status == GSL_CONTINUE && iter < 1000);
-  fit[0] = FIT (0);
-  fit[1] = FIT (1);
-  fit[2] = FIT (2);
-  fit[3] = FIT (3);
-  fit[4] = FIT (4);
-  fit[5] = FIT (5);
-  fit[6] = FIT (6);
-  fit[7] = FIT (7);
-  gsl_vector_free (x);
-  gsl_vector_free (ss);
-  gsl_multimin_fminimizer_free (s);
-  return;
 }
 
 /* Nelder-Mead algorithm with no offset
@@ -819,7 +547,7 @@ fit2dmottgaus_neldermead (gsl_matrix * m, double *fit)
 	{
 	  printf (" converged to minimum at \n");
 	}
-      if (VERBOSE && iter % 40 == 0)
+      if (VERBOSE)
 	{
 	  printf
 	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.3f\n",
@@ -905,7 +633,7 @@ fit2dgaus_neldermead (gsl_matrix * m, double *fit)
 	{
 	  printf (" converged to minimum at \n");
 	}
-      if (VERBOSE && iter % 40 == 0)
+      if (VERBOSE)
 	{
 	  printf
 	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.3f\n",

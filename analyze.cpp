@@ -80,13 +80,13 @@ main (int argc, char **argv)
       f->MinimalCrop (5.0);
     }
 
-  f->Fit2DGauss (p.gaus2d_mott && p.phc);
+  f->Fit2DGauss (p.gaus2d_mott && p.phc, p.gaus2d_dual && p.phc);
   f->SaveColumnDensity ();
 
   if (!p.keeproi && !p.eigenface && !p.loadASCII)
     {
       f->MinimalCrop (3.5);
-      f->Fit2DGauss (p.gaus2d_mott && p.phc);
+      f->Fit2DGauss (p.gaus2d_mott && p.phc, p.gaus2d_dual && p.phc);
       f->SaveColumnDensity ();
     }
 
@@ -125,6 +125,39 @@ main (int argc, char **argv)
       setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c_crop_mott",
 		  f->gaus2dfit_mott[2]);
     }
+
+  if (p.gaus2d_dual && p.phc)
+    {
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "nfit_dual",
+		  f->nfit_dual);
+
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "peakd0_dual",
+		  f->peakd_dual0);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "peakd1_dual",
+		  f->peakd_dual1);
+
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0s_dual",
+		  f->gaus2dfit_dual[2] * p.magnif);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1s_dual",
+		  f->gaus2dfit_dual[5] * p.magnif);
+
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0r_dual",
+		  f->gaus2dfit_dual[1] * p.magnif);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1r_dual",
+		  f->gaus2dfit_dual[4] * p.magnif);
+
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0c_dual",
+		  f->abs_ci - f->gaus2dfit[0] + f->gaus2dfit_dual[0]);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c_dual",
+		  f->abs_cj - f->gaus2dfit[2] + f->gaus2dfit_dual[3]);
+
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax0c_crop_dual",
+		  f->gaus2dfit_dual[0]);
+      setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ax1c_crop_dual",
+		  f->gaus2dfit_dual[3]);
+    }
+
+
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "ncount",
 	      f->number_count);
   setINI_num (p.reportfile, p.andor2 ? "CPP2" : "CPP", "nfit", f->nfit);
@@ -298,6 +331,9 @@ main (int argc, char **argv)
       //Print Number for Mott
       if (p.gaus2d_mott && p.phc)
 	printf (", %sN_mott = %.2e%s", KRED, f->nfit_mott, KNRM);
+      if (p.gaus2d_dual && p.phc)
+	printf (", %sN_dual = %.2e%s", KCYN, f->nfit_dual, KNRM);
+
       //Print total number of photons in probe pulse
       printf (", Ph = %.2e", f->Tp0);
       //Print peak density
@@ -309,6 +345,9 @@ main (int argc, char **argv)
       //Print peak density for Mott
       if (p.gaus2d_mott && p.phc)
 	printf (", %sn_sph_mott = %.2e%s", KRED, f->peakd_mott, KNRM);
+      if (p.gaus2d_dual && p.phc)
+	printf (", %sn_dual0 = %.2e%s", KCYN, f->peakd_dual0, KNRM);
+      printf (", %sn_dual1 = %.2e%s", KCYN, f->peakd_dual1, KNRM);
 
       //Print 0 size
       printf (", ax0w = %.1f +/- %.1f", f->gaus2dfit[1] * p.magnif,
@@ -436,6 +475,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
       printf (BOLDWHITE "\t-M, --Mott\n" RESET);
       printf ("\t\tperform gaussian 2d Mott fits\n\n");
 
+      printf (BOLDWHITE "\t-G, --Dual\n" RESET);
+      printf ("\t\tperform gaussian 2d Dual fits\n\n");
+
       printf (BOLDWHITE "\t--fermi1d\n" RESET);
       printf ("\t\tperform fermi fits on integrated 1D profiles\n\n");
 
@@ -538,6 +580,7 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
   p.keeproi = false;
   p.roi_user = false;
   p.gaus2d_mott = false;
+  p.gaus2d_dual = false;
   p.fitfermi1D = false;
   p.fermi2d = false;
   p.fermiazimuth = false;
@@ -601,6 +644,8 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	{
 	 "Mott", no_argument, 0, 'M'},
 	{
+	 "Dual", no_argument, 0, 'G'},
+	{
 	 "fermi-azimuth", no_argument, 0, 'a'},
 	{
 	 "maxr-azimuth", required_argument, 0, 'd'},
@@ -657,7 +702,7 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
       };
       int option_index = 0;
       c =
-	getopt_long (argc, argv, "Ccfpr:R:S:u:vieMI:", long_options,
+	getopt_long (argc, argv, "Ccfpr:R:S:u:vieMI:G", long_options,
 		     &option_index);
       if (c == -1)
 	break;
@@ -796,6 +841,9 @@ processArgsAnalyze (int argc, char **argv, struct params &p)
 	  break;
 	case 'M':
 	  p.gaus2d_mott = true;
+	  break;
+	case 'G':
+	  p.gaus2d_dual = true;
 	  break;
 	case 'D':
 	  p.onlyCD = true;
