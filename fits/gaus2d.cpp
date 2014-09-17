@@ -166,14 +166,15 @@ dualgaus1d_r_model (double i, const gsl_vector * v)
   double cx = gsl_vector_get (v, 0);
   double r = gsl_vector_get (v, 1);
   double s2 = gsl_vector_get (v, 2);
-  double h2 = sqrt (r * s2 / 2);
+  double h2 = gsl_vector_get (v, 3);
+  //double h2 = sqrt (r * s2 / 2);
 
-  gsl_vector *v2 = gsl_vector_alloc (8);
+  gsl_vector *v2 = gsl_vector_alloc (5);
   gsl_vector_set (v2, 0, cx);
   gsl_vector_set (v2, 1, h2);
   gsl_vector_set (v2, 2, s2);
   gsl_vector_set (v2, 3, r);
-  gsl_vector_set (v2, 4, (1 - h2) * s2);
+  gsl_vector_set (v2, 4, (1. - h2) * s2);
 
   return dualgaus1d_model (i, v2);
 }
@@ -181,13 +182,26 @@ dualgaus1d_r_model (double i, const gsl_vector * v)
 
 //1d dual gauss integral 
 double
-dualgaus1d_integral (const gsl_vector * v)
+dualgaus1d_integral (const double fit[10], unsigned int ax)
 {
-  //double cx = gsl_vector_get (v, 0);
-  double h2 = gsl_vector_get (v, 1);
-  double s2 = gsl_vector_get (v, 2);
-  double r = gsl_vector_get (v, 3);
-  double r0 = gsl_vector_get (v, 4);
+  double r, s2, h2;
+  if (ax == 0)
+    {
+      r = fit[1];
+      s2 = fit[2];
+      h2 = fit[3];
+    }
+  else if (ax == 1)
+    {
+      r = fit[5];
+      s2 = fit[6];
+      h2 = fit[7];
+    }
+  else
+    {
+      printf ("ERROR ->  undefined axis for dual 1d integral\n");
+    }
+  double r0 = (1. - h2) * s2;
   double h = 1.0;
   double s1 = 10 * r;
   double h1 = (h - h2 * gaussian (r0, s2)) / (1 - gaussian (r + r0, s1));
@@ -196,9 +210,9 @@ dualgaus1d_integral (const gsl_vector * v)
   double II =
     h1 * s1 * a * gsl_sf_erf ((r + r0) / s1) + (r +
 						r0) * (-h1 * gaussian (r + r0,
-								       s1) +
-						       h2 * gaussian (r0,
-								      s2));
+								       s1)
+						       + h2 * gaussian (r0,
+									s2));
 
   return 2 * (I + II);
 
@@ -208,14 +222,14 @@ dualgaus1d_integral (const gsl_vector * v)
 double
 dualgaus2d_model (double i, double j, const gsl_vector * v)
 {
-  double A = gsl_vector_get (v, 6);
-  double offset = gsl_vector_get (v, 7);
-  gsl_vector *vi = gsl_vector_alloc (3);
-  gsl_vector *vj = gsl_vector_alloc (3);
-  for (int n = 0; n < 3; n++)
+  double A = gsl_vector_get (v, 8);
+  double offset = gsl_vector_get (v, 9);
+  gsl_vector *vi = gsl_vector_alloc (4);
+  gsl_vector *vj = gsl_vector_alloc (4);
+  for (int n = 0; n < 4; n++)
     {
       gsl_vector_set (vi, n, gsl_vector_get (v, n));
-      gsl_vector_set (vj, n, gsl_vector_get (v, n + 3));
+      gsl_vector_set (vj, n, gsl_vector_get (v, n + 4));
     }
   return A * dualgaus1d_r_model (i, vi) * dualgaus1d_r_model (j, vj) + offset;
 }
@@ -225,11 +239,11 @@ dualgaus2d_model (double i, double j, const gsl_vector * v)
  *
  */
 gsl_matrix *
-dualgaus2d_eval (const gsl_matrix * d, const double dualgaus_fit[8])
+dualgaus2d_eval (const gsl_matrix * d, const double dualgaus_fit[10])
 {
   gsl_matrix *eval = gsl_matrix_alloc (d->size1, d->size2);
-  gsl_vector *v = gsl_vector_alloc (8);
-  for (int e = 0; e < 8; e++)
+  gsl_vector *v = gsl_vector_alloc (10);
+  for (int e = 0; e < 10; e++)
     {
       gsl_vector_set (v, e, dualgaus_fit[e]);
     }
@@ -280,9 +294,20 @@ mottgaus2d_model (double i, double j, const gsl_vector * v)
     {
 
       return B +
-	A * exp (-1. * (pow ((i - cx) / wx, 2.) + pow ((j - cy) / wy, 2.))) *
-	(1 - gsl_sf_erf (sqrt (rij2)) +
-	 sqrt (rij2) * 2 / M_SQRTPI * exp (-rij2));
+	A * exp (-1. *
+		 (pow ((i - cx) / wx, 2.) + pow ((j - cy) / wy, 2.))) * (1 -
+									 gsl_sf_erf
+									 (sqrt
+									  (rij2))
+									 +
+									 sqrt
+									 (rij2)
+									 *
+									 2 /
+									 M_SQRTPI
+									 *
+									 exp
+									 (-rij2));
     }
 }
 
@@ -402,7 +427,7 @@ gaus2d_residual (const gsl_matrix * d, const double gaus_fit[6],
 
 
 void
-make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[8],
+make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[10],
 		     const char *prefix, const char *options, int mott)
 {
   string datfile (prefix);
@@ -429,11 +454,9 @@ make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[8],
     }
   else if (mott == 2)
     {
-      printf (" inside mott=2 case \n");
       fitfile += "_dualgaus2dfit.ascii";
       fit2d = dualgaus2d_eval (c, gaus2d_fit);
-      center2 = gaus2d_fit[3];
-      printf (" exiting mott=2 case \n");
+      center2 = gaus2d_fit[4];
     }
   else
     {
@@ -593,7 +616,7 @@ fit2ddualgaus_neldermead (gsl_matrix * m, double *fit)
   if (VERBOSE)
     {
       printf ("  Initial dual fit parameters: \n");
-      for (unsigned int i = 0; i < 8; i++)
+      for (unsigned int i = 0; i < 10; i++)
 	{
 	  printf ("fit[%d] = %.3g\n", i, fit[i]);
 	}
@@ -603,11 +626,13 @@ fit2ddualgaus_neldermead (gsl_matrix * m, double *fit)
   double cx = fit[0];
   double rx = fit[1];
   double sx = fit[2];
-  double cy = fit[3];
-  double ry = fit[4];
-  double sy = fit[5];
-  double A = fit[6];
-  double offset = fit[7];
+  double hx = fit[3];
+  double cy = fit[4];
+  double ry = fit[5];
+  double sy = fit[6];
+  double hy = fit[7];
+  double A = fit[8];
+  double offset = fit[9];
 
   const gsl_multimin_fminimizer_type *T = gsl_multimin_fminimizer_nmsimplex2;
   gsl_multimin_fminimizer *s = NULL;
@@ -615,26 +640,28 @@ fit2ddualgaus_neldermead (gsl_matrix * m, double *fit)
   gsl_multimin_function f;
 
 /*Starting Point */
-  x = gsl_vector_alloc (8);
+  x = gsl_vector_alloc (10);
   gsl_vector_set (x, 0, cx);
   gsl_vector_set (x, 1, rx);
   gsl_vector_set (x, 2, sx);
-  gsl_vector_set (x, 3, cy);
-  gsl_vector_set (x, 4, ry);
-  gsl_vector_set (x, 5, sy);
-  gsl_vector_set (x, 6, A);
-  gsl_vector_set (x, 7, offset);
+  gsl_vector_set (x, 3, hx);
+  gsl_vector_set (x, 4, cy);
+  gsl_vector_set (x, 5, ry);
+  gsl_vector_set (x, 6, sy);
+  gsl_vector_set (x, 7, hy);
+  gsl_vector_set (x, 8, A);
+  gsl_vector_set (x, 9, offset);
 
 
 /*Set initial step sizes to 1*/
-  ss = gsl_vector_alloc (8);
+  ss = gsl_vector_alloc (10);
   gsl_vector_set_all (ss, 1.0);
 
-  f.n = 8;
+  f.n = 10;
   f.f = &dualgaus2d_simplex_f;
   f.params = m;
 
-  s = gsl_multimin_fminimizer_alloc (T, 8);
+  s = gsl_multimin_fminimizer_alloc (T, 10);
   gsl_multimin_fminimizer_set (s, &f, x, ss);
 
   size_t iter = 0;
@@ -658,11 +685,12 @@ fit2ddualgaus_neldermead (gsl_matrix * m, double *fit)
       if (VERBOSE && iter % 40 == 0)
 	{
 	  printf
-	    ("%5d %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e %10.3e f() = %7.3e size = %.3f\n",
+	    ("%5d %8.1e %8.1e %8.1e %8.1e %8.1e %8.1e %8.1e %8.1e %8.1e %8.1e  f() = %7.3e size = %.3f\n",
 	     (int) iter, gsl_vector_get (s->x, 0), gsl_vector_get (s->x, 1),
 	     gsl_vector_get (s->x, 2), gsl_vector_get (s->x, 3),
 	     gsl_vector_get (s->x, 4), gsl_vector_get (s->x, 5),
 	     gsl_vector_get (s->x, 6), gsl_vector_get (s->x, 7),
+	     gsl_vector_get (s->x, 8), gsl_vector_get (s->x, 9),
 	     s->fval, size);
 	}
     }
@@ -675,6 +703,8 @@ fit2ddualgaus_neldermead (gsl_matrix * m, double *fit)
   fit[5] = FIT (5);
   fit[6] = FIT (6);
   fit[7] = FIT (7);
+  fit[8] = FIT (8);
+  fit[9] = FIT (9);
   gsl_vector_free (x);
   gsl_vector_free (ss);
   gsl_multimin_fminimizer_free (s);
@@ -1042,15 +1072,12 @@ print_state (size_t iter, gsl_multifit_fdfsolver * s)
 {
   if (VERBOSE)
     {
-      printf ("iter: %3u x = % 15.8f % 15.8f % 15.8f % 15.8f % 15.8f %15.8f "
-	      "|f(x)| = %g\n",
-	      (unsigned int) iter,
-	      gsl_vector_get (s->x, 0),
-	      gsl_vector_get (s->x, 1),
-	      gsl_vector_get (s->x, 2),
-	      gsl_vector_get (s->x, 3),
-	      gsl_vector_get (s->x, 4),
-	      gsl_vector_get (s->x, 5), gsl_blas_dnrm2 (s->f));
+      printf
+	("iter: %3u x = % 15.8f % 15.8f % 15.8f % 15.8f % 15.8f %15.8f "
+	 "|f(x)| = %g\n", (unsigned int) iter, gsl_vector_get (s->x, 0),
+	 gsl_vector_get (s->x, 1), gsl_vector_get (s->x, 2),
+	 gsl_vector_get (s->x, 3), gsl_vector_get (s->x, 4),
+	 gsl_vector_get (s->x, 5), gsl_blas_dnrm2 (s->f));
     }
 }
 

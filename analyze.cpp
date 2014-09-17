@@ -80,10 +80,13 @@ main (int argc, char **argv)
       f->MinimalCrop (5.0);
     }
 
-  f->Fit2DGauss (p.gaus2d_mott && p.phc, p.gaus2d_dual && p.phc);
+  bool mincrop = !p.keeproi && !p.eigenface && !p.loadASCII;
+
+  f->Fit2DGauss (p.gaus2d_mott && p.phc && !mincrop, p.gaus2d_dual && p.phc
+		 && !mincrop);
   f->SaveColumnDensity ();
 
-  if (!p.keeproi && !p.eigenface && !p.loadASCII)
+  if (mincrop)
     {
       f->MinimalCrop (3.5);
       f->Fit2DGauss (p.gaus2d_mott && p.phc, p.gaus2d_dual && p.phc);

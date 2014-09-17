@@ -1891,27 +1891,33 @@ Fermions::Fit2DGauss (bool mott = 0, bool dual = 0)
 	  // sigma
 	  gaus2dfit_dual[2] = gaus2dfit[1] / 2.;
 	  gaus2dfit_dual[6] = gaus2dfit[3] / 2.;
-          // h
-          gaus2dfit_dual[3] = 0.65;  
-          gaus2dfit_dual[7] = 0.65; 
-  
+	  // h
+	  gaus2dfit_dual[3] = 0.65;
+	  gaus2dfit_dual[7] = 0.65;
+
 
 	  // height
 	  gaus2dfit_dual[8] = gaus2dfit[4];
 	  // offset
 	  gaus2dfit_dual[9] = gaus2dfit[5];
 
-	  if (VERBOSE)
-	    printf ("about to fit with dual\n");
 
 
 	  fit2ddualgaus_neldermead (columndensity, gaus2dfit_dual);
 
 	  nfit_dual =
-	    gaus2dfit_dual[8] * gaus2dfit_dual[1] * gaus2dfit_dual[5];
+	    gaus2dfit_dual[8] *
+	    dualgaus1d_integral (gaus2dfit_dual, 0) *
+	    dualgaus1d_integral (gaus2dfit_dual, 0);
 
-	  peakd_dual0 = gaus2dfit_dual[8];
-	  peakd_dual1 = gaus2dfit_dual[8];
+	  peakd_dual0 =
+	    gaus2dfit_dual[8] / dualgaus1d_integral (gaus2dfit_dual,
+						     0) / pow (p->magnif *
+							       1e-4, 3);
+	  peakd_dual1 =
+	    gaus2dfit_dual[8] / dualgaus1d_integral (gaus2dfit_dual,
+						     1) / pow (p->magnif *
+							       1e-4, 3);
 
 	  MakeGaus2DInspect (columndensity,
 			     gaus2dfit_dual, p->shotnum_fileout.c_str (), 2);
@@ -1944,7 +1950,7 @@ Fermions::Fit2DGauss (bool mott = 0, bool dual = 0)
   //--peakd_sph  is obtained using the geometric mean
   peakd_sph = gaus2dfit[4] / (pow (M_PI * gaus2dfit[1] * gaus2dfit[3], 0.5)) / pow (p->magnif * 1e-4, 3);	// cm^-3
 
-  if (VERBOSE or true)
+  if (VERBOSE)
     {
       printf ("..............  GAUSSIAN 2D FIT RESULTS ..............\n");
       printf ("ci  	  = %.1f pixels\n", gaus2dfit[0]);
@@ -1967,12 +1973,16 @@ Fermions::Fit2DGauss (bool mott = 0, bool dual = 0)
       if (dual)
 	{
 	  printf ("ci_dual    = %.1f pixels\n", gaus2dfit_dual[0]);
-	  printf ("cj_dual    = %.1f pixels\n", gaus2dfit_dual[3]);
-	  printf ("si_dual    = %.1f pixels\n", gaus2dfit_dual[1]);
-	  printf ("sj_dual    = %.1f pixels\n", gaus2dfit_dual[4]);
-	  printf ("ri_dual    = %.1f pixels\n", gaus2dfit_dual[2]);
+	  printf ("ri_dual    = %.1f pixels\n", gaus2dfit_dual[1]);
+	  printf ("si_dual    = %.1f pixels\n", gaus2dfit_dual[2]);
+	  printf ("hi_dual    = %.1f pixels\n", gaus2dfit_dual[3]);
+	  printf ("cj_dual    = %.1f pixels\n", gaus2dfit_dual[4]);
 	  printf ("rj_dual    = %.1f pixels\n", gaus2dfit_dual[5]);
-	  printf ("peak_dual  = %.3e \n", gaus2dfit_dual[6]);
+	  printf ("sj_dual    = %.1f pixels\n", gaus2dfit_dual[6]);
+	  printf ("hj_dual    = %.1f pixels\n", gaus2dfit_dual[7]);
+
+	  printf ("peakd_dual0  = %.3e \n", peakd_dual0);
+	  printf ("peakd_dual1  = %.3e \n", peakd_dual1);
 	  printf ("N_dual from fit = %.3e \n", nfit_dual);
 	}
     }
@@ -2412,7 +2422,7 @@ Fermions::GetAzimuthalAverageEllipse ()
   else if (gaus2d_aspect < 1e-2 || gaus2d_aspect > 1e2)
     {
       p->AR = 1.;
-      if (VERBOSE)
+      if (VERBOSE or true)
 	{
 	  printf ("AspectRatio was coereced for Azimuthal average\n");
 	  printf ("\twas : %.2f ,  changed to : %.2f\n", gaus2d_aspect, 1.0);
@@ -2423,11 +2433,11 @@ Fermions::GetAzimuthalAverageEllipse ()
       p->AR = gaus2d_aspect;
     }
 
-  if (VERBOSE)
+  if (VERBOSE or true)
     {
-      cout << "\tAspect ratio from trap geometry = " << trap_aspect << endl;
+      //cout << "\tAspect ratio from trap geometry = " << trap_aspect << endl;
       cout << "\tAspect ratio from 2D Gauss = " << gaus2d_aspect << endl;
-      cout << "\tAspect ratio used = " << p->AR << endl;
+      cout << "\tAspect ratio used for Az average= " << p->AR << endl;
     }
 
   // Define the number of bins to be used in the radial profile  and the bin size 

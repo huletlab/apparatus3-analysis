@@ -44,7 +44,7 @@ gsl_matrix *gaus2d_residual (const gsl_matrix * d, const double gaus_fit[6],
 			     const bool offset = true);
 
 
-void make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[6],
+void make_gaus2d_inspect (gsl_matrix * c, const double gaus2d_fit[10],
 			  const char *prefix, const char *options,
 			  int mott = 0);
 
@@ -64,7 +64,7 @@ void Gaus2DGuess (gsl_matrix * m, double *guess, string prefix,
 
 double dualgaus1d_model (double i, const gsl_vector * v);
 double dualgaus1d_r_model (double i, const gsl_vector * v);
-double dualgaus1d_integral (const gsl_vector * v);
+double dualgaus1d_integral (const double fit[10], unsigned int ax);
 double dualgaus2d_model (double i, double j, const gsl_vector * v);
 void fit2ddualgaus_neldermead (gsl_matrix * m, double *fit);
 
