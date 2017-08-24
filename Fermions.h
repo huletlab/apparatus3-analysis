@@ -1024,9 +1024,12 @@ sig_phcimg (double ncol, struct phc_params *phc)
   phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
     + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
     + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
-								       phc->c->phi
-								       +
-								       phc->c->phi_pi)
+								       phc->
+								       c->
+								       phi +
+								       phc->
+								       c->
+								       phi_pi)
     * sin (2. * th);
   phc->c->noatoms =
     b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
@@ -2046,15 +2049,16 @@ Fermions::Fit1DCuts ()
       p->onedcutn[2] = c0_1d + abs_ci;
       p->onedcutn[3] = c1_1d + abs_cj;
       cout << "Using gaus2dfit centers for 1d cut fit" << endl;
-      cout << "2dCenter: (" << p->onedcutn[2] << "," << p->
-	onedcutn[3] << ")" << endl;
+      cout << "2dCenter: (" << p->
+	onedcutn[2] << "," << p->onedcutn[3] << ")" << endl;
     }
   else
     {
       c0_1d = p->onedcutn[2] - abs_ci;
       c1_1d = p->onedcutn[3] - abs_cj;
-      cout << endl << "Using (" << p->onedcutn[2] << "," << p->
-	onedcutn[3] << ") for 1d cut fit center" << endl;
+      cout << endl << "Using (" << p->
+	onedcutn[2] << "," << p->onedcutn[3] << ") for 1d cut fit center" <<
+	endl;
 
     }
   cout << endl << "Using " << nrows << " rows and " << ncols <<

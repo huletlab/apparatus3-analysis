@@ -21,7 +21,7 @@ objs =   /lab/software/apparatus3/cpp/funcs/funcs.o /lab/software/apparatus3/cpp
 analyze: analyze.o ${objs}
 	g++ analyze.o ${objs} ${LFLAGS} -o analyze
 	chmod a+w analyze
-	cp -v analyze /lab/software/apparatus3/cpp/bin/analyze
+	#cp -v analyze /lab/software/apparatus3/cpp/bin/analyze
 	#cp -v analyze /lab/software/apparatus3/cpp/bin/analyze_dual
 	rm analyze.o
 
@@ -35,12 +35,12 @@ analyze.o: Fermions.h
 basler: basler.o ${objs} Fermions.h
 	g++ basler.o ${objs} ${LFLAGS} -o basler
 	chmod a+w basler
-	cp -v basler /lab/software/apparatus3/cpp/bin/basler
+	#cp -v basler /lab/software/apparatus3/cpp/bin/basler
 
 probe: probe.o ${objs} Fermions.h
 	g++ probe.o ${objs} ${LFLAGS} -o probe
 	chmod a+w probe
-	cp -v probe /lab/software/apparatus3/cpp/bin/probe
+	#cp -v probe /lab/software/apparatus3/cpp/bin/probe
 
 clean:
 	rm -f *.o

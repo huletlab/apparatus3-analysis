@@ -1,0 +1,1000 @@
+         (ncol / 2.) * sig_pi / (1 + 4 * det2_pi * det2_pi + 2 * i0_pi);
+       */
+      phc->c->alpha = alpha1 + alpha2 + alpha1_plus + alpha2_plus;
+      phc->c->alpha_pi = alpha1_pi + alpha2_pi;
+      phc->c->phi =
+	-alpha1 * det - alpha2 * det2 - alpha1_plus * det_plus -
+	alpha2_plus * det2_plus;
+      phc->c->phi_pi = -alpha1_pi * det_pi - alpha2_pi * det2_pi;
+    }
+
+  else
+    {
+      double alpha_plus =
+	ncol * sig_plus / (1 + 4 * det_plus * det_plus + 2 * i0_plus);
+      double alpha_minus =
+	ncol * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
+      phc->c->alpha = alpha_plus + alpha_minus;
+      phc->c->alpha_pi =
+	ncol * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
+      phc->c->phi = -alpha_minus * det - alpha_plus * det_plus;
+      phc->c->phi_pi = -phc->c->alpha_pi * det_pi;
+    }
+
+  phc->c->atoms = b * b * exp (-phc->c->alpha_pi) * cos (th) * cos (th)
+    + a * a * exp (-phc->c->alpha) * sin (th) * sin (th)
+    + a * b * exp (-phc->c->alpha / 2. - phc->c->alpha_pi / 2.) * cos (g -
+								       phc->c->phi
+								       +
+								       phc->c->phi_pi)
+    * sin (2. * th);
+  phc->c->noatoms =
+    b * b * cos (th) * cos (th) + a * a * sin (th) * sin (th) +
+    a * b * cos (g) * sin (2 * th);
+  return -1. * (phc->c->atoms / phc->c->noatoms - 1);
+};
+
+double
+sig_phcimg_err (double ncol, void *params)
+{
+  struct phc_params *phc = (struct phc_params *) params;
+  return sig_phcimg (ncol, phc) - phc->sig;
+};
+
+double
+Fermions::signal_phcimg (double ncol, double det, double i0,
+			 double imgbfield, bool twostates, bool SHOW,
+			 struct phc_calc *c)
+{
+
+  struct phc_params phc = {
+    0.0, det, i0, p->imgbfield, true, false, p->lambda, p->gamma,
+    p->magnif, c
+  };
+  return sig_phcimg (ncol, &phc);
+}
+
+double
+Fermions::ncol_phcimg (double cd, double sig, double det, double i0,
+		       double imgbfield, bool twostates, bool SHOW,
+		       struct phc_calc *c)
+{
+
+
+  //This is the maximal cross section ( units of pixel )
+  //double sigma0 =
+  //  6 * M_PI * pow (p->lambda / 2. / M_PI, 2) / pow (p->magnif * 1e-4, 2);
+
+  //First use column density from the linearized algortihm to 
+  //make a first estimate of the column density 
+  /*
+     double ncol = 1.5 * pow (fabs (det / 25),
+     1. / 3.) * sig / (0.5 - det) * (1 + 4 * det * det +
+     2 * i0) / sigma0; */
+  double ncol = 1. * cd * (det < -25 ? pow (fabs (det / 25), 1. / 3.) : 1.);
+  if (SHOW)
+    {
+      cout << endl <<
+	"-------- CALCULATING PHASE-CONTRAST COLUMN DENSITY -----" << endl;
+      printf (" First naive estimate = %.3f\n", ncol);
+    }
+
+  int status;
+  int iter = 0, max_iter = 100;
+  const gsl_root_fsolver_type *T;
+  gsl_root_fsolver *s;
+  double r = 0;
+  double x_lo, x_hi;
+  if (fabs (ncol) < 100.)
+    {
+      x_lo = -1000.;
+      x_hi = 1000.;
+    }
+  else
+    {
+      double span = 1.0;
+      x_lo = ncol - span * fabs (ncol);
+      x_hi = ncol + span * fabs (ncol);
+    }
+
+  gsl_function F;
+  F.function = &sig_phcimg_err;
+  struct phc_params params = {
+    sig, det, i0, imgbfield, twostates, false, p->lambda, p->gamma,
+    p->magnif, c
+  };
+  F.params = &params;
+  T = gsl_root_fsolver_brent;
+  s = gsl_root_fsolver_alloc (T);
+  gsl_root_fsolver_set (s, &F, x_lo, x_hi);
+  if (SHOW)
+    {
+      printf ("using %s method\n", gsl_root_fsolver_name (s));
+      printf ("%5s [%9s, %9s] %9s %9s\n",
+	      "iter", "lower", "upper", "root", "err(est)");
+    }
+  do
+    {
+      iter++;
+      status = gsl_root_fsolver_iterate (s);
+      r = gsl_root_fsolver_root (s);
+      x_lo = gsl_root_fsolver_x_lower (s);
+      x_hi = gsl_root_fsolver_x_upper (s);
+      status = gsl_root_test_interval (x_lo, x_hi, 0, 0.001);
+      if (status == GSL_SUCCESS && SHOW)
+	printf ("Converged:\n");
+      if (SHOW)
+	{
+	  printf ("%5d [%.7f, %.7f] %.7f %.7f\n",
+		  iter, x_lo, x_hi, r, x_hi - x_lo);
+	}
+    }
+  while (status == GSL_CONTINUE && iter < max_iter);
+  gsl_root_fsolver_free (s);
+  double ratio = r / ncol;
+  if (fabs (ncol) > 100. && (ratio > 1.7 || ratio < 0.3))
+    {
+      printf (" Result / FirstEstimate = %.3f\n", ratio);
+    }
+
+  return r;
+}
+
+void
+Fermions::ComputeColumnDensity ()
+{
+  /********************************************
+  Four matrices are calculated here  
+
+  columndensity = the number of atoms in each pixel
+
+  columndensity_scattered_ph = the number of atoms in each pixel, 
+                               calculated from the number of photons 
+                               that were scattered
+
+  missing_counts = counts in atoms picture minus counts in no-atoms picture
+
+  probe = the number of photons that were incident on each pixel 
+
+  ********************************************/
+
+  unsigned int s1 = atoms->size1;
+  unsigned int s2 = atoms->size2;
+  columndensity = gsl_matrix_alloc (s1, s2);
+  columndensity_scattered_ph = gsl_matrix_alloc (s1, s2);
+  missing_counts = gsl_matrix_alloc (s1, s2);
+  probe = gsl_matrix_alloc (s1, s2);
+  /************ ABSORPTION IMAGING VARIABLES ************/
+  double at, noat, atref, noatref, c0, c1, cd, OD, i0, i0eff, p0, term1,
+    term2;
+  double cd_sp, cd_highintabs;
+  double maxT1, maxT2;		//maxima for term1 and term2 in the column density
+  double maxCDterm1 = 0., maxCDterm2 = 0.;
+  maxT1 = -1e6;
+  maxT2 = -1e6;
+  double sigma0 = 3 * M_PI * pow (p->lambda / 2 / M_PI, 2);	//This corresponds to half the maximal cross-section, because of our polarization.  
+  double isat = 10.2;		// This corresponds to twice the minimal Isat because of our polarization
+  //should be equal to  gamma h v / sigma0 .... test this.  
+  double det = 0.;		//for now all  absorption imaging is on resonance 
+  maxI = 0.;
+  aveI = 0.;
+  aveIweighted = 0.;
+  double sumcd = 0.;
+  maxCD = 0.;			//maximum column density
+  maxPHI = 0.;			//maximum phase shift in phase constrast
+  maxNSP = 0.;
+  maxSP = 0.;
+  Tp0 = 0.;			//total photons in noatoms frame 
+  double sp = 0.;		//scattered photons in pixel 
+  Tsp = 0.;			//total number of scattered photons 
+  double nsp = 0.;		//number from scattered photons in pixel
+  Nsp = 0.;			//total number from scattered photons
+  double pee = 0.;
+  maxPEE = 0.;
+  double avg_pee = 0.;		//average rho_ee
+  maxOD = 0.;
+  double OD_err = 5;		//any higher OD will be cutoff and trigger a warning
+  bool OD_errmsg = false;
+  bool high_phase_shift_flag = false;
+  //bool sanity_check_flag = false;
+  //sanity_check_flag = false;
+  minCA = 1.e6;			// minimum counts in atoms frame
+  minCN = 1.e6;			// minimum counts in noatoms frame
+  maxCA = 0.;			// maximum counts in atoms frame
+  maxCN = 0.;			// maximum counts in noatoms frame
+  //Structure to store intermediate results of phc calc
+  struct phc_calc calc = {
+    0., 0., 0., 0., 0., 0.
+  };
+  struct phc_calc calcMAX = {
+    0., 0., 0., 0., 0., 0.
+  };
+  //For max column density, counts in atoms and noatoms frame
+  double c0CDMAX = 0.0;
+  double c1CDMAX = 0.0;
+  //Matrix for OD
+  gsl_matrix *od_matrix;
+  od_matrix = gsl_matrix_alloc (s1, s2);
+
+  //Loss of intensity at the polarizer
+  double loss = 1.0;
+  if (p->phc)
+    loss = 0.11 / 0.26;		//Measured on 10/17/2012 Russ #8 Page98
+
+  if (p->cdsp && p->highintabs)
+    {
+      printf
+	("Cannot use --cdsp and --highintabs options at the same time\n");
+      printf ("Program will exit\n");
+      exit (EXIT_FAILURE);
+    }
+
+  printf ("---  CAMERA PARAMETERS: ---\n");
+  //printf ("  efficiency    = %.3e mJ/count\n", p->eff);
+  //printf ("  photons/mJ    = %.3e\n", p->photon_per_mJ);
+  printf ("  frames saved  = %d\n", p->Nframes);
+  printf ("  photons/count = %.3e\n", p->eff * p->photon_per_mJ);
+  printf ("  magnif        = %.2f um/pixel\n", p->magnif);
+
+  double probeintensity;
+
+  /************ PHASE-CONTRAST IMAGING VARIABLES ************/
+  double signal, phase_shift, sig1, sig2, state2det, state1det, delta12;
+  gsl_matrix *phc_signal;
+  if (!p->phc && !p->fluor)
+    {
+      printf ("---  ABSORPTION IMAGING ---\n");
+      if (p->cdsp)
+	{
+	  printf
+	    ("... User selected Col Dens. From Scattered Photons calculation.\n");
+	}
+      if (p->highintabs)
+	{
+	  printf
+	    ("... User selected High-Intensity Absorption imaging calculation.\n");
+	  printf ("... Below are the probe parameters that will be used. \n");
+	  probeintensity =
+	    2. * p->probepower / (M_PI * pow (p->probewaist, 2));
+	  printf ("  probepower    = %.3f mW\n", p->probepower);
+	  printf ("  probewaist    = %.3f cm\n", p->probewaist);
+	  printf ("  probeintensity= %.3f isat\n", probeintensity / isat);
+	}
+    }
+  else if (p->fluor)
+    {
+      printf ("--- FLUORESCENCE IMAGING ---\n");
+    }
+  else if (p->phc)
+    {
+      phc_signal = gsl_matrix_alloc (s1, s2);	// A matrix of the phase-contrast Signal at each pixel.
+      sigma0 = 3 * M_PI * pow (p->lambda / 2. / M_PI, 2);
+      isat = 10.2;
+      det = p->det * 1.e6 / p->gamma;	//detuning in units of gamma
+      state1det = det;
+      p->imgbfield = (-1. * (p->hfimg + p->det) - 100.0 - 163.7) / -1.414;
+      delta12 = split12 (p->imgbfield) * 1.e6 / p->gamma;	// Splitting between states |1> and |2> 
+      state2det = state1det + delta12;
+
+      printf ("---  PHASE-CONTRAST PARAMETERS: ---\n");
+      if (p->twostates)
+	printf ("  two states = true\n");
+      else
+	printf ("  two states = false\n");
+      printf ("  img bfield = %.2f Gauss\n", p->imgbfield);
+      printf ("  hfimg      = %.2f MHz\n", p->hfimg);
+      printf ("  Phc det    = %+-3.2f Gamma  = %+-3.2f MHz\n",
+	      det, det * p->gamma / 1.e6);
+      printf ("  |1> to |2> = %+-3.2f Gamma  = %+-3.2f MHz\n",
+	      delta12, delta12 * p->gamma / 1.e6);
+    }
+
+
+  /********************************************
+  *
+  *  Iterate over the image matrices to calculate the column
+  *  density in each pixel
+  *
+  *********************************************/
+  for (unsigned int i = 0; i < s1; i++)
+    {
+      for (unsigned int j = 0; j < s2; j++)
+	{
+
+	  at = gsl_matrix_get (atoms, i, j);
+	  noat = gsl_matrix_get (noatoms, i, j);
+	  atref = gsl_matrix_get (atomsref, i, j);
+	  noatref = gsl_matrix_get (noatomsref, i, j);
+	  if (p->eigenface && noatref != 0. && p->eigenface_done)
+	    {
+	      printf ("eigenface error: noatref != 0, noatref = %.3f\n",
+		      noatref);
+	    }
+
+	  if (p->Nframes == 2)
+	    {
+	      // Ensure theres is no probe normalization
+	      // Ensure reference frames are considered zero
+	      norm_noat = 1.;
+	      noatref = 0.;
+	      atref = 0.;
+	    }
+
+	  c0 = norm_noat * (noat - noatref);	// counts in no atoms frame
+	  c1 = at - atref;	// counts in atoms frame
+
+	  if (c0 < minCN)
+	    minCN = c0;
+	  if (c0 > maxCN)
+	    maxCN = c0;
+	  if (c1 < minCA)
+	    minCA = c1;
+	  if (c1 > maxCA)
+	    maxCA = c1;
+	  // eff is in mJ/count
+	  p0 = c0 * p->eff * p->photon_per_mJ;	// number of photons in pixel in noatoms frame
+	  Tp0 += p0;		// total number of photons in noatoms frame 
+
+
+
+	  i0 = (1 / loss) * (c0 * p->eff / (pow (p->magnif * 1e-4, 2)) / p->texp / (isat));	// intensity in noatoms frame in units of isat
+	  i0eff = i0 / p->alphastar;	// effective intensity in noatoms frame
+
+	  aveI += i0 / s1 / s2;
+	  if (i0 > maxI)
+	    {
+	      maxI = i0;
+	      double Ismooth = 0.;
+	      int nsmooth = 0;
+	      int dsmooth = 10;
+	      for (int ii = -dsmooth; ii <= dsmooth; ii++)
+		{
+		  for (int jj = -dsmooth; jj <= dsmooth; jj++)
+		    {
+		      if (i + ii >= 0 && i + ii < s1 && j + jj >= 0
+			  && j + jj < s2)
+			{
+			  double c0temp = gsl_matrix_get (noatoms, i + ii,
+							  j + jj) -
+			    gsl_matrix_get (noatomsref, i + ii, j + jj);
+			  Ismooth +=
+			    (c0temp * p->eff / (pow (p->magnif * 1e-4, 2)) /
+			     p->texp / (isat));
+			  nsmooth++;
+			}
+		    }
+		}
+	      maxIsmooth = Ismooth / nsmooth;
+	    }
+
+
+	  OD = log (fabs (c0 / c1));
+	  gsl_matrix_set (od_matrix, i, j, OD);
+	  if (OD > OD_err and ! p->fluor)
+	    {
+	      OD = OD_err;
+	      if (!OD_errmsg)
+		printf
+		  ("\n******   WARNING: Optical density too high !!! ******\n");
+	      OD_errmsg = true;
+	    }
+
+	  else if (OD > maxOD)
+	    maxOD = OD;
+
+
+	  /*********** ABSORPTION IMAGING ***************/
+	  if (!p->phc && !p->fluor)
+	    {
+
+	      term1 =
+		p->alphastar * (1. +
+				4. * det * det) * OD / sigma0 *
+		pow (p->magnif * 1e-4, 2);
+	      pee = i0eff / (1 + 2 * i0eff);
+	      avg_pee += pee / (s1 * s2);
+	      if (pee > maxPEE)
+		maxPEE = pee;
+	      //sp = scattered photons in pixel
+	      sp = (c0 - c1) * p->eff * p->photon_per_mJ;
+	      //sp = (c0 - c1) * 24.2;
+	      if (sp > maxSP)
+		maxSP = sp;
+	      //nsp = number of atoms in pixel, calculated from number of scattered photons
+	      nsp = sp / (pee * p->texp / p->decay);
+	      if (nsp > maxNSP)
+		maxNSP = nsp;
+	      Tsp += sp;	// total number of scattered photons
+	      Nsp += nsp;	// total number of atoms from scattered photons 
+	      term2 =
+		2 * i0 * (1. - c1 / c0) / sigma0 * pow (p->magnif * 1e-4, 2);
+	      if (term1 > maxT1)
+		maxT1 = term1;
+	      if (term2 > maxT2)
+		maxT2 = term2;
+	      cd = (term1 + term2);
+
+	      //Calculate column density from scattered photons
+	      cd_sp =
+		(1 -
+		 c1 / c0) * ((1 +
+			      2 * i0) / i0) * (p->decay /
+					       p->mJ_per_photon) *
+		pow (p->magnif * 1e-4, 2) * i0 * isat;
+
+	      //Calculate column density from scattered photons in the high intensity approximation
+	      //with probe power and beam waist provided by user
+	      cd_highintabs =
+		(1 -
+		 c1 / c0) * (2. * p->decay / p->mJ_per_photon) *
+		pow (p->magnif * 1e-4, 2) * (probeintensity);
+	      if (p->cdsp)
+		{
+		  cd = cd_sp;
+		}
+	      if (p->highintabs)
+		{
+		  cd = cd_highintabs;
+		}
+	    }
+
+	  /*********** FLUORESCENCE IMAGING ***************/
+	  else if (p->fluor)
+	    {
+
+	      cd = c1 - c0;
+	      nsp = 0.;		//this is not relevant for phase contrast so just make it zero.
+
+	    }
+
+	  /*********** PHASE - CONTRAST IMAGING ***************/
+	  else
+	    {
+	      signal = p->phcsign * (c1 / c0 - 1);
+	      gsl_matrix_set (phc_signal, i, j, signal);
+	      phase_shift = asin (signal);
+	      //phase_shift = -1.0 * det * signal / (0.5 - det);
+	      //cout << "signal = " << signal << " phi = " << phase_shift << endl; 
+	      if (fabs (phase_shift) > maxPHI)
+		maxPHI = phase_shift;
+	      //if (signal / (0.5 - det) > 0.5 || signal > 0.6)
+	      if (phase_shift > M_PI / 5.)
+		{
+		  if (!high_phase_shift_flag)
+		    printf
+		      ("\n******   WARNING: Maximum phase shift exceeds pi/5 !!! ******\n");
+		  high_phase_shift_flag = true;
+		}
+
+
+
+	      /* THIS IS THE OLD PHASE-CONTRAST CALCULATION */
+	      sig1 =
+		(0.5 - state1det) * sigma0 / pow (p->magnif * 1e-4,
+						  2) / (1 +
+							4 * state1det *
+							state1det + 2 * i0);
+	      sig2 =
+		(0.5 - state2det) * sigma0 / pow (p->magnif * 1e-4,
+						  2) / (1 +
+							4 * state2det *
+							state2det + 2 * i0);
+	      if (p->twostates)
+		cd = 2 * signal / (sig1 + sig2);	//columdensity
+	      else
+		cd = 2 * signal / (sig1);	//columdensity -> IF USING ONLY STATE 1 
+
+	      /* THIS IS THE NEW PHASE-CONTRAST CALCULATION */
+	      bool SHOW = false;
+	      cd =
+		ncol_phcimg (cd, signal, det, i0, p->imgbfield, p->twostates,
+			     SHOW, &calc);
+	      if (i == 302 && j == 200 && false)
+		{
+		  printf
+		    ("\nDEBUG PHASE-CONTRAST COLUMN DENSITY CALCULTION\n");
+		  printf (" i = %u, j = %u\n", i, j);
+		  printf ("    signal = %.6f\n", signal);
+		  printf ("        cd = %.3f\n", cd);
+		  printf ("signal(cd) = %.6f\n",
+			  signal_phcimg (cd, det, i0, p->imgbfield, true,
+					 true, &calc));
+		}
+
+
+	      nsp = 0.;		//this is not relevant for phase contrast so just make it zero.
+	      // sanity check
+	      /*if ( !sanity_check_flag){
+	         printf("det    = %.3e * Gamma\n", det );
+	         printf("det^2  = %.3e * Gamma^2\n", det*det );
+	         printf("i0     = %.3e * Isat\n", i0 );
+	         printf("sigma0 = %.3e\n", sigma0 );
+	         printf("sig1   = %.3e\n", sig1);
+	         printf("sig2   = %.3e\n", sig2);
+	         printf("cd     = %.3e\n", cd);
+	         printf("signal = %.3e\n",signal);
+	         } */
+	    }
+	  if (cd > maxCD)
+	    {
+	      maxCD = cd;
+	      c0CDMAX = c0;
+	      c1CDMAX = c1;
+	      if (p->phc)
+		calcMAX = calc;
+	      if (!p->phc && !p->fluor)
+		{
+		  maxCDterm1 = term1;
+		  maxCDterm2 = term2;
+		}
+	    }
+
+	  if (cd > 0.)
+	    {
+	      aveIweighted += i0 * cd;
+	      sumcd += cd;
+	    }
+
+	  gsl_matrix_set (columndensity_scattered_ph, i, j, nsp);
+	  gsl_matrix_set (columndensity, i, j, cd);
+	  gsl_matrix_set (missing_counts, i, j, c1 - c0);
+	  gsl_matrix_set (probe, i, j, c0);
+	}
+    }
+
+  aveIweighted = aveIweighted / sumcd;
+
+  if (!p->fluor)
+    {
+      unsigned int smooth_bins = 4;
+      gsl_matrix *od_matrix_smoothed = smooth (od_matrix, smooth_bins);
+      unsigned int odmax_i, odmax_j;
+      double od_max_pos;
+      findpeak (od_matrix_smoothed, &odmax_i, &odmax_j, &od_max_pos, true);
+      maxOD = od_max_pos;
+    }
+  if (p->phc && !p->fluor)
+    {
+      unsigned int smooth_bins = 4;
+      gsl_matrix *phc_signal_smoothed = smooth (phc_signal, smooth_bins);
+      unsigned int phcsig_i, phcsig_j;
+      double phcsig_max_pos, phcsig_max_neg;
+      findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j,
+		&phcsig_max_pos, true);
+      findpeak (phc_signal_smoothed, &phcsig_i, &phcsig_j,
+		&phcsig_max_neg, false);
+      maxPHCSIG =
+	fabs (phcsig_max_pos) >
+	fabs (phcsig_max_neg) ? phcsig_max_pos : phcsig_max_neg;
+    }
+
+
+
+  if (VERBOSE || p->imgverbose)
+    {
+      cout << endl << "------------ Column Density Stats ------------" <<
+	endl;
+      if (!p->phc && !p->fluor)
+	{
+	  cout << endl << "----> Method used : absorption" << endl;
+	  printf ("\tSample contains: %s\n",
+		  p->twostates ? "spin mixture of |1> and |2>" :
+		  "only atoms in state |1>");
+	  cout << "\ts1=" << s1 << ", s2=" << s2 << endl;
+	  cout << "\talphastar = " << p->alphastar << endl;
+	  cout << "\tmax term1 (OD) = " << maxT1 << endl;
+	  cout << "\tmax term2 (sp) = " << maxT2 << endl;
+	  cout << "\tmax OD = " << maxOD << endl;
+	  cout << "\tmax probe intensity = " << maxI << " Isat " << endl;
+	  printf ("\tmax probe intensity = %.3f mW/cm^2\n", maxI * isat);
+	  printf ("\tmax CD = %.5f ( = %.3f + %.3f)\n", maxCD, maxCDterm1,
+		  maxCDterm2);
+	  printf ("\tmax CD, cNOATOMS = %.3f\n", c0CDMAX);
+	  printf ("\tmax CD, cATOMS = %.3f\n", c1CDMAX);
+	  cout << "\tmax scattered photons = " << maxSP << endl;
+	  cout << "\tmax number from scattered photons = " << maxNSP << endl;
+	  cout << "\tmax rho_{ee} = " << maxPEE << endl;
+	  cout << "\tavg rho_{ee} = " << avg_pee << endl;
+	  printf ("\tcounts in atoms picture:     ( %f to %f )\n",
+		  minCA, maxCA);
+	  printf ("\tcounts in no atoms picture:  ( %f to %f )\n",
+		  minCN, maxCN);
+	  cout << "\ttotal scattered photons = " << Tsp << endl;
+	  cout << "\ttotal number from scattered photons = " << Nsp << endl;
+	  cout << "\ttotal number of photons in probe pulse = " << Tp0
+	    << endl;
+	  if (VERBOSE)
+	    {
+	      cout << "First few elements of column density matrix: " << endl;
+	      for (int i = 0; i < 5; i++)
+		{
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ",
+			      gsl_matrix_get (columndensity, i, j));
+		    }
+		  cout << "... " << endl;
+		}
+	    }
+
+	}
+      else if (p->fluor)
+	{
+	  cout << endl << "----> Method used : flourescence counting photons"
+	    << endl;
+	  printf ("\tmax photons in pixel = %.5f \n", maxCD);
+	  printf ("\tcounts in atoms picture:     ( %f to %f )\n",
+		  minCA, maxCA);
+	  printf ("\tcounts in no atoms picture:  ( %f to %f )\n",
+		  minCN, maxCN);
+	}
+      else
+	{
+	  cout << endl << "----> Method used : phase contrast" << endl;
+	  printf ("\tSample contains: %s\n",
+		  p->twostates ? "spin mixture of |1> and |2>" :
+		  "only atoms in state |1>");
+	  cout << "\ts1=" << s1 << ", s2=" << s2 << endl;
+	  cout << "\tmax probe intensity = " << maxI << " Isat " << endl;
+	  printf ("\tmax probe intensity = %.3f mW/cm^2\n", maxI * isat);
+	  cout << "\tmax PHI = " << maxPHI << endl;
+	  cout << "\tmax CD = " << maxCD << endl;
+	  printf ("\tmax CD, cATOMS = %.3f\n", c1CDMAX);
+	  printf ("\tmax CD, cNOATOMS = %.3f\n", c0CDMAX);
+	  printf ("\tmax CD, alpha    = %.6f\n", calcMAX.alpha);
+	  printf ("\tmax CD, alpha_pi = %.6f\n", calcMAX.alpha_pi);
+	  printf ("\tmax CD, phi      = %.6f\n", calcMAX.phi);
+	  printf ("\tmax CD, phi_pi   = %.6f\n", calcMAX.phi_pi);
+	  printf ("\tmax CD, atoms    = %.6f\n", calcMAX.atoms);
+	  printf ("\tmax CD, noatoms  = %.6f\n", calcMAX.noatoms);
+	  printf ("\tcounts in atoms picture:     ( %f to %f )\n",
+		  minCA, maxCA);
+	  printf ("\tcounts in no atoms picture:  ( %f to %f )\n",
+		  minCN, maxCN);
+	  cout << "\ttotal number of photons in probe pulse = " << Tp0
+	    << endl;
+	  if (VERBOSE)
+	    {
+	      cout << "First few elements of column density matrix: " << endl;
+	      for (int i = 0; i < 5; i++)
+		{
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ",
+			      gsl_matrix_get (columndensity, i, j));
+		    }
+		  cout << "... " << endl;
+		}
+	    }
+
+	}
+
+    }
+  return;
+}
+
+void
+Fermions::SaveColumnDensity ()
+{
+  /********************************************
+  Four matrices are saved here 
+
+  ... The same four that are created inside Fermions::ComputeColumnDensity() 
+
+  ********************************************/
+  char base[MAXPATHLEN];
+  getcwd (base, MAXPATHLEN);
+  string column_path = makepath (base, p->shotnum_fileout, "_column.TIFF");
+  string scatt_path =
+    makepath (base, p->shotnum_fileout, "_column_scatt.TIFF");
+  string missing_path =
+    makepath (base, p->shotnum_fileout, "_missing_counts.TIFF");
+  string probe_path = makepath (base, p->shotnum_fileout, "_probe.TIFF");
+  string column_ascii_path =
+    makepath (base, p->shotnum_fileout, "_column.ascii");
+  string scatt_ascii_path =
+    makepath (base, p->shotnum_fileout, "_column_scatt.ascii");
+  string missing_ascii_path =
+    makepath (base, p->shotnum_fileout, "_missing_counts.ascii");
+  string probe_ascii_path =
+    makepath (base, p->shotnum_fileout, "_probe.ascii");
+  if (p->savetiff)
+    {
+      toTiffImage (columndensity, column_path);
+      toTiffImage (columndensity_scattered_ph, scatt_path);
+      toTiffImage (probe, probe_path);
+      toTiffImage (missing_counts, missing_path);
+    }
+
+  save_gsl_matrix_ASCII (columndensity, column_ascii_path);
+  if (p->saveascii)
+    {
+      save_gsl_matrix_ASCII (columndensity_scattered_ph, scatt_ascii_path);
+      save_gsl_matrix_ASCII (probe, probe_ascii_path);
+      save_gsl_matrix_ASCII (missing_counts, missing_ascii_path);
+    }
+  return;
+}
+
+
+
+void
+Fermions::CropAll (unsigned int roi[4])
+{
+  gsl_matrix *cropped_columndensity = cropImage_ROI (roi, columndensity);
+  gsl_matrix *cropped_columndensity_scattered_ph =
+    cropImage_ROI (roi, columndensity_scattered_ph);
+  gsl_matrix *cropped_probe = cropImage_ROI (roi, probe);
+  gsl_matrix *cropped_missing_counts = cropImage_ROI (roi, missing_counts);
+  gsl_matrix_free (columndensity);
+  gsl_matrix_free (columndensity_scattered_ph);
+  gsl_matrix_free (probe);
+  gsl_matrix_free (missing_counts);
+  columndensity = cropped_columndensity;
+  columndensity_scattered_ph = cropped_columndensity_scattered_ph;
+  probe = cropped_probe;
+  missing_counts = cropped_missing_counts;
+  return;
+}
+
+void
+Fermions::FindMoments ()
+{
+  Gaus2DGuess (columndensity, gaus2dfit, p->shotnum_fileout, false);
+  return;
+}
+
+
+void
+Fermions::MinimalCrop (double CROP_FACTOR)
+{
+  /********************************************
+  Three matrices are cropped here 
+ 
+  ... The same four that are created inside Fermions::ComputeColumnDensity() 
+
+  ********************************************/
+  if (VERBOSE)
+    cout << endl <<
+      "------------ CROPPING COLUMN DENSITY TO MINIMAL AREA------------"
+      << endl;
+  // Results from 2DGaus Fit are used to crop the column density
+  // center is (ci_,cj_)  
+  // sizes are (wi_1e, wj_1e)
+  // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
+  unsigned int roi[4];
+  // ROI pos
+  double pos0 = max (gaus2dfit[0] - CROP_FACTOR * gaus2dfit[1], 0.);
+  double pos1 = max (gaus2dfit[2] - CROP_FACTOR * gaus2dfit[3], 0.);
+  double siz0 = min (columndensity->size1 - pos0,
+		     gaus2dfit[0] + CROP_FACTOR * gaus2dfit[1] - pos0);
+  double siz1 = min (columndensity->size2 - pos1,
+		     gaus2dfit[2] + CROP_FACTOR * gaus2dfit[3] - pos1);
+  roi[0] = (unsigned int) floor (pos0);
+  roi[1] = (unsigned int) floor (pos1);
+  roi[2] = (unsigned int) floor (siz0);
+  roi[3] = (unsigned int) floor (siz1);
+
+  if (p->eigenface && p->eigenface_done)
+    {
+      // When doing eigenface a region is enforced by the user
+      roi[0] = p->roi[0];
+      roi[1] = p->roi[1];
+      roi[2] = p->roi[2];
+      roi[3] = p->roi[3];
+    }
+
+  if (VERBOSE)
+    {
+      printf
+	("    Determined ROI for minimal crop [%d,%d,%d,%d]\n",
+	 roi[0], roi[1], roi[2], roi[3]);
+    }
+
+  abs_ci += roi[0];
+  abs_cj += roi[1];
+  gaus2dfit[0] = gaus2dfit[0] - double (roi[0]);
+  gaus2dfit[2] = gaus2dfit[2] - double (roi[1]);
+  CropAll (roi);
+  if (VERBOSE)
+    {
+      printf ("\n    New matrix dimensions = %d, %d\n\n",
+	      (unsigned int) columndensity->size1,
+	      (unsigned int) columndensity->size2);
+    }
+  return;
+}
+
+void
+Fermions::Fit2DGauss (bool mott = 0, bool dual = 0)
+{
+
+  if (VERBOSE)
+    cout << endl <<
+      "------------ FIT COLUMN DENSITY WITH 2D GAUSSIAN ------------" << endl;
+  if (VERBOSE)
+    cout << endl;
+/* Here is the definition of the Gaus2D fit parameters 
+ 8
+ * The array gaus2dfit should be initialized by some other means 
+ * before calling this function. For example by using
+ * FindMoments() 
+ */
+/*gaus2dfit[0] = ci_;
+  gaus2dfit[1] = wi_1e;
+  gaus2dfit[2] = cj_;
+  gaus2dfit[3] = wj_1e;
+  gaus2dfit[4] = peak;
+  gaus2dfit[5] = 0.1; */
+  gaus2dfit_err[0] = 1e15;
+  gaus2dfit_err[1] = 1e15;
+  gaus2dfit_err[2] = 1e15;
+  gaus2dfit_err[3] = 1e15;
+  gaus2dfit_err[4] = 1e15;
+  gaus2dfit_err[5] = 1e15;
+
+  if (!p->blanks)
+    {
+      if (VERBOSE)
+	cout << endl <<
+	  "------------ Fitting with 2D Gaussian ------------" << endl;
+      fit2dgaus_err (columndensity, gaus2dfit, gaus2dfit_err);
+      if (mott)
+	{
+	  if (VERBOSE)
+	    cout << endl <<
+	      "------------ Fitting with 2D Mott ------------" << endl;
+	  /*Use regular 2d fit para as a initial guess for mott 2d gaussian fit */
+	  gaus2dfit_mott[0] = gaus2dfit[0];
+	  gaus2dfit_mott[1] = gaus2dfit[1];
+	  gaus2dfit_mott[2] = gaus2dfit[2];
+	  gaus2dfit_mott[3] = gaus2dfit[3];
+	  gaus2dfit_mott[4] = gaus2dfit[4];
+	  gaus2dfit_mott[5] = 1;
+	  fit2dmottgaus_neldermead (columndensity, gaus2dfit_mott);
+	  nfit_mott =
+	    gaus2dfit_mott[4] * M_PI * gaus2dfit_mott[1] * gaus2dfit_mott[3] *
+	    (1 +
+	     2 / M_SQRTPI * gaus2dfit_mott[5] * exp (-gaus2dfit_mott[5] *
+						     gaus2dfit_mott[5]) -
+	     gsl_sf_erf (gaus2dfit_mott[5]) +
+	     4.0 / 3.0 / M_SQRTPI * pow (gaus2dfit_mott[5],
+					 3) * exp (-gaus2dfit_mott[5] *
+						   gaus2dfit_mott[5]));
+	  peakd_mott =
+	    gaus2dfit_mott[4] / M_SQRTPI / pow (gaus2dfit_mott[1] *
+						gaus2dfit_mott[3],
+						0.5) *
+	    exp (-gaus2dfit_mott[5] * gaus2dfit_mott[5]) / pow (p->magnif *
+								1e-4, 3);
+
+	  MakeGaus2DInspect (columndensity, gaus2dfit_mott,
+			     p->shotnum_fileout.c_str (), 1);
+	}
+      if (dual)
+	{
+	  if (VERBOSE)
+	    cout << endl <<
+	      "------------ Fitting with 2D Dual ------------" << endl;
+	  /*Get inital parameters from a combination of moments and the 2D Gaus 
+	     results */
+	  double moments_guess[6];
+	  Gaus2DGuess (columndensity, moments_guess, p->shotnum_fileout,
+		       false);
+
+	  // centers 
+	  gaus2dfit_dual[0] = gaus2dfit[0];
+	  gaus2dfit_dual[4] = gaus2dfit[2];
+	  // radii
+	  gaus2dfit_dual[1] = moments_guess[1];
+	  gaus2dfit_dual[5] = moments_guess[3];
+	  // sigma
+	  gaus2dfit_dual[2] = gaus2dfit[1] / 2.;
+	  gaus2dfit_dual[6] = gaus2dfit[3] / 2.;
+	  // h
+	  gaus2dfit_dual[3] = 0.65;
+	  gaus2dfit_dual[7] = 0.65;
+
+
+	  // height
+	  gaus2dfit_dual[8] = gaus2dfit[4];
+	  // offset
+	  gaus2dfit_dual[9] = gaus2dfit[5];
+
+
+
+	  fit2ddualgaus_neldermead (columndensity, gaus2dfit_dual);
+
+	  nfit_dual =
+	    gaus2dfit_dual[8] *
+	    dualgaus1d_integral (gaus2dfit_dual, 0) *
+	    dualgaus1d_integral (gaus2dfit_dual, 0);
+
+	  peakd_dual0 =
+	    gaus2dfit_dual[8] / dualgaus1d_integral (gaus2dfit_dual,
+						     0) / pow (p->magnif *
+							       1e-4, 3);
+	  peakd_dual1 =
+	    gaus2dfit_dual[8] / dualgaus1d_integral (gaus2dfit_dual,
+						     1) / pow (p->magnif *
+							       1e-4, 3);
+
+	  MakeGaus2DInspect (columndensity,
+			     gaus2dfit_dual, p->shotnum_fileout.c_str (), 2);
+	}
+
+      MakeGaus2DInspect (columndensity, gaus2dfit,
+			 p->shotnum_fileout.c_str (), 0);
+      gaus2d_eval_Azimuth (gaus2dfit, p->shotnum_fileout);
+    }
+
+  if (VERBOSE)
+    cout << endl;
+  nfit = gaus2dfit[4] * M_PI * gaus2dfit[1] * gaus2dfit[3];
+  if (VERBOSE || p->imgverbose)
+    {
+
+      printf ("\tnfit  = %.3f\n", nfit);
+      printf ("\tpeakd = %.3f\n", gaus2dfit[4]);
+      printf ("\tsize1 = %.3f\n", gaus2dfit[1]);
+      printf ("\tsize2 = %.3f\n", gaus2dfit[3]);
+    }
+  nfit_err =
+    pow (pow (gaus2dfit_err[4] * nfit / gaus2dfit[4], 2) +
+	 pow (gaus2dfit_err[1] * nfit / gaus2dfit[1],
+	      2) + pow (gaus2dfit_err[3] * nfit / gaus2dfit[3], 2), 0.5);
+
+  //--peakd obtainied using only size along i (up to 04/16/2013)
+  peakd = gaus2dfit[4] / (pow (M_PI, 0.5) * gaus2dfit[1]) / pow (p->magnif * 1e-4, 3);	// cm^-3
+
+  //--peakd_sph  is obtained using the geometric mean
+  peakd_sph = gaus2dfit[4] / (pow (M_PI * gaus2dfit[1] * gaus2dfit[3], 0.5)) / pow (p->magnif * 1e-4, 3);	// cm^-3
+
+  if (VERBOSE)
+    {
+      printf ("..............  GAUSSIAN 2D FIT RESULTS ..............\n");
+      printf ("ci  	  = %.1f pixels\n", gaus2dfit[0]);
+      printf ("wi   	  = %.1f pixels\n", gaus2dfit[1]);
+      printf ("cj    	  = %.1f pixels\n", gaus2dfit[2]);
+      printf ("wj   	  = %.1f pixels\n", gaus2dfit[3]);
+      printf ("peak 	  = %.3e \n", gaus2dfit[4]);
+      printf ("offset	  = %.3e \n", gaus2dfit[5]);
+      printf ("N from fit = %.3e \n", nfit);
+      if (mott)
+	{
+	  printf ("wi_mott    = %.1f pixels\n", gaus2dfit_mott[1]);
+	  printf ("ci_mott	  = %.1f pixels\n", gaus2dfit_mott[0]);
+	  printf ("cj_mott    = %.1f pixels\n", gaus2dfit_mott[2]);
+	  printf ("wj_mott    = %.1f pixels\n", gaus2dfit_mott[3]);
+	  printf ("r0_mott    = %.1f pixels\n", gaus2dfit_mott[5]);
+	  printf ("peak_mott  = %.3e \n", gaus2dfit_mott[4]);
+	  printf ("N_mott from fit = %.3e \n", nfit_mott);
+	}
+      if (dual)
+	{
+	  printf ("ci_dual    = %.1f pixels\n", gaus2dfit_dual[0]);
+	  printf ("ri_dual    = %.1f pixels\n", gaus2dfit_dual[1]);
+	  printf ("si_dual    = %.1f pixels\n", gaus2dfit_dual[2]);
+	  printf ("hi_dual    = %.1f pixels\n", gaus2dfit_dual[3]);
+	  printf ("cj_dual    = %.1f pixels\n", gaus2dfit_dual[4]);
+	  printf ("rj_dual    = %.1f pixels\n", gaus2dfit_dual[5]);
+	  printf ("sj_dual    = %.1f pixels\n", gaus2dfit_dual[6]);
+	  printf ("hj_dual    = %.1f pixels\n", gaus2dfit_dual[7]);
+
+	  printf ("peakd_dual0  = %.3e \n", peakd_dual0);
+	  printf ("peakd_dual1  = %.3e \n", peakd_dual1);
+	  printf ("N_dual from fit = %.3e \n", nfit_dual);
+	}
+    }
+  TF = p->hvbar * pow (6 * nfit, 1. / 3.);
+  if (VERBOSE)
+    {
+      printf
+	("..........  DETERMINE FERMI TEMPERATURE FROM NUMBER ..........\n");
+      printf (" h * ( v_r * v_r * va )^1/3 = %.3f uK\n", p->hvbar);
+      printf ("                         TF = %.3f uK\n", p->hvbar);
+    }
+
+  residuals = gaus2d_residual (columndensity, gaus2dfit);
+  unsigned int ci = coerce_matrix_index ((unsigned int) floor (gaus2dfit[0]),
+					 columndensity->size1);

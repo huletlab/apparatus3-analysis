@@ -1,0 +1,1000 @@
+/*
+ *
+ *  Evaluator class for absorption images of Fermions taken with Apparatus 3
+ *
+ *
+ *  Author : Pedro M Duarte  Feb 2011
+ *
+ * 
+ */
+
+
+// This structure contains all parameters relevant for analysis
+
+// Convention is  size1 : 0 : radial : i
+//                size2 : 1 : axial  : j 
+
+
+#include <math.h>
+#include <sstream>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_roots.h>
+#include <gsl/gsl_sf_erf.h>
+
+extern bool VERBOSE;
+
+
+struct params
+{
+  unsigned int shot;
+
+  string shotnum, reportfile, atomsfile, noatomsfile, atomsreffile,
+    noatomsreffile, ASCIIfile;
+
+  string shotnum_fileout;
+
+  // ROI is defined as (ax0pos, ax1pos, ax0size, ax1size)
+  unsigned int roi[4], roisize[2], centerpt[2];
+  // The parameter for 1d cut fit nrows,ncols,c0,c1
+  int onedcutn[4];
+  bool keeproi;
+  int Nframes;
+
+  bool verbose, center, crop, plots, reanalyze, roi_user,
+    fitfermi1D, fermi2d, fermiazimuth, showfermi, show_B, blanks, gaus2d_mott,
+    gaus2d_dual;
+
+  // Use high intensity number from scattered photons in absorption imaging
+  bool highintabs;
+  double probepower;		//power of probe beam is required for this calculation
+  double probewaist;		//
+
+  // Use column density from scattered photons in absorption imaging
+  bool cdsp;
+
+  // Override the magnification 
+  bool magnif_override;
+  double magnif_user;
+
+  // Override the probe beam waist
+  bool probewaist_override;
+  double probewaist_user;
+
+  // One state or two states?
+  bool twostates;
+
+  // Be verbose about imaging
+  bool imgverbose;
+
+  // Be verbose about calculating azimuthal averages
+  bool azimverbose;
+
+  // Do eigenface cleanup?
+  bool eigenface;
+  bool eigenface_done;
+
+  // Whether or not to save ASCII or TIFF files
+  // Useful for debugging the algorithms
+  bool saveascii, savetiff;
+
+  // Decide if AzimuthalAverage should use an aspect ratio
+  // correction for elliptical clouds. 
+  // true = no correction 
+  bool azimuth_noaspect;
+
+  double azimuth_maxr, azimuth_chop, azimuth_start;
+
+  double lambda, hc, gamma, magnif, kbm, decay;
+
+  double h;
+
+  // Image parameters
+  double texp, odttof, det, hfimg, imgbfield;
+
+  // Evap parameters
+  double free, p1, t1, tau, beta, p0, offset, t2, tau2, image;
+  double finalcpow;
+  double trapdepth, hvbar;
+
+  // ODTCALIB parameters
+  double odtmaxpow, odtmaxdepth, odtv0radial, odtv0axial;
+
+  // Trap frequencies and geometry factors
+  bool w_user;
+  double w;
+  double wx0, wy0, wz0, a, b, B1, B2, AR;
+
+  // Camera efficiency calibration
+  double andoreff_10MHz_14bit_x1_Electron_Mult,
+    andoreff_10MHz_14bit_x5_Electron_Mult_300_BaselineOffset, eff;
+
+  double mJ_per_photon, photon_per_mJ;
+
+  // Absorption imaging cailbration
+  double alphastar;
+
+  // Phase-Contrast analysis
+  bool phc;
+  double phcsign;
+
+  // Fluorescence analysis
+  bool fluor;
+
+  // Analyze pictures from second camera
+  bool andor2;
+
+  // Only calculate column density, do not attempt fits
+  bool onlyCD;
+
+  // Make nice figures of column density and azimuthal density
+  // ready for talks 
+  bool pubqual;
+  //Load a ASCII file instead of a FITS
+  bool loadASCII;
+};
+
+double
+b_i (double w, double t)
+{
+  return w * w / (1 + w * w * t * t);
+};
+
+void
+init_params (struct params *p)
+{
+  /************* PARAMETERS OBTAINED FROM REPORT *******/
+  p->texp = (double) getINI_num (p->reportfile, "ANDOR", "exp") * 1e-3;	// Exposure in seconds
+  p->odttof = (double) getINI_num (p->reportfile, "ODT", "odttof");	// odttof in ms
+
+  p->hfimg = (double) getINI_num (p->reportfile, "ANDOR", "hfimg");	// hfimg in MHz
+
+  double hfimg0 = (double) getINI_num (p->reportfile, "ANDOR", "hfimg0");	// State |1> resonance frequency in MHz
+  if (hfimg0 < -1.e10)
+    {
+      printf
+	("Used ANDOR:phcdet to determine phase-contrast detuning, because hfimg0 does not exist\n");
+      p->det = (double) getINI_num (p->reportfile, "ANDOR", "phcdet");	// phase contrast detuning in MHz
+    }
+  else
+    {
+      p->det = hfimg0 - p->hfimg;
+    }
+
+
+
+
+  p->phc = (bool) getINI_num (p->reportfile, "ANDOR", "phc");	// phase contrast 
+  p->phcsign = (double) getINI_num (p->reportfile, "ANDOR", "phcsign");	// prefactor in the calculation of the phase contrast signal
+  p->fluor = (bool) getINI_num (p->reportfile, "ANDOR", "fluor");	// fluorescence counting
+
+  double Nframes = (double) getINI_num (p->reportfile, "ANDOR", "saveframes");
+  if (Nframes < -1.e10)
+    {
+      printf
+	("Used 4 frames for ANDOR.  Could not find ANDOR:saveframes key to determine number of frames\n");
+      p->Nframes = 4;
+    }
+  else
+    {
+      p->Nframes = (int) floor (Nframes);
+    }
+  if (p->Nframes == 2)
+    {
+      p->fluor = true;
+    }
+
+  //If pictures come from Andor2, then fluorescence analysis is done
+  if (p->andor2)
+    {
+      p->fluor = true;
+      printf ("\n--- ANDOR 2 PICTURES ---\n");
+      p->shotnum_fileout = p->shotnum + "_andor2";
+    }
+  else
+    p->shotnum_fileout = p->shotnum;
+
+
+
+  //If pictures are blanks then it does not do any fitting
+  bool auxblanks = (bool) getINI_num (p->reportfile, "ANDOR", "blanks");	// taking blanks ?
+  p->blanks = p->blanks || auxblanks;	// if either the command line or the report says it, these are blanks
+
+//  p->det = -240.;
+//  p->phc = 0.;
+//  p->phcsign = 1.;
+  double magnif_INI = (double) getINI_num (p->reportfile, "ANDOR", "magnif");
+  if (magnif_INI == INI_ERROR)
+    printf
+      ("\n   Did not find ANDOR:magnif in the report file.\n   Using hard-coded value %.2f um/pixel\n\n",
+       p->magnif);
+  else
+    p->magnif = magnif_INI;
+
+  if (p->magnif_override)
+    {
+      p->magnif = p->magnif_user;
+    }
+
+  p->free = (double) getINI_num (p->reportfile, "EVAP", "free");	// 
+  p->p1 = (double) getINI_num (p->reportfile, "EVAP", "p1");	// 
+  p->t1 = (double) getINI_num (p->reportfile, "EVAP", "t1");	// 
+  p->tau = (double) getINI_num (p->reportfile, "EVAP", "tau");	// 
+  p->beta = (double) getINI_num (p->reportfile, "EVAP", "beta");	// 
+  p->p0 = (double) getINI_num (p->reportfile, "ODT", "odtpow0");	// 
+  p->offset = (double) getINI_num (p->reportfile, "EVAP", "offset");	// 
+  p->t2 = (double) getINI_num (p->reportfile, "EVAP", "t2");	// 
+  p->tau2 = (double) getINI_num (p->reportfile, "EVAP", "tau2");	// 
+  p->image = (double) getINI_num (p->reportfile, "EVAP", "image");	//
+  p->finalcpow = (double) getINI_num (p->reportfile, "EVAP", "finalcpow");
+  p->odtmaxpow = (double) getINI_num (p->reportfile, "ODTCALIB", "maxpow");
+  p->odtmaxdepth =
+    (double) getINI_num (p->reportfile, "ODTCALIB", "maxdepth");
+  p->odtv0radial =
+    (double) getINI_num (p->reportfile, "ODTCALIB", "v0radial");
+  p->odtv0axial = (double) getINI_num (p->reportfile, "ODTCALIB", "v0axial");
+
+
+  /************* HARD-CODED PARAMETER VALUES ***********/
+
+
+  p->eigenface_done = false;
+
+  p->lambda = 670.977e-7;	// cm
+  p->hc = 1.98644521e-25;	// J*m 
+  p->gamma = 5.9e6;		// Hertz
+  p->decay = 27.2e-9;		// Seconds
+
+  p->mJ_per_photon = 1.e3 * (p->hc / (p->lambda * 1.e-2));
+  p->photon_per_mJ = 1. / p->mJ_per_photon;
+
+
+  p->kbm = 1385.;		// um^2/ms^2/uK This is kb/m
+
+  p->probewaist = 0.275;	// cm
+  if (p->probewaist_override)
+    {
+      printf ("override probe waist \n");
+      p->probewaist = p->probewaist_user;
+    }
+
+
+  /*** OLD METHOD FOR DETERMINING ANDOR EFFICIENCY - BEFORE SEPTEMBER 2012 ***/
+  /***double emp = 0.88;
+  p->andoreff_10MHz_14bit_x1_Electron_Mult =
+    p->mJ_per_photon * (67.9 / 0.95 / emp);
+  // mJ/count = (mJ per photon) * (electrons per A/D count  / QuantumEff / EmpiricalCorrectionFactor) 
+  emp = 0.95;
+  p->andoreff_10MHz_14bit_x5_Electron_Mult_300_BaselineOffset =
+    p->mJ_per_photon * (12.9 / 0.95 / emp);***/
+  //p->eff = p->andoreff_10MHz_14bit_x1_Electron_Mult;
+  //p->eff = p->andoreff_10MHz_14bit_x5_Electron_Mult_300_BaselineOffset;
+
+
+  /*** ANDOR EFFICIENCY CALIBRACTION - SEPTEMBER 2012 ***/
+  //  measured probe beam waist =  2750 um 
+  //  *Russ Book #4, Page 99. 
+  //  *Also in /home/russhart/Probe beam and Camera/ProbeSize 09 06 11.nb)
+  //  On 120827 we took pictures at different powers for the probe beam
+  //  using a magnification M = 5.  From those pictures (see Pedro Book #5,
+  //  Page 232)  we obtained a calibration of the photons/count for the
+  //  Andor 
+  //  Peak photons incident on camera per pixel per us:
+  //  2*P/(pi*(M*w_probe)^2) * (1e-6 sec/usec) * (16 um/pixel)^2 / ( 2.96e-16 mJ/count)  
+  //  = 2912.2 * ( P in mW ) 
+  //  The peak counts per pixel per us were measured as a function of power
+  //  and  were fitted to a line (see excel file in 
+  //  /home/russhart/Probe beam and Camera/)
+  //  = 111.14 * ( P in mW )  using peak counts
+  //  = 142.48 * ( P in mW )  using 10 pixel smoothed data
+  //  Putting together the last two above we get
+  //  2912.2 / 111.14 = 26.2 photons/count
+  //  2912.2 / 142.48 = 20.4 photons/count
+  //  From this we obtain the efficiency of the camera:
+  //p->eff = pow (0.275 / p->probewaist, 2) * 26.2 * 2.96e-16;  // mJ/count
+  p->eff = 26.2 * 2.96e-16;	// mJ/count
+
+  //*** THE MAGNIFICATION SHOULD NOW BE IN ANDOR:magnif ***//
+  // 16um/pixel for the Andor, using the 5x obj with the telephoto at f=200
+  //p->magnif = 16. / 5.;
+
+
+  p->h = 48.;			// uK/MHz  this is Planck's constant divided by Boltzmann's constant 
+  // Obtain trap depth from report
+  p->trapdepth = p->finalcpow / 10. * p->odtmaxdepth;
+
+
+  // Calculate the geometric mean of trap frequencies
+  // Useful to obtain the Fermi temperature
+  // EF = h vbar (6N)^(1/3)
+  p->hvbar = p->h * pow (p->odtv0radial * p->odtv0radial * p->odtv0axial, 1. / 3.) * sqrt (p->finalcpow / 10.) * 1e-6;	// 1e-6 is to give the trap freqs in MHz
+  if (VERBOSE)
+    {
+      printf
+	("..........  DETERMINE GEOMETRIC MEAN OF TRAPPING FREQUENCIES ..........\n");
+      printf (" Initial trap depth = %.3f uK\n", p->odtmaxdepth);
+      printf ("   Final trap depth = %.3f uK\n", p->trapdepth);
+      printf ("   Final trap depth = %.3f %%\n", p->finalcpow / 10. * 100.);
+      printf ("  Start radial freq = %.3f Hz\n", p->odtv0radial);
+      printf ("   Start axial freq = %.3f Hz\n", p->odtv0axial);
+      printf ("  Final radial freq = %.3f Hz\n",
+	      p->odtv0radial * sqrt (p->finalcpow / 10.));
+      printf ("   Final axial freq = %.3f Hz\n",
+	      p->odtv0axial * sqrt (p->finalcpow / 10.));
+      printf (" h * ( v_r * v_r * va )^1/3 = %.3f uK\n", p->hvbar);
+    }
+
+
+  //DEBUG: 
+  //printf("trap depth = %f\n", p->trapdepth); 
+  //printf("hvbar      = %f\n", p->hvbar); 
+  // Trap frequencies in kilohertz
+  if (!p->w_user)
+    p->w = 3.800;
+
+  p->wx0 = p->w * 2 * M_PI;
+  p->wy0 = p->w * 2 * M_PI;
+  p->wz0 = p->w * 2 * M_PI / 8.;
+
+  p->a = cos (52.5 * M_PI / 180.);
+  p->b = sin (52.5 * M_PI / 180.);
+
+
+  double ws = sqrt (p->finalcpow / 10.);
+  double wx = ws * p->wx0;
+  double wy = ws * p->wy0;
+  double wz = ws * p->wz0;
+
+  //  b(w,t) = w^2/(1+w^2*t^2) 
+
+  double bx = b_i (wx, p->odttof);
+  double by = b_i (wy, p->odttof);
+  double bz = b_i (wz, p->odttof);
+
+  double a = p->a * p->a;
+  double b = p->b * p->b;
+
+  p->B1 =
+    -1 * (a * b * (bz - bx) * (bz - bx) / (b * bx + a * bz) - a * bx -
+	  b * bz);
+  p->B2 = by;
+
+
+  //DEBUG 
+  if (p->show_B)
+    {
+      //printf("%s: w = %.3f , 1/t^2 = %.5f , B1 = %.5f, B2 = %.5f\n", (p->shotnum).c_str(), p->w, 1/(p->odttof*p->odttof), p->B1, p->B2); 
+      printf ("%.3f\t%.5f\t%.5f\t%.5f\n", p->w, 1 / (p->odttof * p->odttof),
+	      p->B1, p->B2);
+      exit (0);
+    }
+};
+
+
+  /********************************************
+  PHASE-CONTRAST IMAGING CALCULATION
+  ********************************************/
+
+struct phc_calc
+{
+  double alpha;
+  double alpha_pi;
+  double phi;
+  double phi_pi;
+  double atoms;
+  double noatoms;
+};
+
+
+
+class Fermions
+{
+public:
+
+  Fermions (struct params *params)
+  {
+    p = params;
+  }
+   ~Fermions ()
+  {
+    return;
+  }
+
+  void LoadFITS ();
+  void LoadASCII ();
+  double ncol_phcimg (double cd, double sig, double det, double i0,
+		      double imgbfield, bool twostates, bool SHOW,
+		      struct phc_calc *c);
+  double signal_phcimg (double ncol, double det, double i0, double imgbfield,
+			bool twostates, bool SHOW, struct phc_calc *c);
+  void ComputeColumnDensity ();
+  void SaveColumnDensity ();
+  void FindMoments ();
+  void MomentsCrop ();
+  void MinimalCrop (double CROP_FACTOR);
+  void CropAll (unsigned int roi[4]);
+  double GetNPixels ()
+  {
+    return columndensity->size1 * columndensity->size2;
+  }
+  void Fit2DGauss (bool mott, bool dual);
+  void Fit1DCuts ();
+  void FitScatt2DGauss ();
+  void FitProbe2DGauss ();
+  void Fit2DFermi ();
+  void ComputeIntegrated1DDensity ();
+  void GetAzimuthalAverageEllipse ();
+  void FitAzimuthalFermi ();
+  void MakePlots ();
+  void MakeGaus2DInspect (gsl_matrix * dat, const double fit_results[6],
+			  const char *prefix, int mott);
+  void MakeFermi2DInspect ();
+
+  struct params *p;
+
+  // Quantities obtained in computation of column density 
+  double maxI;
+  double maxIsmooth;
+  double aveI;
+  double aveIweighted;
+  double maxOD;
+  double maxCD;
+  double maxPHI;
+  double maxSP;
+  double maxNSP;
+  double maxPEE;
+  double maxCA;
+  double minCA;
+  double maxCN;
+  double minCN;
+  double Tp0;
+  double Tsp;
+  double Nsp;
+  double maxPHCSIG;		// Maximum phase-contrast signal
+
+  // Arrays for fit results 
+  double gaus2dfit[6];
+  double gaus2dfit_err[6];
+  double gaus2dfit_mott[6];
+  double gaus2dfit_dual[10];
+  double scatt2dfit[6];
+  double probe2dfit[5];
+  double fermi2dfit[7];
+  double fermi_azimuth_fit[5];
+  double fermi_azimuth_fit_zero[4];
+  double fit1d_gaus_0[4];
+  double fit1d_gaus_1[4];
+  double fit1dcut_gaus_0[4];
+  double fit1dcut_gaus_1[4];
+  double masked1dcut_size[2];
+  double fit1d_fermi_0[5];
+  double fit1d_fermi_1[5];
+
+  // Quantities obtained as results of fits
+  double abs_ci, abs_cj;	// centers of cloud in the uncropped pict
+  double abs_ci_1dcut, abs_cj_1dcut;	// centers of cloud in 1 d cut
+
+
+  unsigned int centeri, centerj;
+
+  double number_fit;
+  double number_count;
+  double nfit;
+  double nfit_mott;
+  double nfit_err;
+  double peakd;
+  double peakd_mott;
+  double peakd_sph;
+
+  double nfit_dual;
+  double peakd_dual0;
+  double peakd_dual1;
+
+  double TF;
+
+  double TF_rd, TF_ax, TF_2d, TF_az;	// T/TF for various Fermi fits obtained from BetaMu
+  double T_rd, T_ax, T_2d_rd, T_2d_ax, T_az;	// T for various Fermi fits obtained from cloud size
+
+
+  double n0, BetaMu, cj_Fermi, rj_Fermi, ci_Fermi, ri_Fermi, B_Fermi, Fugacity_Fermi, f_Fermi;	// 2D Fermi parameters 
+  double n0_az, BetaMu_az, r_az, B_az, mx_az, Fugacity_az, f_az;	// Azimuthal Fermi parameters
+  double n0_az_zeroT, r_az_zeroT, B_az_zeroT, mx_az_zeroT;	// Azimuthal Zero T Fermi parameters
+
+private:
+  gsl_matrix * atoms;
+  gsl_matrix *noatoms;
+  gsl_matrix *atomsref;
+  gsl_matrix *noatomsref;
+
+  gsl_matrix *probe;
+
+  gsl_matrix *columndensity;
+  gsl_matrix *residuals;
+
+  gsl_matrix *columndensity_scattered_ph;
+  gsl_matrix *missing_counts;
+
+  gsl_vector *cutIdata;
+  gsl_vector *cutJdata;
+  gsl_vector *cutIgauss;
+  gsl_vector *cutJgauss;
+  gsl_vector *cutIfermi;
+  gsl_vector *cutJfermi;
+
+  gsl_vector *sum_density_0;
+  gsl_vector *sum_density_1;
+
+  gsl_vector *sum_missing_0;
+  gsl_vector *sum_missing_1;
+
+  gsl_vector *sum_density_0_dist;
+  gsl_vector *sum_density_1_dist;
+
+  gsl_vector *sum_density_0_fit_gaus;
+  gsl_vector *sum_density_1_fit_gaus;
+
+  gsl_vector *sum_density_0_fit_fermi;
+  gsl_vector *sum_density_1_fit_fermi;
+
+  unsigned int nbins, usedbins, fitbins;
+  double binsize;
+
+  //Arrays for azimuthal averaging
+  gsl_vector *azimuthal_all_r;
+  gsl_vector *azimuthal_all_dat;
+
+  gsl_vector *azimuthal_r;
+  gsl_vector *azimuthal_dat;
+
+  gsl_vector *icut_r;
+  gsl_vector *icut_dat;
+  gsl_vector *jcut_r;
+  gsl_vector *jcut_dat;
+
+  gsl_vector *gaus2d_fit;
+  gsl_vector *fermi2d_fit;
+  gsl_vector *azimuthal_fit;
+  gsl_vector *fermi2d_zero;
+  gsl_vector *azimuthal_zero;
+  gsl_vector *azimuthal_zero_fit;
+
+
+
+  double norm_noat;		//normalization constant for noatoms pict 
+  //unsigned int ci, cj, FWHMi, FWHMj, wi1e, wj1e;
+
+};
+
+void
+Fermions::LoadASCII ()
+{
+  //cout << "Trying to load ASCII\n";
+  columndensity = read_gsl_matrix_ASCII (p->ASCIIfile);
+  FindMoments ();
+  //p->roi[0] = 0.0;
+  //p->roi[1] = 0.0;
+  //p->roi[2] = columndensity->size1;
+  //p->roi[3] = columndensity->size2;
+}
+
+void
+Fermions::LoadFITS ()
+{
+  /********************************************
+  This function loads the FITS data from disk and computes the column density
+  matrices.   
+ 
+  It takes care of any necessary cropping as long as it is specified by the user,
+  autocropping is  done later.  
+
+  It calls the method ComputeColumnDensity()  to compute the column density.
+
+  ********************************************/
+
+  norm_noat = 1.0;
+  abs_ci = 0.;
+  abs_cj = 0.;
+
+  if (p->Nframes == 4)
+    {
+      atoms = ReadFitsImg_gsl_matrix (p->atomsfile);
+      noatoms = ReadFitsImg_gsl_matrix (p->noatomsfile);
+      atomsref = ReadFitsImg_gsl_matrix (p->atomsreffile);
+      noatomsref = ReadFitsImg_gsl_matrix (p->noatomsreffile);
+    }
+  else if (p->Nframes == 2)
+    {
+      atoms = ReadFitsImg_gsl_matrix (p->atomsfile);
+      noatoms = ReadFitsImg_gsl_matrix (p->noatomsfile);
+      atomsref = ReadZeros_gsl_matrix (atoms);
+      noatomsref = ReadZeros_gsl_matrix (atoms);
+    }
+  else
+    {
+      printf
+	(" ERROR:  The program does not know what to do if  Nframes =  %d\n",
+	 p->Nframes);
+    }
+
+
+
+  if (p->crop)
+    {
+      abs_ci += p->roi[0];
+      abs_cj += p->roi[1];
+
+      if (VERBOSE)
+	cout << endl << "------------ Cropping Images ------------";
+      gsl_matrix *catoms = p->roi_user ? cropImage_ROI (p->roi,
+							atoms) :
+	cropImage (p->reportfile,
+		   atoms);
+      gsl_matrix *cnoatoms = p->roi_user ? cropImage_ROI (p->roi,
+							  noatoms) :
+	cropImage (p->reportfile,
+		   noatoms);
+      gsl_matrix *catomsref = p->roi_user ? cropImage_ROI (p->roi,
+							   atomsref) :
+	cropImage (p->reportfile,
+		   atomsref);
+      gsl_matrix *cnoatomsref = p->roi_user ? cropImage_ROI (p->roi,
+							     noatomsref) :
+	cropImage (p->reportfile,
+		   noatomsref);
+      gsl_matrix_free (atoms);
+      gsl_matrix_free (noatoms);
+      gsl_matrix_free (atomsref);
+      gsl_matrix_free (noatomsref);
+      atoms = catoms;
+      noatoms = cnoatoms;
+      atomsref = catomsref;
+      noatomsref = cnoatomsref;
+    }
+
+
+  if (VERBOSE)
+    cout << endl;
+
+  unsigned int s1 = atoms->size1;
+  unsigned int s2 = atoms->size2;
+
+  if (s1 != noatoms->size1 || s2 != noatoms->size2)
+    {
+      cout << "Atoms and NoAtoms matrix dimensions differ!!" << endl;
+      exit (EXIT_FAILURE);
+    }
+
+  if (s1 != atomsref->size1 || s2 != atomsref->size2)
+    {
+      cout << "Atoms and Reference matrix dimensions differ!!" << endl;
+      exit (EXIT_FAILURE);
+    }
+
+  if (s1 != noatomsref->size1 || s2 != noatomsref->size2)
+    {
+      cout << "Atoms and noatoms Reference matrix dimensions differ!!" <<
+	endl;
+      exit (EXIT_FAILURE);
+    }
+
+  //Override this values to define a different normalization region
+  unsigned int imin, imax = s1;
+  unsigned int jmin, jmax = s2;
+  imin = imax - imax / 10;
+  jmin = jmax - jmax / 10;
+
+  gsl_matrix *norm = gsl_matrix_alloc (imax - imin, jmax - jmin);
+  double an = 0.0;		// sum_{i} atoms_{i} * noatoms_{i}
+  double nn = 0.0;		// sum_{i} noatoms_{i}^2 
+
+  double a_ = 0.0;		// sum_{i} atoms_{i}
+  double n_ = 0.0;		// sum_{i} noatoms_{i} 
+
+
+  double at, noat, atref, noatref, c0, c1;
+
+  for (unsigned int i = imin; i < imax; i++)
+    {
+      for (unsigned int j = jmin; j < jmax; j++)
+	{
+
+	  gsl_matrix_set (norm, i - imin, j - jmin,
+			  gsl_matrix_get (noatoms, i, j));
+
+	  at = gsl_matrix_get (atoms, i, j);
+	  noat = gsl_matrix_get (noatoms, i, j);
+	  atref = gsl_matrix_get (atomsref, i, j);
+	  noatref = gsl_matrix_get (noatomsref, i, j);
+
+	  c0 = noat - noatref;
+	  c1 = at - atref;
+
+	  an += c1 * c0;
+	  nn += c0 * c0;
+
+	  a_ += c1;
+	  n_ += c0;
+	}
+    }
+
+//  cout << "Norm (ave) = " << a_/n_ << endl; 
+//  cout << "Norm (min) = " << an/nn << endl; 
+
+  // Bad idea to use normalization at the moment because noatoms shot still has light 
+  // coupled into the fiber for 45 ms when the probe AOM is off
+  // norm_noat = an / nn;
+  norm_noat = 1.0;
+
+  char base[MAXPATHLEN];
+  getcwd (base, MAXPATHLEN);
+  string norm_path = makepath (base, p->shotnum_fileout, "_normpatch.TIFF");
+  if (p->savetiff)
+    toTiffImage (norm, norm_path);
+  gsl_matrix_free (norm);
+
+  ComputeColumnDensity ();
+  FindMoments ();
+
+  // OLD: auto-determination of eigen ROI
+  //double EIGEN_ROI_FACTOR = 3.0;
+  //double pos0 = max (gaus2dfit[0] - EIGEN_ROI_FACTOR * gaus2dfit[1], 0.);
+  //double pos1 = max (gaus2dfit[2] - EIGEN_ROI_FACTOR * gaus2dfit[3], 0.);
+  //double siz0 = min (columndensity->size1 - pos0,
+//                   gaus2dfit[0] + EIGEN_ROI_FACTOR * gaus2dfit[1] - pos0);
+//  double siz1 = min (columndensity->size2 - pos1,
+//                   gaus2dfit[2] + EIGEN_ROI_FACTOR * gaus2dfit[3] - pos1);
+
+
+  if (p->eigenface)
+    {
+      if (p->crop)
+	{
+	  cout <<
+	    "EIGENFACE : you must not use the crop flag (-c) when doing eigen"
+	    << endl;
+	}
+      else if (!p->roi_user)
+	{
+	  cout <<
+	    "EIGENFACE : you must always specify the ROI when doing eigen" <<
+	    endl;
+	  cout << "            ROI is used as the mask region for eigen" <<
+	    endl;
+	}
+      else
+	{
+	  double pos0 = p->roi[0];
+	  double pos1 = p->roi[1];
+	  double siz0 = p->roi[2];
+	  double siz1 = p->roi[3];
+	  stringstream eigenfacestr;
+	  eigenfacestr << "eigenface.py ";
+	  eigenfacestr << p->shotnum << " ";
+	  eigenfacestr << pos0 << "," << pos1 << "," << siz0 << "," << siz1 <<
+	    " ";
+	  eigenfacestr << "50";
+	  stringstream eigen_background;
+	  eigen_background << p->shotnum << "_eigenclean.ascii";
+	  string eigen_filename = eigen_background.str ();
+	  if (VERBOSE)
+	    {
+	      cout <<
+		"First few elements of noatoms matrix BEFORE eigenface: " <<
+		endl;
+	      for (int i = 0; i < 5; i++)
+		{
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ", gsl_matrix_get (noatoms, i, j));
+		    }
+		  cout << "... " << endl;
+		}
+	    }
+	  if (VERBOSE)
+	    {
+	      cout <<
+		"First few elements of noatomsref matrix BEFORE eigenface: "
+		<< endl;
+	      for (int i = 0; i < 5; i++)
+		{
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ", gsl_matrix_get (noatomsref, i, j));
+		    }
+		  cout << "... " << endl;
+		}
+	    }
+
+
+	  printf ("\n%s\n", eigenfacestr.str ().c_str ());
+	  system (eigenfacestr.str ().c_str ());
+
+	  // noatomsref matrix is set to all zeros
+	  for (unsigned int i = 0; i < s1; i++)
+	    {
+	      for (unsigned int j = 0; j < s2; j++)
+		{
+		  gsl_matrix_set (noatomsref, i, j, 0.);
+		}
+	    }
+	  // noatoms matrix is read from disk
+	  noatoms = read_gsl_matrix_ASCII (eigen_filename);
+	  p->eigenface_done = true;
+
+	  ComputeColumnDensity ();
+	  FindMoments ();
+
+	  if (VERBOSE)
+	    {
+	      cout << "First few elements of noatoms matrix AFTER eigenface: "
+		<< endl;
+	      for (int i = 0; i < 5; i++)
+		{
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ", gsl_matrix_get (noatoms, i, j));
+		    }
+		  cout << "... " << endl;
+		}
+	    }
+	  if (VERBOSE)
+	    {
+	      cout <<
+		"First few elements of noatomsref matrix AFTER eigenface: " <<
+		endl;
+	      for (int i = 0; i < 5; i++)
+		{
+		  for (int j = 0; j < 5; j++)
+		    {
+		      printf ("%.5f\t ", gsl_matrix_get (noatomsref, i, j));
+		    }
+		  cout << "... " << endl;
+		}
+	    }
+    }}
+
+  return;
+}
+
+
+
+  /********************************************
+  PHASE-CONTRAST IMAGING CALCULATION
+  ********************************************/
+
+
+struct phc_params
+{
+  double sig;
+  double det;
+  double i0;
+  double imgbfield;
+  bool twostates;
+  bool SHOW;
+  double lambda;
+  double gamma;
+  double magnif;
+  struct phc_calc *c;
+};
+
+//Formula to calculate splitting between states 1 and 2
+double
+split12 (double bfield)
+{
+  return 66.718 - 0.009 * bfield + 0.601 * sqrt (bfield);
+}
+
+
+double
+sig_phcimg (double ncol, struct phc_params *phc)
+{
+
+  //This is the maximal cross section ( units of pixel )
+  double sigma0 =
+    6 * M_PI * pow (phc->lambda / 2. / M_PI, 2) / pow (phc->magnif * 1e-4, 2);
+
+  //This is the cross section for light polarized perp
+  //to the magnetic field drving sigma minus transitions
+  //( units of pixel )
+  double sig_minus =
+    3 * M_PI * pow (phc->lambda / 2. / M_PI, 2) / pow (phc->magnif * 1e-4, 2);
+
+  //This is the cross section for light polarized along
+  //to the magnetic field drving deltaM=0 transitions
+  //( units of pixel )
+  double sig_pi =
+    4 * M_PI * pow (phc->lambda / 2. / M_PI, 2) / pow (phc->magnif * 1e-4, 2);
+
+  //This is the cross section for light polarized perp
+  //to the magnetic field drving sigma plus transitions
+  //( units of pixel )
+  double sig_plus =
+    1 * M_PI * pow (phc->lambda / 2. / M_PI, 2) / pow (phc->magnif * 1e-4, 2);
+
+
+  //The I/Isat parameter is obtained for each transition:
+  //i0 is I/Isat with Isat = 5.1, i.e. maximal cross section.
+  double i0_minus = phc->i0 * sig_minus / sigma0;
+  double i0_pi = phc->i0 * sig_pi / sigma0;
+  double i0_plus = phc->i0 * sig_plus / sigma0;
+
+  //The detunings are calculated:
+  // det is detuning from state |1> for the sigma minus transition
+  double det = phc->det;
+
+  // splitting between states |1> and |2>:
+  double delta12 = split12 (phc->imgbfield) / (phc->gamma / 1.e6);
+
+  // detuning from state2
+  double det2 = det + delta12;
+
+  // detuning for pi transition, state |1>
+  double det_pi = det - 1.87 * phc->imgbfield / (phc->gamma / 1.e6);
+  // detuning for pi transition, state |2>
+  double det2_pi = det_pi + delta12;
+  // detuning for plus transition, state |1>
+  double det_plus = det - 2 * 1.87 * phc->imgbfield / (phc->gamma / 1.e6);
+  // detuning for plus transition, state |2>
+  double det2_plus = det_plus + delta12;
+  //Here, the parameters for the phase contrast imaging setup are set
+  //First the polarization of the probe light
+  double a = 1. / sqrt (2.);
+  double b = 1. / sqrt (2.);
+  double g = M_PI / 2.;
+  //Then the angle of the polarizer wrt the magnetic field
+  double th = -M_PI / 4.;
+  //One atom cannot scatter a photon twice, so it is necessary to 
+  //include in the absorption (alpha) and phase-shift (phi) terms
+  //a term corresponding to the probability of the atom to undergo
+  //each transition
+  //Then the absorption and phase shifts are calculated 
+  //The unsubscripted one is for the sigma minus transition
+  //The pi subscript one is for the pi transition
+  //double alpha, alpha_pi, phi, phi_pi;
+  if (phc->twostates)
+    {
+      //Calculate the cross section to scatter on each transition from each state:
+      double minus1 = sig_minus / (1 + 4 * det * det + 2 * i0_minus);
+      double minus2 = sig_minus / (1 + 4 * det2 * det2 + 2 * i0_minus);
+      double pi1 = sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
+      double pi2 = sig_pi / (1 + 4 * det2_pi * det2_pi + 2 * i0_pi);
+      double plus1 = sig_plus / (1 + 4 * det_plus * det_plus + 2 * i0_plus);
+      double plus2 = sig_plus / (1 + 4 * det2_plus * det2_plus + 2 * i0_plus);
+      //One atom cannot scatter a photon twice, so it is necessary to 
+      //include in the absorption (alpha) and phase-shift (phi) terms
+      //a term corresponding to the probability of the atom to undergo
+      //each transition
+      //Calculate the probabilities to scatter on each transition:
+      /*
+         // If atom is in state |1>:
+         double p_minus1 = minus1 / (minus1 + pi1);
+         double p_pi1 = pi1 / (minus1 + pi1);
+         // If atom is in state |2>:
+         double p_minus2 = minus2 / (minus2 + pi2);
+         double p_pi2 = pi2 / (minus2 + pi2);
+       */
+      // If atom is in state |1>:
+      /*
+         double p_minus1 = sig_minus / (sig_minus + sig_pi);
+         double p_pi1 = sig_pi / (sig_minus + sig_pi);
+         // If atom is in state |2>:
+         double p_minus2 = sig_minus / (sig_minus + sig_pi);
+         double p_pi2 = sig_pi / (sig_minus + sig_pi);
+       */
+      // Calculate the absorption due to atoms in state 1 
+      double alpha1 = (ncol / 2.) * minus1;
+      double alpha1_pi = (ncol / 2.) * pi1;
+      double alpha1_plus = (ncol / 2.) * plus1;
+      // and in state 2
+      double alpha2 = (ncol / 2.) * minus2;
+      double alpha2_pi = (ncol / 2.) * pi2;
+      double alpha2_plus = (ncol / 2.) * plus2;
+      /* 
+         double alpha1 = 
+         (ncol / 2.) * sig_minus / (1 + 4 * det * det + 2 * i0_minus);
+         double alpha2 =
+         (ncol / 2.) * sig_minus / (1 + 4 * det2 * det2 + 2 * i0_minus);
+
+         double alpha1_pi =
+         (ncol / 2.) * sig_pi / (1 + 4 * det_pi * det_pi + 2 * i0_pi);
+         double alpha2_pi =

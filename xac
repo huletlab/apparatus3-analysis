@@ -1,0 +1,948 @@
+  unsigned int cj = coerce_matrix_index ((unsigned int) floor (gaus2dfit[2]),
+					 columndensity->size2);
+
+  centeri = ci;
+  centerj = cj;
+
+  if (VERBOSE)
+    {
+      cout << "ci = " << ci << " ; cj = " << cj << endl;
+    }
+
+  number_fit = 0.0;
+  number_count = 0.0;
+  gsl_vector *gaus2d_v = gsl_vector_alloc (6);
+  for (int e = 0; e < 6; e++)
+    gsl_vector_set (gaus2d_v, e, gaus2dfit[e]);
+  for (unsigned int i = 0; i < columndensity->size1; i++)
+    {
+      for (unsigned int j = 0; j < columndensity->size2; j++)
+	{
+	  //Integrate the gaus2d fit, subtracting the offset
+	  number_fit += gaus2d_model (i, j, gaus2d_v) - gaus2dfit[5];
+	  number_count += gsl_matrix_get (columndensity, i, j);
+	}
+    }
+  if (VERBOSE)
+    {
+      printf ("..........  NUMBER FROM CD COUNTING ..........\n");
+      printf (" N_count = %.3e \n", number_count);
+    }
+  return;
+}
+
+void
+Fermions::Fit1DCuts ()
+{
+  unsigned int nrows = p->onedcutn[0];
+  unsigned int ncols = p->onedcutn[1];
+  unsigned int c0_1d;
+  unsigned int c1_1d;
+  // use 2d fit center if center is not specified
+  if (p->onedcutn[2] == -1 or p->onedcutn[3] == -1)
+    {
+      c0_1d = gaus2dfit[0];
+      c1_1d = gaus2dfit[2];
+      p->onedcutn[2] = c0_1d + abs_ci;
+      p->onedcutn[3] = c1_1d + abs_cj;
+      cout << "Using gaus2dfit centers for 1d cut fit" << endl;
+      cout << "2dCenter: (" << p->onedcutn[2] << "," << p->
+	onedcutn[3] << ")" << endl;
+    }
+  else
+    {
+      c0_1d = p->onedcutn[2] - abs_ci;
+      c1_1d = p->onedcutn[3] - abs_cj;
+      cout << endl << "Using (" << p->onedcutn[2] << "," << p->
+	onedcutn[3] << ") for 1d cut fit center" << endl;
+
+    }
+  cout << endl << "Using " << nrows << " rows and " << ncols <<
+    " columns for 1dcut fit." << endl << endl;
+  if (VERBOSE)
+    cout << endl <<
+      "----------- FIT 1D CUTS OF COLUMN DENSITY ------------" << endl;
+  unsigned int s1 = columndensity->size1;
+  unsigned int s2 = columndensity->size2;
+  gsl_vector *cut_density_0 = gsl_vector_alloc (s1);
+  gsl_vector *cut_density_1 = gsl_vector_alloc (s2);
+  gsl_vector_set_all (cut_density_0, 0.0);
+  gsl_vector_set_all (cut_density_1, 0.0);
+  double cd_ij = 0.0;
+
+  unsigned int im = c0_1d - floor (ncols / 2);
+  unsigned int jm = c1_1d - floor (nrows / 2);
+  for (unsigned int i = 0; i < s1; i++)
+    {
+      for (unsigned int j = 0; j < nrows; j++)
+	{
+	  cd_ij = gsl_matrix_get (columndensity, i, jm + j);
+	  gsl_vector_set (cut_density_0, i,
+			  gsl_vector_get (cut_density_0, i) + cd_ij);
+	}
+    }
+
+  for (unsigned int i = 0; i < ncols; i++)
+    {
+      for (unsigned int j = 0; j < s2; j++)
+	{
+	  cd_ij = gsl_matrix_get (columndensity, im + i, j);
+	  gsl_vector_set (cut_density_1, j,
+			  gsl_vector_get (cut_density_1, j) + cd_ij);
+	}
+    }
+  fit1dcut_gaus_0[0] = c0_1d;
+  fit1dcut_gaus_0[1] = gaus2dfit[1];
+  fit1dcut_gaus_0[2] = gsl_vector_max (cut_density_0);
+  fit1dcut_gaus_0[3] = 0.1;
+  if (!p->blanks)
+    fit1dgaus (sum_density_0, fit1dcut_gaus_0);
+
+  fit1dcut_gaus_1[0] = c1_1d;
+  fit1dcut_gaus_1[1] = gaus2dfit[3];
+  fit1dcut_gaus_1[2] = gsl_vector_max (cut_density_1);
+  fit1dcut_gaus_1[3] = 0.1;
+  if (!p->blanks)
+    fit1dgaus (sum_density_1, fit1dcut_gaus_1);
+  abs_ci_1dcut = abs_ci + fit1dcut_gaus_0[0];
+  abs_cj_1dcut = abs_cj + fit1dcut_gaus_1[0];
+
+
+  //double gaus2dfit_guess[6];
+  //Gaus2DGuess ( columndensity, gaus2dfit_guess, p->shotnum_fileout, true);
+  //Try to estimate the size by finding the edges of a  masked columndensity
+  gsl_vector_set_all (cut_density_0, 0.0);
+  gsl_vector_set_all (cut_density_1, 0.0);
+
+  unsigned int SMOOTH_BINS = 3;
+  gsl_matrix *smoothed = smooth (columndensity, SMOOTH_BINS);
+  double MASK_FACTOR = 0.33;
+  gsl_matrix *masked = mask (smoothed, MASK_FACTOR);
+  for (unsigned int i = 0; i < s1; i++)
+    {
+      for (unsigned int j = 0; j < nrows; j++)
+	{
+	  cd_ij = gsl_matrix_get (masked, i, jm + j);
+	  gsl_vector_set (cut_density_0, i,
+			  gsl_vector_get (cut_density_0, i) + cd_ij);
+	}
+    }
+
+  for (unsigned int i = 0; i < ncols; i++)
+    {
+      for (unsigned int j = 0; j < s2; j++)
+	{
+	  cd_ij = gsl_matrix_get (masked, im + i, j);
+	  gsl_vector_set (cut_density_1, j,
+			  gsl_vector_get (cut_density_1, j) + cd_ij);
+	}
+    }
+
+  unsigned int left = 0, right = 0, top = 0, down = 0;
+  unsigned int buf = 0, buf2 = 0;
+  for (unsigned int j = 0; j < s2; j++)
+    {
+      buf = floor (gsl_vector_get (cut_density_1, j) / ncols);
+      if (buf > buf2)
+	down = j;
+      if (buf < buf2)
+	top = j;
+      buf2 = buf;
+    }
+  buf = 0;
+  buf2 = 0;
+  for (unsigned int i = 0; i < s1; i++)
+    {
+      buf = floor (gsl_vector_get (cut_density_0, i) / nrows);
+      //cout<<i<<" ,"<<buf<<endl;
+      if (buf > buf2)
+	left = i;
+      if (buf < buf2)
+	right = i;
+      buf2 = buf;
+    }
+  cout << "left,right,top,down=" << left << "," << right << "," << top << ","
+    << down << "," << endl;
+  masked1dcut_size[0] = right - left;
+  masked1dcut_size[1] = top - down;
+  gsl_matrix_free (smoothed);
+  gsl_matrix_free (masked);
+  gsl_vector_free (cut_density_0);
+  gsl_vector_free (cut_density_1);
+
+  return;
+}
+
+void
+Fermions::FitScatt2DGauss ()
+{
+  if (VERBOSE)
+    cout << endl <<
+      "------------ FIT SCATTERED PHOTONS WITH 2D GAUSISAN ------------"
+      << endl;
+  if (VERBOSE)
+    cout << endl;
+  scatt2dfit[0] = gaus2dfit[0];
+  scatt2dfit[1] = gaus2dfit[1];
+  scatt2dfit[2] = gaus2dfit[2];
+  scatt2dfit[3] = gaus2dfit[3];
+  scatt2dfit[4] = maxNSP;
+  scatt2dfit[5] = 0.1;
+  if (VERBOSE)
+    cout << endl <<
+      "------------ Fitting with 2D Gaussian ------------" << endl;
+  if (!p->blanks)
+    fit2dgaus (columndensity_scattered_ph, scatt2dfit);
+  if (VERBOSE)
+    cout << endl;
+  scatt2dfit[1] = fabs (scatt2dfit[1]);
+  scatt2dfit[3] = fabs (scatt2dfit[3]);
+  double nscattph = scatt2dfit[4] * M_PI * scatt2dfit[1] * scatt2dfit[3];
+  if (VERBOSE)
+    {
+      printf
+	("..............  SCATTERED PHOTONS 2D FIT RESULTS ..............\n");
+      printf ("ci     = %.1f pixels\n", scatt2dfit[0]);
+      printf ("wi     = %.1f pixels\n", scatt2dfit[1]);
+      printf ("cj     = %.1f pixels\n", scatt2dfit[2]);
+      printf ("wj     = %.1f pixels\n", scatt2dfit[3]);
+      printf ("peak   = %.3e \n photons", scatt2dfit[4]);
+      printf ("offset = %.3e \n", scatt2dfit[5]);
+      printf ("N from scattered photons = %.3e \n", nscattph);	// / (p->hc * 1e3 / (p->lambda * 1e-2)) / ( ( maxI/ (1+2*maxI) ) * 2 * M_PI * 5.9e6 * p->texp ) );
+    }
+
+  return;
+}
+
+void
+Fermions::FitProbe2DGauss ()
+{
+  if (VERBOSE)
+    cout << endl <<
+      "------------ FIT PROBE WITH 2D GAUSISAN ------------" << endl;
+  if (VERBOSE)
+    cout << endl;
+  probe2dfit[0] = 250.;
+  probe2dfit[1] = 400.;
+  probe2dfit[2] = 250.;
+  probe2dfit[3] = 400.;
+  probe2dfit[4] = 0.75 * maxCN;
+  if (VERBOSE)
+    cout << endl <<
+      "------------ Fitting with 2D Gaussian ------------" << endl;
+  if (!p->blanks)
+    fit2dgaus_no_offset (probe, probe2dfit);
+  string probeinspect = p->shotnum_fileout;
+  probeinspect += "_probe";
+  double probefit[6] = {
+    probe2dfit[0], probe2dfit[1], probe2dfit[2], probe2dfit[3],
+    probe2dfit[4], 0.0
+  };
+  MakeGaus2DInspect (probe, probefit, probeinspect.c_str (), false);
+  cout << endl;
+  probe2dfit[1] = fabs (probe2dfit[1]);
+  probe2dfit[3] = fabs (probe2dfit[3]);
+  if (VERBOSE)
+    {
+      printf ("..............  PROBE 2D FIT RESULTS ..............\n");
+      printf ("ci     = %.1f pixels\n", probe2dfit[0]);
+      printf ("wi     = %.1f pixels\n", probe2dfit[1]);
+      printf ("cj     = %.1f pixels\n", probe2dfit[2]);
+      printf ("wj     = %.1f pixels\n", probe2dfit[3]);
+      printf ("peak   = %.3e counts\n", probe2dfit[4]);
+    }
+
+  printf (" 1/e^2 beam waist of the probe:\n");
+  printf ("  i (horizontal on camera) = %.3f um\n", probe2dfit[1] * sqrt (2) * 16.);	//sqrt(2) to go from 1/e to 1/e^2 and 16um/px for the Andor
+  printf ("  j (  vertical on camera) = %.3f um\n", probe2dfit[3] * sqrt (2) * 16.);	//sqrt(2) to go from 1/e to 1/e^2 and 16um/px for the Andor
+  unsigned int smooth_bins = 10;
+  gsl_matrix *probe_smoothed = smooth (probe, smooth_bins);
+  unsigned int probemax_i, probemax_j;
+  double probe_max_pos;
+  findpeak (probe_smoothed, &probemax_i, &probemax_j, &probe_max_pos, true);
+  printf ("        max probe smoothed = %.3f counts\n\n", probe_max_pos);
+  printf ("             max probe fit = %.3f counts\n", probe2dfit[4]);
+  return;
+}
+
+
+void
+Fermions::Fit2DFermi ()
+{
+  if (VERBOSE)
+    cout << endl <<
+      "------------ FIT COLUMN DENSITY WITH 2D FERMI-DIRAC ------------"
+      << endl;
+  fermi2dfit[0] = gaus2dfit[4];
+  fermi2dfit[1] = -5.0;
+  fermi2dfit[2] = gaus2dfit[1];
+  fermi2dfit[3] = gaus2dfit[3];
+  fermi2dfit[4] = gaus2dfit[0];
+  fermi2dfit[5] = gaus2dfit[2];
+  fermi2dfit[6] = gaus2dfit[5];
+  if (VERBOSE)
+    {
+      const char *const pnames[] = {
+	"peakd", "BetaMu", "radius_i", "radius_j", "center_i",
+	"center_j", "offset"
+      };
+      printf ("Starting fit values:\n");
+      for (int e = 0; e < 7; e++)
+	{
+	  printf (" fermi2dfit[%d] = %f\t%s\n", e, fermi2dfit[e], pnames[e]);
+	}
+    }
+
+  //override so that it doesn't take forever
+/*  fermi2dfit[0] = 1.63e+02;
+  fermi2dfit[1] = 1.76e+00;
+  fermi2dfit[2] = 68.4;
+  fermi2dfit[3] = 87.9;
+  fermi2dfit[4] = 265.0;
+  fermi2dfit[5] = 297.4;
+  fermi2dfit[7] = 1.38; */
+  if (!p->blanks)
+    {
+      fit2dfermi_neldermead (columndensity, fermi2dfit);
+      fit2dfermi_neldermead_BetaMu_Error (columndensity, fermi2dfit);
+      string options ("");
+      make_fermi2d_gaus2d_inspect (columndensity, fermi2dfit,
+				   gaus2dfit,
+				   p->shotnum_fileout.c_str (),
+				   options.c_str ());
+      fermi2d_eval_Azimuth (fermi2dfit, p->shotnum_fileout);
+    }
+
+  if (VERBOSE)
+    cout << endl;
+  BetaMu = fermi2dfit[1];
+  TF_2d = pow (6 * f2 (BetaMu), -0.333);
+  Fugacity_Fermi = exp (BetaMu);
+  f_Fermi = fq (BetaMu);
+  ri_Fermi = fermi2dfit[2];
+  rj_Fermi = fermi2dfit[3];
+  T_2d_rd =
+    p->B1 / (2 * p->kbm) * ri_Fermi * ri_Fermi * p->magnif *
+    p->magnif / f_Fermi;
+  T_2d_ax =
+    p->B2 / (2 * p->kbm) * rj_Fermi * rj_Fermi * p->magnif *
+    p->magnif / f_Fermi;
+  if (VERBOSE || p->showfermi)
+    {
+      printf ("..............  FERMI 2D FIT RESULTS ..............\n");
+      printf ("n0     = %.2e\n", fermi2dfit[0]);
+      printf
+	("BetaMu = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
+	 fermi2dfit[1], f2 (fermi2dfit[1]), TF_2d);
+      printf ("ri     = %.1f pixels\n", fermi2dfit[2]);
+      printf ("rj     = %.1f pixels\n", fermi2dfit[3]);
+      printf ("ci     = %.1f pixels\n", fermi2dfit[4]);
+      printf ("cj     = %.1f pixels\n", fermi2dfit[5]);
+      printf ("B      = %.2e \n", fermi2dfit[6]);
+      printf ("fugacity   = %.2e\n", Fugacity_Fermi);
+      printf ("f(z)       = %.2e\n", f_Fermi);
+      printf ("T_2d_rd   = %.2f uK\n", T_2d_rd);
+      printf ("T_2d_ax   = %.2f uK\n", T_2d_ax);
+      printf ("TF     = %.2f uK\n", TF);
+    }
+
+  n0 = fermi2dfit[0];
+  ci_Fermi = fermi2dfit[4];
+  cj_Fermi = fermi2dfit[5];
+  B_Fermi = fermi2dfit[6];
+  return;
+}
+
+
+
+void
+Fermions::GetAzimuthalAverageEllipse ()
+{
+  if (VERBOSE)
+    cout << endl <<
+      "------------ GET AZIMUTHAL AVERAGE OF CLOUD (ELLIPSE) ------------"
+      << endl;
+  //Aspect ratio from trap geometry and self similar expansion
+  double trap_aspect = sqrt (p->B2 / p->B1);
+
+  //Aspect ratio obtained from 2D Gaussian fit
+  double gaus2d_aspect = gaus2dfit[3] / gaus2dfit[1];
+  // Aspect ratio determined from trap geometry and self similar expansion
+  // should not be different by more than 2%
+  // If they are it means that we do not know the trap frequencies
+  double ar_err = abs (trap_aspect - gaus2d_aspect) / trap_aspect;
+
+
+  // Centers can be wrong if fit is not accurate 
+  double center1 = gaus2dfit[0];
+  double center2 = gaus2dfit[2];
+  if (center1 < 0. || center1 > columndensity->size1)
+    {
+      center1 = ((double) columndensity->size1) / 2.;
+      if (VERBOSE)
+	{
+	  printf ("center1 was coereced for Azimuthal average\n");
+	  printf ("\twas : %.2f ,  changed to : %.2f\n", gaus2dfit[0],
+		  center1);
+	}
+    }
+  if (center2 < 0. || center2 > columndensity->size2)
+    {
+      center2 = ((double) columndensity->size2) / 2.;
+      if (VERBOSE)
+	{
+	  printf ("center2 was coereced for Azimuthal average\n");
+	  printf ("\twas : %.2f ,  changed to : %.2f\n", gaus2dfit[2],
+		  center2);
+	}
+    }
+
+
+  //Disabled aspect ratio warning message, since we now have a
+  //variety of traps that we image and they have different AR's
+  if (ar_err > 0.02 && false)
+    {
+      printf
+	("\n******   WARNING: 2D-Gauss aspect ratio != Self similar aspect ratio !!! ******\n");
+      cout << "\tAspect ratio from trap geometry = " << trap_aspect << endl;
+      cout << "\tAspect ratio from 2D Gauss = " << gaus2d_aspect << endl;
+      cout << "\tDiscrepancy = " << ar_err * 100 << " %" << endl;
+    }
+
+  // Define aspect ratio to be used in calculating the azimuthal average
+  if (p->azimuth_noaspect)
+    {
+      p->AR = 1.;
+      if (VERBOSE or true)
+	{
+	  printf ("AspectRatio was coereced for Azimuthal average\n");
+	  printf ("\tchanged to : %.2f\n", 1.0);
+	}
+    }
+  else if (gaus2d_aspect < 1e-2 || gaus2d_aspect > 1e2)
+    {
+      p->AR = 1.;
+      if (VERBOSE or true)
+	{
+	  printf ("AspectRatio was coereced for Azimuthal average\n");
+	  printf ("\twas : %.2f ,  changed to : %.2f\n", gaus2d_aspect, 1.0);
+	}
+    }
+  else
+    {
+      p->AR = gaus2d_aspect;
+    }
+
+  if (VERBOSE or true)
+    {
+      //cout << "\tAspect ratio from trap geometry = " << trap_aspect << endl;
+      cout << "\tAspect ratio from 2D Gauss = " << gaus2d_aspect << endl;
+      cout << "\tAspect ratio used for Az average= " << p->AR << endl;
+    }
+
+  // Define the number of bins to be used in the radial profile  and the bin size 
+  nbins = 2048;
+  binsize = 1.2;		//in pixels
+  // Declare the auxiliary arrays to calculate the average 
+  //    _0 is sum of values for the data
+  //    _1 is number of values 
+  //    average at bin =  _0 / _1
+  //
+  gsl_vector *azim_histo_0 = gsl_vector_alloc (nbins);
+  gsl_vector *azim_histo_1 = gsl_vector_alloc (nbins);
+  // Define a matrix that stores the reduced radius rho for each pixel
+  gsl_matrix *rho = gsl_matrix_alloc (columndensity->size1,
+				      columndensity->size2);
+  // Initialize arrays
+  for (unsigned int j = 0; j < nbins; j++)
+    {
+      gsl_vector_set (azim_histo_0, j, 0.0);
+      gsl_vector_set (azim_histo_1, j, 0.0);
+    }
+
+  if (VERBOSE)
+    {
+      printf ("\t...Begin iteration for azimuthal average calculation\n");
+    }
+  // initialize cut arrays
+  icut_r = gsl_vector_alloc (columndensity->size1);
+  icut_dat = gsl_vector_alloc (columndensity->size1);
+  jcut_r = gsl_vector_alloc (columndensity->size2);
+  jcut_dat = gsl_vector_alloc (columndensity->size2);
+  bool DEBUG_VECTORS = false;
+  if (DEBUG_VECTORS)
+    {
+      printf ("icut size = %u\n", (unsigned int) columndensity->size1);
+      printf ("jcut size = %u\n", (unsigned int) columndensity->size2);
+    }
+
+  bool DEBUG_AZIMUTH = false;
+  // populate auxiliary arrays for average
+  // at the same time populate arrays for cuts along principal axis 
+  for (unsigned int i = 0; i < columndensity->size1; i++)
+    {
+      for (unsigned int j = 0; j < columndensity->size2; j++)
+	{
+	  double xi = (double) i;	// this is y  radial
+	  double xj = (double) j;	// this is g  axial
+	  if (DEBUG_AZIMUTH)
+	    printf ("i=%u,j=%u\n", i, j);
+	  double data = gsl_matrix_get (columndensity, i, j);
+	  if (DEBUG_AZIMUTH)
+	    printf ("data = %f\n", data);
+	  // Find the radial distance, aspect ratio is taken into account
+	  unsigned int dist =
+	    (unsigned int) floor (pow
+				  (pow (p->AR * (xi - center1), 2) +
+				   pow (xj - center2, 2),
+				   0.5) / binsize);
+	  if (dist > nbins)
+	    {
+	      printf ("\n!!!!!!!!!!!!!!!!!!!\n");
+	      printf
+		(" ERROR in AZIMUTHAL AVERAGE CALCULATION:\n\t dist > nbins\n");
+	      printf ("!!!!!!!!!!!!!!!!!!!\n");
+	      exit (0);
+	    }
+
+	  gsl_matrix_set (rho, i, j, dist);
+	  if (DEBUG_AZIMUTH)
+	    printf ("rho = %u\n", dist);
+	  if (DEBUG_AZIMUTH)
+	    printf (" dist(%d,%d) from (%.2f,%.2f)  = %d\n", i, j,
+		    center1, center2, dist);
+	  //increment sum of data
+	  gsl_vector_set (azim_histo_0, dist,
+			  gsl_vector_get (azim_histo_0, dist) + data);
+	  //increment N
+	  gsl_vector_set (azim_histo_1, dist,
+			  gsl_vector_get (azim_histo_1, dist) + 1);
+	  //set icut
+	  if (j == (unsigned int) floor (center2))
+	    {
+	      gsl_vector_set (icut_r, i, p->AR * (i - center1));
+	      gsl_vector_set (icut_dat, i, data);
+	    }
+
+	  //set jcut
+	  if (i == (unsigned int) floor (center1))
+	    {
+	      gsl_vector_set (jcut_r, j, j - center2);
+	      gsl_vector_set (jcut_dat, j, data);
+	    }
+
+
+	}
+    }
+
+  char base[MAXPATHLEN];
+  getcwd (base, MAXPATHLEN);
+  string rho_path = makepath (base, p->shotnum_fileout, "_rho.TIFF");
+  string rho_ascii_path = makepath (base, p->shotnum_fileout, "_rho.ascii");
+  if (p->savetiff)
+    toTiffImage (rho, rho_path, true);
+  if (p->saveascii)
+    save_gsl_matrix_ASCII (rho, rho_ascii_path);
+  if (p->azimverbose)		//CAN CHECK HERE THE INTEGRITY OF THE AZIMUTHAL AVERAGE HISTOGRAMS
+    {
+      printf ("\n AZIMUTHAL AVERAGE HISTOGRAMS:\n");
+      for (unsigned int ii = 0; ii < nbins; ii++)
+	{
+	  printf (" azim_histo_0( i = %d ) = %.3f ", ii,
+		  gsl_vector_get (azim_histo_0, ii));
+	  printf (" azim_histo_1( i = %d ) = %.3f \n", ii,
+		  gsl_vector_get (azim_histo_1, ii));
+	}
+    }
+
+
+  // Determine how many bins were used on the auxiliary arrays
+  usedbins = nbins - 1;
+  while (gsl_vector_get (azim_histo_1, usedbins) == 0)
+    usedbins--;
+  // Fill out arrays that contain all the data
+  azimuthal_all_r = gsl_vector_alloc (usedbins);
+  azimuthal_all_dat = gsl_vector_alloc (usedbins);
+  double r;
+  if (VERBOSE)
+    printf ("\n AZIMUTHAL AVERAGE RADIUS AND DATA VECTORS:\n");
+  for (unsigned int index = 0; index < usedbins; index++)
+    {
+      r = index * binsize;
+      double hsum = gsl_vector_get (azim_histo_0, index);
+      double hnum = gsl_vector_get (azim_histo_1, index);
+      if (VERBOSE)
+	{
+	  if (hnum == 0)
+	    {
+	      printf
+		("ERROR: no entries in azimuthal histogram at radius r = %.6f\n",
+		 r);
+	    }
+	  if (false)
+	    {
+	      printf (" r = %.3f,  az_avg(r) = %.3f\n", r, hsum / hnum);
+	    }
+
+	}
+      gsl_vector_set (azimuthal_all_r, index, r);
+      gsl_vector_set (azimuthal_all_dat, index, hsum / hnum);
+    }
+
+
+  // Fill out arrays that contain cropped data for the fit
+  fitbins = usedbins;
+  // Azimuthal average should not extend to a radius larger than azimuth_maxr
+  if (usedbins * binsize > p->azimuth_maxr)
+    {
+      fitbins = (unsigned int) ceil (p->azimuth_maxr / binsize);
+    }
+
+  // Also one can chop the trailing values of the average
+  else
+    {
+      fitbins -= (unsigned int) ceil (p->azimuth_chop / binsize);
+    }
+
+
+  // And also one can take away values near thecenter
+  unsigned int start = 0;
+  if (p->azimuth_start > 0.)
+    {
+      start = (unsigned int) ceil (p->azimuth_start / binsize);
+    }
+
+  // After computing the sums, divide by the number to get the azimuthal average
+  // 0 is the sum of data
+  // 1 is the number of pixels included in the sum
+
+  azimuthal_r = gsl_vector_alloc (fitbins - start);
+  azimuthal_dat = gsl_vector_alloc (fitbins - start);
+  for (unsigned int index = start; index < fitbins; index++)
+    {
+      gsl_vector_set (azimuthal_r, index - start,
+		      gsl_vector_get (azimuthal_all_r, index));
+      gsl_vector_set (azimuthal_dat, index - start,
+		      gsl_vector_get (azimuthal_all_dat, index));
+    }
+
+
+  to_dat_file_2 (azimuthal_r, azimuthal_dat, p->shotnum_fileout,
+		 "datAzimuth.AZASCII");
+  to_dat_file_2 (azimuthal_all_r, azimuthal_all_dat,
+		 p->shotnum_fileout, "datAllAzimuth.AZASCII");
+  to_dat_file_2 (icut_r, icut_dat, p->shotnum_fileout, "datIcut.AZASCII");
+  to_dat_file_2 (jcut_r, jcut_dat, p->shotnum_fileout, "datJcut.AZASCII");
+  return;
+  /* Azimuthal-type data consists of two vector with an equal number of 
+   * elements.  Each element in the vectors represents a bin. 
+   * One vector contains the distances from the center and the other
+   * vector contains the averaged value.  
+   *
+   */
+}
+
+
+void
+Fermions::FitAzimuthalFermi ()
+{
+  if (VERBOSE)
+    cout << endl <<
+      "------------ FIT AZIMUTHAL AVERAGE WITH FERMI-DIRAC ------------"
+      << endl;
+  /********************************* Finite temperature azimuthal fit ***/
+  fermi_azimuth_fit[0] = gaus2dfit[4];
+  fermi_azimuth_fit[1] = -5.0;
+  //fermi_azimuth_fit[2] = pow(wi_1e*wj_1e,0.5); 
+  fermi_azimuth_fit[2] = gaus2dfit[3];
+  fermi_azimuth_fit[3] = gaus2dfit[5];
+  fermi_azimuth_fit[4] = 0.1;
+  if (VERBOSE)
+    {
+      const char *const pnames[] = {
+	"peakd", "BetaMu", "radius", "offset", "slope"
+      };
+      printf ("Starting fit values:\n");
+      for (int e = 0; e < 5; e++)
+	{
+	  printf (" fermi_azimuth_fit[%d] = %f\t%s\n", e,
+		  fermi_azimuth_fit[e], pnames[e]);
+	}
+    }
+
+  gsl_vector *azimuthal_[2] = {
+    azimuthal_r, azimuthal_dat
+  };
+  if (!p->blanks)
+    {
+      fit1dfermi_azimuthal_neldermead (azimuthal_, fermi_azimuth_fit);
+      if (VERBOSE || p->showfermi)
+	{
+	  printf
+	    ("..............  FERMI AZIMUTHAL FIT RESULTS ..............\n");
+	  printf ("n0         = %.2e\n", fermi_azimuth_fit[0]);
+	  printf ("BetaMu     = %.2e\n", fermi_azimuth_fit[1]);
+	  printf ("r          = %.1f pixels\n", fermi_azimuth_fit[2]);
+	  printf ("offset     = %.1f pixels\n", fermi_azimuth_fit[3]);
+	  printf ("mx         = %.1f pixels\n", fermi_azimuth_fit[4]);
+	}
+      gsl_vector *fitAzimuth =
+	fermiAzimuth_eval (azimuthal_r, fermi_azimuth_fit);
+      to_dat_file_2 (azimuthal_r, fitAzimuth, p->shotnum_fileout,
+		     "fitAzimuth.AZASCII");
+    }
+
+  fermi_azimuth_fit[2] = fabs (fermi_azimuth_fit[2]);
+  r_az = fermi_azimuth_fit[2];
+  TF_az = pow (6 * f2 (fermi_azimuth_fit[1]), -0.333);
+  BetaMu_az = fermi_azimuth_fit[1];
+  Fugacity_az = exp (BetaMu_az);
+  f_az = fq (BetaMu_az);
+  T_az = p->B1 / (2 * p->kbm) * r_az * r_az * p->magnif * p->magnif / f_az;
+  n0_az = fermi_azimuth_fit[0];
+  B_az = fermi_azimuth_fit[3];
+  mx_az = fermi_azimuth_fit[4];
+  if (VERBOSE)
+    cout << endl <<
+      "---------- FIT AZIMUTHAL AVERAGE WITH T=0 FERMI-DIRAC -----------"
+      << endl;
+  /********************************* Zero temperature azimuthal fit *****/
+  fermi_azimuth_fit_zero[0] = n0_az;
+  fermi_azimuth_fit_zero[1] = r_az;
+  fermi_azimuth_fit_zero[2] = B_az;
+  fermi_azimuth_fit_zero[3] = mx_az;
+  if (!p->blanks)
+    {
+      fit1dfermi_azimuthal_zero_neldermead (azimuthal_,
+					    fermi_azimuth_fit_zero);
+      if (VERBOSE || p->showfermi)
+	{
+	  printf
+	    ("............  FERMI AZIMUTHAL T=0 FIT RESULTS .............\n");
+	  printf ("n0         = %.2e\n", fermi_azimuth_fit_zero[0]);
+	  printf ("BetaMu     = %.2e\n", fermi_azimuth_fit_zero[1]);
+	  printf ("r          = %.1f pixels\n", fermi_azimuth_fit_zero[2]);
+	  printf ("offset     = %.1f pixels\n", fermi_azimuth_fit_zero[3]);
+	  printf ("mx         = %.1f pixels\n", fermi_azimuth_fit_zero[4]);
+	}
+      gsl_vector *fitAzimuthZeroT = fermiAzimuthZeroT_eval (azimuthal_r,
+							    fermi_azimuth_fit_zero);
+      to_dat_file_2 (azimuthal_r, fitAzimuthZeroT, p->shotnum_fileout,
+		     "fitAzimuthZeroT.AZASCII");
+    }
+
+  fermi_azimuth_fit[1] = fabs (fermi_azimuth_fit[1]);
+  n0_az_zeroT = fermi_azimuth_fit_zero[0];
+  r_az_zeroT = fermi_azimuth_fit_zero[1];
+  B_az_zeroT = fermi_azimuth_fit_zero[2];
+  mx_az_zeroT = fermi_azimuth_fit_zero[3];
+  if (VERBOSE)
+    cout << endl;
+  if (VERBOSE || p->showfermi)
+    {
+      printf ("..............  FERMI AZIMUTHAL FIT RESULTS ..............\n");
+      printf ("n0         = %.2e\n", fermi_azimuth_fit[0]);
+      printf
+	("BetaMu     = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
+	 fermi_azimuth_fit[1], f2 (fermi_azimuth_fit[1]), TF_az);
+      printf ("r          = %.1f pixels\n", fermi_azimuth_fit[2]);
+      printf ("r (zero T) = %.1f pixels\n", fermi_azimuth_fit_zero[1]);
+      printf ("offset     = %.1f pixels\n", fermi_azimuth_fit[3]);
+      printf ("mx         = %.1f pixels\n", fermi_azimuth_fit[4]);
+      printf ("fugacity   = %.2e\n", Fugacity_az);
+      printf ("f(z) = %.2e\n", f_az);
+      printf ("T_az = %.2f uK\n", T_az);
+      printf ("TF   = %.2f uK\n", TF);
+    }
+
+
+
+  return;
+}
+
+
+void
+Fermions::MakePlots ()
+{
+  if (VERBOSE)
+    cout << endl << "----------------- MAKE PLOTS ----------------" << endl;
+
+  stringstream inspectstr;
+  inspectstr << "inspectAz_ascii.py ";
+  inspectstr << p->shotnum;
+  if (p->andor2)
+    inspectstr << " --andor2";
+  if (!p->andor2 and p->pubqual)
+    inspectstr << " --pubqual";
+
+  if (p->fermi2d)
+    inspectstr << " --fermi2d " << TF_2d;
+  if (p->fermiazimuth)
+    inspectstr << " --fermiazimuth " << TF_az;
+
+  if (p->pubqual)
+    {
+      printf ("\n\n\tSTRING FOR AZASCII:\n");
+      printf ("\t%s\n\n", inspectstr.str ().c_str ());
+    }
+
+  //printf ("%s\n", inspectstr.str ().c_str ());
+  system (inspectstr.str ().c_str ());
+  return;
+}
+
+void
+Fermions::MakeGaus2DInspect (gsl_matrix * dat, const double fit_results[6],
+			     const char *prefix, int mott)
+{
+  if (VERBOSE)
+    {
+      cout << endl << "----------------- MAKE GAUS2D INSPECT ----------------"
+	<< endl;
+      if (mott == 0)
+	printf (" mott = 0 ; regular 2D Gauss");
+      else if (mott == 1)
+	printf (" mott = 1 ; 2D Mott fit");
+      else if (mott == 2)
+	printf (" mott = 2 ; 2D Dual fit");
+      else
+	printf (" mott = Invalid");
+    }
+
+  // Inside make_gaus2d_inspect the data is saved to disk
+  // so that the python script can plot it . 
+
+  string options ("");
+  options += "";
+
+  // HERE SOME OPTIONS CAN BE ADDED THAT WILL BE PASSED ON TO
+  // inspect2d_ascii.py prefix  
+
+  make_gaus2d_inspect (dat, fit_results,
+		       p->shotnum_fileout.c_str (), options.c_str (), mott);
+  return;
+}
+
+
+void
+Fermions::ComputeIntegrated1DDensity ()
+{
+  if (VERBOSE)
+    cout << endl << "----------- COMPUTE INTEGRATED 1D DENSITY ------------"
+      << endl;
+  unsigned int s1 = columndensity->size1;
+  unsigned int s2 = columndensity->size2;
+  sum_density_0 = gsl_vector_alloc (s1);
+  sum_density_1 = gsl_vector_alloc (s2);
+  sum_missing_0 = gsl_vector_alloc (s1);
+  sum_missing_1 = gsl_vector_alloc (s2);
+  gsl_vector_set_all (sum_density_0, 0.0);
+  gsl_vector_set_all (sum_density_1, 0.0);
+  gsl_vector_set_all (sum_missing_0, 0.0);
+  gsl_vector_set_all (sum_missing_1, 0.0);
+  double cd_ij = 0.0, mi_ij;
+  for (unsigned int i = 0; i < s1; i++)
+    {
+      for (unsigned int j = 0; j < s2; j++)
+	{
+	  cd_ij = gsl_matrix_get (columndensity, i, j);
+	  mi_ij = gsl_matrix_get (missing_counts, i, j);
+	  gsl_vector_set (sum_density_0, i,
+			  gsl_vector_get (sum_density_0, i) + cd_ij);
+	  gsl_vector_set (sum_density_1, j,
+			  gsl_vector_get (sum_density_1, j) + cd_ij);
+	  gsl_vector_set (sum_missing_0, i,
+			  gsl_vector_get (sum_missing_0, i) + mi_ij);
+	  gsl_vector_set (sum_missing_1, j,
+			  gsl_vector_get (sum_missing_1, j) + mi_ij);
+	}
+    }
+
+  if (VERBOSE)
+    cout << endl;
+  if (VERBOSE)
+    cout << endl <<
+      "------------- FIT INTEGRATED 1D WITH GAUSSIAN  --------------" << endl;
+  fit1d_gaus_0[0] = gaus2dfit[0];
+  fit1d_gaus_0[1] = gaus2dfit[1];
+  fit1d_gaus_0[2] = gsl_vector_max (sum_density_0);
+  fit1d_gaus_0[3] = 0.1;
+  if (!p->blanks)
+    fit1dgaus (sum_density_0, fit1d_gaus_0);
+  fit1d_gaus_1[0] = gaus2dfit[2];
+  fit1d_gaus_1[1] = gaus2dfit[3];
+  fit1d_gaus_1[2] = gsl_vector_max (sum_density_1);
+  fit1d_gaus_1[3] = 0.1;
+  if (!p->blanks)
+    fit1dgaus (sum_density_1, fit1d_gaus_1);
+  if (VERBOSE)
+    cout << endl <<
+      "----------- FIT INTEGRATED 1D WITH FERMI-DIRAC  ------------" << endl;
+// 02/07/2012 Commented out fermi fits on axial and radial profiles
+  fit1d_fermi_0[0] = gsl_vector_max (sum_density_0);
+  fit1d_fermi_0[1] = -5.0;
+  fit1d_fermi_0[2] = gaus2dfit[1];
+  fit1d_fermi_0[3] = gaus2dfit[0];
+  fit1d_fermi_0[4] = fit1d_gaus_0[3];
+  if (p->fitfermi1D && !p->blanks)
+    {
+      fit1dfermi_neldermead (sum_density_0, fit1d_fermi_0);
+    }
+
+  if (VERBOSE)
+    printf ("\n---> Finished _0 axis\n\n");
+  fit1d_fermi_1[0] = gsl_vector_max (sum_density_1);
+  fit1d_fermi_1[1] = -5.0;
+  fit1d_fermi_1[2] = gaus2dfit[3];
+  fit1d_fermi_1[3] = gaus2dfit[2];
+  fit1d_fermi_1[4] = fit1d_gaus_1[3];
+  if (p->fitfermi1D && !p->blanks)
+    fit1dfermi_neldermead (sum_density_1, fit1d_fermi_1);
+  if (VERBOSE && p->fitfermi1D)
+    cout << endl << "---> Calculating T/TF from fit results" << endl;
+  TF_rd = pow (6 * f2 (fit1d_fermi_0[1]), -0.333);
+  TF_ax = pow (6 * f2 (fit1d_fermi_1[1]), -0.333);
+  if (VERBOSE)
+    {
+      cout << endl <<
+	"------------ INTEGRATED 1D GAUS FIT RESULTS ------------" << endl;
+      printf ("\n_0 Profile:\n");
+      printf ("c_ref = (%.0f,%.0f)\n", abs_ci, abs_cj);
+      printf ("\tc_rd = %.1f\n", fit1d_gaus_0[0]);
+      printf ("\tw_rd = %.2f\n", fit1d_gaus_0[1]);
+      printf ("\tA_rd = %.3e\n", fit1d_gaus_0[2]);
+      printf ("\tB_rd = %.3e\n", fit1d_gaus_0[3]);
+      printf ("\n_1 Profile:\n");
+      printf ("\tc_ax = %.1f\n", fit1d_gaus_1[0]);
+      printf ("\tw_ax = %.2f\n", fit1d_gaus_1[1]);
+      printf ("\tA_ax = %.3e\n", fit1d_gaus_1[2]);
+      printf ("\tB_ax = %.3e\n", fit1d_gaus_1[3]);
+    }
+
+  if (VERBOSE && p->fitfermi1D)
+    {
+
+      cout << endl <<
+	"------------ INTEGRATED 1D DENSITY FERMI FIT RESULTS ------------"
+	<< endl;
+      printf ("\n_0 Profile:\n");
+      printf ("\tn0_rd     = %.1f\n", fit1d_fermi_0[0]);
+      printf
+	("\tBetaMu = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
+	 fit1d_fermi_0[1], f2 (fit1d_fermi_0[1]), TF_rd);
+      printf ("\tr_rd      = %.3e\n", fit1d_fermi_0[2]);
+      printf ("\tc_rd      = %.3e\n", fit1d_fermi_0[3]);
+      printf ("\tB_rd      = %.3e\n", fit1d_fermi_0[4]);
+      printf ("\n_1 Profile:\n");
+      printf ("\tn0_ax     = %.1f\n", fit1d_fermi_1[0]);
+      printf
+	("\tBetaMu = %.2e -->  f2(BetaMu) = %.4f, T/TF = %.2f\n",
+	 fit1d_fermi_1[1], f2 (fit1d_fermi_1[1]), TF_ax);
+      printf ("\tr_ax      = %.3e\n", fit1d_fermi_1[2]);
+      printf ("\tc_ax      = %.3e\n", fit1d_fermi_1[3]);
+      printf ("\tB_ax      = %.3e\n", fit1d_fermi_1[4]);
+    }
+
+
+  return;
+}
